@@ -598,3 +598,11 @@ This roadmap breaks the project into manageable phases with specific activities,
 This exhaustive guide provides a roadmap. Each step will involve detailed technical decisions, problem-solving, and adaptation. The key is a strong vision, a skilled team, an iterative approach, and an unwavering commitment to ethical and responsible AI development. Good luck!
 
 **NOTE: Choice of Tools and Strategy can be of your choice as long as it is better. Aim for scalability and customization
+##Make use of Vibe Coding
+
+* Google AI Studio  https://aistudio.google.com/prompts/new_chat
+* Deep Research in Gemini app https://gemini.google.com/app
+* VS code GPT 
+
+
+

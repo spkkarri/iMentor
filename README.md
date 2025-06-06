@@ -56,7 +56,7 @@ Access the complete and updated codebase here:
 | Team Member        | GitHub ID    | Major Contributions                                                  |
 |--------------------|--------------|----------------------------------------------------------------------|
 | Jaya Aswanth Allu  | AswanthAllu  | Spearheaded podcast generation using TTS and FFmpeg; led landing page UI/UX redesign for enhanced user experience. |
-| Solomon Mathews    | 7nos         | Integrated intelligent mindmap extraction for document visualization and knowledge mapping. |
+| Solomon Matthews    | 7nos         | Integrated intelligent mindmap extraction for document visualization and knowledge mapping. |
 | K. Sai Madava      | saimadava    | Developed and optimized Speech-to-Text and Text-to-Speech modules, enabling interactive audio-text conversions. |
 | V. Hemasri Durga   | hemasridurga | Designed and implemented the mindmap generation engine, focusing on clarity and user-friendly visual structures. |
 

@@ -1,0 +1,30 @@
+.landing-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: #000;
+}
+
+.gemlama-logo {
+  font-size: 6rem;
+  color: #00ffff;
+  animation: zoomOutFade 2s ease-out forwards;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  letter-spacing: 2px;
+}
+
+@keyframes zoomOutFade {
+  0% {
+    transform: scale(5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

@@ -36,29 +36,17 @@ MODEL_NAME = "gemini-1.5-flash-latest"
 # --- HELPER FUNCTIONS ---
 
 def get_model_with_prompt(system_prompt):
-    """Initializes the Gemini model with a system-level instruction."""
     return genai.GenerativeModel(MODEL_NAME, system_instruction=system_prompt)
 
 def format_history_for_gemini(history):
-    """Formats our frontend's message structure to the Gemini API's required format."""
     gemini_history = []
     for msg in history:
-        # Ensure the role is either 'user' or 'model'
         role = 'model' if msg['role'] == 'assistant' else 'user'
-        
-        # Prevent consecutive roles of the same type, which the API rejects
         if gemini_history and gemini_history[-1]['role'] == role:
-            # If the last message has the same role, append the text to it
             gemini_history[-1]['parts'].append(msg['parts'][0]['text'])
         else:
-            gemini_history.append({
-                'role': role,
-                'parts': [part['text'] for part in msg['parts']]
-            })
+            gemini_history.append({'role': role, 'parts': [part['text'] for part in msg['parts']]})
     return gemini_history
-
-# ... (All your other helper functions for podcast, mindmap, etc., can be pasted here) ...
-# For clarity, I am providing them again.
 
 def clean_text(text):
     text = re.sub(r'\n+', '\n', text).strip()
@@ -118,10 +106,20 @@ def generate_mindmap_data_with_gemini(text_content):
     prompt = f"""Analyze the following text and generate a mind map in JSON format. The structure must be: {{"central_idea": "...", "main_topics": [{{"topic": "...", "sub_topics": ["..."]}}]}}. Output only the valid JSON. Text: --- {text_content[:15000]} ---"""
     try:
         response = model.generate_content(prompt)
-        cleaned_text = response.text.strip().replace('```json', '').replace('```', '').strip()
-        return json.loads(cleaned_text)
+        raw_text = response.text
+        json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        if json_match:
+            json_string = json_match.group(0)
+            try:
+                return json.loads(json_string)
+            except json.JSONDecodeError as json_err:
+                logger.error(f"Failed to decode extracted JSON: {json_err}")
+                return None
+        else:
+            logger.error(f"No JSON object found in the AI's response. Raw response: {raw_text}")
+            return None
     except Exception as e:
-        logger.error(f"Gemini mind map generation failed: {e}")
+        logger.error(f"Gemini mind map generation failed with an API error: {e}")
         return None
 
 def format_for_react_flow(mindmap_data):
@@ -138,7 +136,6 @@ def format_for_react_flow(mindmap_data):
             nodes.append({'id': sub_id, 'position': {'x': 150 + i * 350, 'y': 400 + j * 120}, 'data': {'label': sub_topic}, 'type': 'output'})
             edges.append({'id': f'edge-main-{i}-sub-{j}', 'source': main_id, 'target': sub_id})
     return {'nodes': nodes, 'edges': edges}
-
 
 # --- API ENDPOINTS ---
 
@@ -175,17 +172,10 @@ def chat_route():
     if not history: return create_error_response("Missing history", 400)
     try:
         model = get_model_with_prompt(system_prompt)
-        # The history for the session is everything *before* the user's latest message
-        history_for_session = history[:-1]
-        # The last message is the one we need a response to
-        last_message = history[-1]['parts'][0]['text']
-        
+        history_for_session, last_message = history[:-1], history[-1]['parts'][0]['text']
         formatted_history = format_history_for_gemini(history_for_session)
-        
         chat_session = model.start_chat(history=formatted_history)
         response = chat_session.send_message(last_message)
-        
-        logger.info("Successfully received response from Gemini chat.")
         return jsonify({"text": response.text})
     except Exception as e:
         logger.error(f"Error in /chat: {e}", exc_info=True)
@@ -200,19 +190,12 @@ def query_index_route():
     try:
         model = get_model_with_prompt(system_prompt)
         query, history_for_session = history[-1]['parts'][0]['text'], history[:-1]
-        
         relevant_docs = faiss_handler.search_faiss_index(user_id, query, k=3)
         context = "\n".join([doc.page_content for doc in relevant_docs])
-        logger.info(f"Retrieved {len(relevant_docs)} documents for context.")
-        
-        rag_prompt = f"Context from relevant documents:\n---\n{context}\n---\nBased ONLY on the context provided and our previous conversation, answer the following user query. If the context is not relevant or does not contain the answer, state that the documents do not have the information and then answer from your general knowledge.\n\nUser Query: \"{query}\""
-        
+        rag_prompt = f"Context:\n---\n{context}\n---\nBased ONLY on the context and our conversation, answer the query. If the context is not relevant, say so.\n\nQuery: \"{query}\""
         formatted_history = format_history_for_gemini(history_for_session)
-        
         chat_session = model.start_chat(history=formatted_history)
         response = chat_session.send_message(rag_prompt)
-        
-        logger.info("Successfully received response from Gemini RAG chat.")
         return jsonify({"text": response.text, "relevantDocs": [doc.metadata for doc in relevant_docs]})
     except Exception as e:
         logger.error(f"Error in /query: {e}", exc_info=True)
@@ -254,8 +237,8 @@ def generate_mindmap_route():
     try:
         text_content = file_parser.parse_file(file_path)
         if not text_content: return create_error_response("Could not extract text.", 400)
-        mindmap_structure = generate_mindmap_data_with_gemini(text_content)
-        if not mindmap_structure: return create_error_response("AI model failed to generate mind map.", 500)
+        mindmap_data = generate_mindmap_data_with_gemini(text_content)
+        if not mindmap_data: return create_error_response("AI model failed to generate mind map.", 500)
         react_flow_data = format_for_react_flow(mindmap_data)
         if not react_flow_data: return create_error_response("Failed to format mind map data.", 500)
         return jsonify(react_flow_data)

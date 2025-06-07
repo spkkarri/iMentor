@@ -1,8 +1,10 @@
-// client/src/components/FileManagerWidget.js
+// client/src/components/FileManagerWidget/index.js
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { getUserFiles, deleteUserFile } from '../../services/api';
-import { IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Typography } from '@mui/material';
+import React, { useState } from 'react';
+import { 
+    IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Typography,
+    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, TextField 
+} from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
 import PodcastsIcon from '@mui/icons-material/Podcasts';
@@ -10,28 +12,61 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import DeleteIcon from '@mui/icons-material/Delete';
 import './index.css';
 
-const FileItem = ({ file, isProcessing, onGeneratePodcast, onGenerateMindMap, onDelete }) => {
+const RenameDialog = ({ open, file, onClose, onSave }) => {
+    const [newName, setNewName] = useState(file?.originalname || '');
+
+    React.useEffect(() => {
+        if (file) {
+            setNewName(file.originalname);
+        }
+    }, [file]);
+
+    const handleSave = () => {
+        onSave(file._id, newName);
+        onClose();
+    };
+
+    return (
+        <Dialog open={open} onClose={onClose}>
+            <DialogTitle>Rename File</DialogTitle>
+            <DialogContent>
+                <DialogContentText>
+                    Please enter a new name for the file "{file?.originalname}".
+                </DialogContentText>
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    id="name"
+                    label="New File Name"
+                    type="text"
+                    fullWidth
+                    variant="standard"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose}>Cancel</Button>
+                <Button onClick={handleSave} disabled={!newName.trim()}>Save</Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
+
+const FileItem = ({ file, isProcessing, onGeneratePodcast, onGenerateMindMap, onDeleteFile, onRenameFile }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
 
     const handleClick = (event) => setAnchorEl(event.currentTarget);
     const handleClose = () => setAnchorEl(null);
 
-    const handleDelete = () => {
-        handleClose();
-        onDelete(file._id, file.originalname);
-    };
+    const handleDelete = () => { handleClose(); onDeleteFile(file._id, file.originalname); };
+    const handlePodcast = () => { handleClose(); onGeneratePodcast(file._id, file.originalname); };
+    const handleMindMap = () => { handleClose(); onGenerateMindMap(file._id, file.originalname); };
+    const handleRename = () => { handleClose(); onRenameFile(file); };
 
-    const handlePodcast = () => {
-        handleClose();
-        onGeneratePodcast(file._id, file.originalname);
-    };
-    
-    const handleMindMap = () => {
-        handleClose();
-        onGenerateMindMap(file._id, file.originalname);
-    };
-
+    // --- FIX: Added the correct JSX for the return statement ---
     return (
         <li className="file-item">
             <span className="file-name" title={file.originalname}>{file.originalname}</span>
@@ -52,7 +87,7 @@ const FileItem = ({ file, isProcessing, onGeneratePodcast, onGenerateMindMap, on
                 open={open}
                 onClose={handleClose}
             >
-                <MenuItem disabled>
+                <MenuItem onClick={handleRename}>
                     <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Edit Name</ListItemText>
                 </MenuItem>
@@ -73,57 +108,31 @@ const FileItem = ({ file, isProcessing, onGeneratePodcast, onGenerateMindMap, on
     );
 };
 
-const FileManagerWidget = ({ refreshTrigger, onGeneratePodcast, onGenerateMindMap, onFilesChange, isProcessing }) => {
-    const [files, setFiles] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
+const FileManagerWidget = ({ 
+    files, 
+    isLoading, 
+    error, 
+    onDeleteFile, 
+    onRenameFile, 
+    onGeneratePodcast, 
+    onGenerateMindMap, 
+    isProcessing 
+}) => {
+    const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+    const [fileToRename, setFileToRename] = useState(null);
 
-    const stableOnFilesChange = useCallback(onFilesChange, []);
-    // FIX: Get the userId to make the component aware of the current user.
-    const userId = localStorage.getItem('userId');
+    const handleOpenRenameDialog = (file) => {
+        setFileToRename(file);
+        setIsRenameDialogOpen(true);
+    };
 
-    useEffect(() => {
-        const fetchFiles = async () => {
-            // If there's no user, don't try to fetch files.
-            if (!userId) {
-                setFiles([]);
-                stableOnFilesChange(false);
-                return;
-            }
+    const handleCloseRenameDialog = () => {
+        setIsRenameDialogOpen(false);
+        setFileToRename(null);
+    };
 
-            setIsLoading(true);
-            setError('');
-            try {
-                const response = await getUserFiles();
-                const filesData = response.data || [];
-                setFiles(filesData);
-                stableOnFilesChange(filesData.length > 0);
-            } catch (err) {
-                console.error("Failed to fetch files:", err);
-                setError('Could not load files.');
-                setFiles([]);
-                stableOnFilesChange(false);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchFiles();
-    // FIX: Add userId to the dependency array.
-    // This forces the component to re-fetch files when the user changes.
-    }, [refreshTrigger, stableOnFilesChange, userId]);
-
-    const handleDelete = async (fileId, fileName) => {
-        if (window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
-            try {
-                await deleteUserFile(fileId);
-                // Optimistically update the UI for a snappy user experience
-                setFiles(prevFiles => prevFiles.filter(file => file._id !== fileId));
-            } catch (err) {
-                setError(`Could not delete ${fileName}.`);
-                // Clear the error after a few seconds
-                setTimeout(() => setError(''), 3000);
-            }
-        }
+    const handleSaveRename = (fileId, newName) => {
+        onRenameFile(fileId, newName);
     };
 
     return (
@@ -142,7 +151,8 @@ const FileManagerWidget = ({ refreshTrigger, onGeneratePodcast, onGenerateMindMa
                                 isProcessing={isProcessing}
                                 onGeneratePodcast={onGeneratePodcast}
                                 onGenerateMindMap={onGenerateMindMap}
-                                onDelete={handleDelete}
+                                onDeleteFile={onDeleteFile}
+                                onRenameFile={handleOpenRenameDialog}
                             />
                         ))
                     ) : (
@@ -150,6 +160,13 @@ const FileManagerWidget = ({ refreshTrigger, onGeneratePodcast, onGenerateMindMa
                     )}
                 </ul>
             )}
+            
+            <RenameDialog
+                open={isRenameDialogOpen}
+                file={fileToRename}
+                onClose={handleCloseRenameDialog}
+                onSave={handleSaveRename}
+            />
         </div>
     );
 };

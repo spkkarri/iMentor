@@ -1,127 +1,75 @@
 // client/src/components/SystemPromptWidget.js
-import React from 'react';
-// Removed CSS import
 
-// Define the THREE required system prompts + a Custom option
+import React from 'react';
+import { Select, MenuItem, TextField, Typography, Box } from '@mui/material';
+
+// --- NEW: Enhanced Prompts with Chain-of-Thought (CoT) Instructions ---
+const baseInstructions = "You are an expert AI Engineering Tutor. Your goal is to help students understand complex topics by providing clear, accurate, and concise explanations. When asked a question, first, think step-by-step to formulate your answer. Then, present the final, clean answer to the user. Do not show your step-by-step thinking unless explicitly asked to.";
+
 export const availablePrompts = [
-  {
-    id: 'friendly',
-    title: 'Friendly Tutor',
-    prompt: 'You are a friendly, patient, and encouraging tutor specializing in engineering and scientific topics for PhD students. Explain concepts clearly, break down complex ideas, use analogies, and offer positive reinforcement. Ask follow-up questions to ensure understanding.',
-  },
-  {
-    id: 'explorer', // Changed ID slightly for clarity
-    title: 'Concept Explorer',
-    prompt: 'You are an expert academic lecturer introducing a new, complex engineering or scientific concept. Your goal is to provide a deep, structured explanation. Define terms rigorously, outline the theory, provide relevant mathematical formulations (using Markdown), illustrative examples, and discuss applications or limitations pertinent to PhD-level research.',
-  },
-  {
-    id: 'knowledge_check',
-    title: 'Knowledge Check',
-    prompt: 'You are assessing understanding of engineering/scientific topics. Ask targeted questions to test knowledge, identify misconceptions, and provide feedback on the answers. Start by asking the user what topic they want to be quizzed on.',
-  },
-   {
-    id: 'custom', // Represents user-edited state
-    title: 'Custom Prompt',
-    prompt: '', // Placeholder, actual text comes from textarea
-  },
+    {
+        id: 'friendly',
+        label: 'Friendly Tutor',
+        prompt: `${baseInstructions} Your tone should be encouraging, friendly, and approachable. Use analogies to simplify difficult concepts.`
+    },
+    {
+        id: 'formal',
+        label: 'Formal Professor',
+        prompt: `${baseInstructions} Your tone should be formal, academic, and precise. Cite principles and use correct terminology.`
+    },
+    {
+        id: 'socratic',
+        label: 'Socratic Method',
+        prompt: `${baseInstructions} Instead of giving direct answers, guide the student to the solution by asking leading questions. Help them think for themselves.`
+    },
+    {
+        id: 'code_reviewer',
+        label: 'Code Reviewer',
+        prompt: `${baseInstructions} Your primary focus is on code. Analyze code snippets for errors, efficiency, and best practices. Provide corrected code with detailed explanations of the changes.`
+    },
+    {
+        id: 'custom',
+        label: 'Custom',
+        prompt: ''
+    }
 ];
 
-// Helper to find prompt text by ID - Export if needed elsewhere
 export const getPromptTextById = (id) => {
-  const prompt = availablePrompts.find(p => p.id === id);
-  return prompt ? prompt.prompt : ''; // Return empty string if not found
+    const prompt = availablePrompts.find(p => p.id === id);
+    return prompt ? prompt.prompt : availablePrompts[0].prompt;
 };
 
-
-/**
- * Renders a sidebar widget with a dropdown for preset prompts
- * and an editable textarea for the current system prompt.
- * @param {object} props - Component props.
- * @param {string} props.selectedPromptId - The ID of the currently active preset (or 'custom').
- * @param {string} props.promptText - The current text of the system prompt (potentially edited).
- * @param {function} props.onSelectChange - Callback when dropdown selection changes. Passes the new ID.
- * @param {function} props.onTextChange - Callback when the textarea content changes. Passes the new text.
- */
 const SystemPromptWidget = ({ selectedPromptId, promptText, onSelectChange, onTextChange }) => {
+    const isCustom = selectedPromptId === 'custom';
 
-  const handleDropdownChange = (event) => {
-    const newId = event.target.value;
-    onSelectChange(newId); // Notify parent of the ID change
-  };
-
-  const handleTextareaChange = (event) => {
-    onTextChange(event.target.value); // Notify parent of the text change
-  };
-
-  return (
-    <div className="system-prompt-widget">
-      <h3>Assistant Mode</h3>
-
-      {/* Dropdown for selecting presets */}
-      <select
-        className="prompt-select"
-        value={selectedPromptId} // Control the selected option via state
-        onChange={handleDropdownChange}
-        aria-label="Select Assistant Mode"
-      >
-        {/* Filter out 'custom' from being a selectable option initially */}
-        {availablePrompts.filter(p => p.id !== 'custom').map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.title}
-          </option>
-        ))}
-        {/* Add Custom option dynamically if the current ID is 'custom' */}
-        {/* This ensures "Custom Prompt" appears in the dropdown only when it's actually active */}
-        {selectedPromptId === 'custom' && (
-            <option key="custom" value="custom">
-                Custom Prompt
-            </option>
-        )}
-      </select>
-
-      {/* Editable Textarea for the actual prompt */}
-      <label htmlFor="system-prompt-text" className="prompt-label">
-        System Prompt (Editable)
-      </label>
-      <textarea
-        id="system-prompt-text"
-        className="prompt-textarea"
-        value={promptText} // Display the current prompt text (could be preset or edited)
-        onChange={handleTextareaChange}
-        rows="5" // Suggests initial height, CSS controls actual fixed height
-        maxLength="2000" // Optional: Limit character count if desired
-        placeholder="The current system prompt will appear here. You can edit it directly."
-        aria-label="Editable System Prompt Text"
-      />
-       {/* Optional: Character count indicator
-       <div className="char-count">{promptText?.length || 0} / 2000</div> */}
-    </div>
-  );
+    return (
+        <Box className="system-prompt-widget" sx={{ p: 2, border: '1px solid #444', borderRadius: 2, mb: 2 }}>
+            <Typography variant="h6" component="h4" gutterBottom>
+                Assistant Mode
+            </Typography>
+            <Select
+                value={selectedPromptId}
+                onChange={(e) => onSelectChange(e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+            >
+                {availablePrompts.map(p => (
+                    <MenuItem key={p.id} value={p.id}>{p.label}</MenuItem>
+                ))}
+            </Select>
+            {isCustom && (
+                <TextField
+                    label="Custom System Prompt"
+                    multiline
+                    rows={4}
+                    value={promptText}
+                    onChange={(e) => onTextChange(e.target.value)}
+                    fullWidth
+                    variant="outlined"
+                />
+            )}
+        </Box>
+    );
 };
-
-// --- CSS for SystemPromptWidget ---
-const SystemPromptWidgetCSS = `
-/* client/src/components/SystemPromptWidget.css */
-.system-prompt-widget { padding: 20px; background-color: var(--bg-header); box-sizing: border-box; display: flex; flex-direction: column; flex-shrink: 0; }
-.system-prompt-widget h3 { margin-top: 0; margin-bottom: 15px; color: var(--text-primary); font-size: 1rem; font-weight: 600; padding-bottom: 10px; }
-.prompt-select { width: 100%; padding: 10px 12px; margin-bottom: 15px; background-color: #2a2a30; color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url('data:image/svg+xml;utf8,<svg fill="%23b0b3b8" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>'); background-repeat: no-repeat; background-position: right 10px center; background-size: 18px; }
-.prompt-select:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(0, 132, 255, 0.3); }
-.prompt-label { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; }
-.prompt-textarea { width: 100%; background-color: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; font-size: 0.85rem; line-height: 1.5; box-sizing: border-box; font-family: inherit; resize: none; height: 100px; overflow-y: auto; }
-.prompt-textarea:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(0, 132, 255, 0.3); }
-.prompt-textarea::placeholder { color: var(--text-secondary); opacity: 0.7; }
-.char-count { text-align: right; font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px; }
-`;
-// --- Inject CSS ---
-const styleTagPromptId = 'system-prompt-widget-styles';
-if (!document.getElementById(styleTagPromptId)) {
-    const styleTag = document.createElement("style");
-    styleTag.id = styleTagPromptId;
-    styleTag.type = "text/css";
-    styleTag.innerText = SystemPromptWidgetCSS;
-    document.head.appendChild(styleTag);
-}
-// --- End CSS Injection ---
-
 
 export default SystemPromptWidget;

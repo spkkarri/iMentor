@@ -3,10 +3,8 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-// --- FIX: Corrected the path to go UP one directory with '..' ---
 const { tempAuth } = require('../middleware/authMiddleware');
 const ChatSession = require('../models/ChatSession');
-const User = require('../models/User');
 
 const getPythonUrl = () => {
     const url = process.env.PYTHON_RAG_SERVICE_URL;
@@ -17,6 +15,9 @@ const getPythonUrl = () => {
     return url;
 };
 
+// @route   POST /api/chat/message
+// @desc    Send a message to the chatbot (now with history)
+// @access  Private
 router.post('/message', tempAuth, async (req, res, next) => {
     const { history, systemPrompt } = req.body;
     if (!history || history.length === 0) {
@@ -30,10 +31,14 @@ router.post('/message', tempAuth, async (req, res, next) => {
         });
         res.json(pythonResponse.data);
     } catch (error) {
+        console.error("Error proxying to Python /chat:", error.response ? error.response.data : error.message);
         next(error);
     }
 });
 
+// @route   POST /api/chat/rag
+// @desc    Query with RAG (now with history)
+// @access  Private
 router.post('/rag', tempAuth, async (req, res, next) => {
     const { history, systemPrompt } = req.body;
     const userId = req.user.id;
@@ -42,19 +47,21 @@ router.post('/rag', tempAuth, async (req, res, next) => {
     }
     try {
         const pythonRagUrl = getPythonUrl();
-        const latestQuery = history[history.length - 1].parts[0].text;
         const pythonResponse = await axios.post(`${pythonRagUrl}/query`, {
             user_id: userId,
-            query: latestQuery,
             history: history,
             system_prompt: systemPrompt
         });
         res.json(pythonResponse.data);
     } catch (error) {
+        console.error("Error proxying to Python /query:", error.response ? error.response.data : error.message);
         next(error);
     }
 });
 
+// @route   POST /api/chat/history
+// @desc    Save or update a chat session
+// @access  Private
 router.post('/history', tempAuth, async (req, res) => {
     const { sessionId, messages, systemPrompt, title } = req.body;
     const userId = req.user.id;
@@ -76,6 +83,9 @@ router.post('/history', tempAuth, async (req, res) => {
     }
 });
 
+// @route   GET /api/chat/sessions
+// @desc    Get all chat session summaries for the logged-in user
+// @access  Private
 router.get('/sessions', tempAuth, async (req, res) => {
     try {
         const sessions = await ChatSession.find({ user: req.user.id })
@@ -88,12 +98,13 @@ router.get('/sessions', tempAuth, async (req, res) => {
     }
 });
 
+// @route   GET /api/chat/session/:sessionId
+// @desc    Get the full details of a specific chat session
+// @access  Private
 router.get('/session/:sessionId', tempAuth, async (req, res) => {
     try {
         const session = await ChatSession.findOne({ sessionId: req.params.sessionId, user: req.user.id });
-        if (!session) {
-            return res.status(404).json({ message: 'Chat session not found.' });
-        }
+        if (!session) return res.status(404).json({ message: 'Chat session not found.' });
         res.json(session);
     } catch (error) {
         console.error('Error fetching session details:', error);

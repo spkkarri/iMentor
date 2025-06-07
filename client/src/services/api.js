@@ -17,8 +17,17 @@ const api = axios.create({
 
 api.interceptors.request.use(
     (config) => {
+        // Add the auth token to every request
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        // Add user ID for specific routes that might need it (optional, can be derived from token on backend)
         const userId = localStorage.getItem('userId');
-        if (userId) config.headers['x-user-id'] = userId;
+        if (userId) {
+            config.headers['x-user-id'] = userId;
+        }
+        
         if (config.data instanceof FormData) {
             delete config.headers['Content-Type'];
         } else if (!config.headers['Content-Type']) {
@@ -49,7 +58,9 @@ export const getChatSessions = () => api.get('/chat/sessions');
 export const getSessionDetails = (sessionId) => api.get(`/chat/session/${sessionId}`);
 export const uploadFile = (formData) => api.post('/upload', formData);
 export const getUserFiles = () => api.get('/files');
-export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${fileId}`, { newOriginalName });
 export const deleteUserFile = (fileId) => api.delete(`/files/${fileId}`);
 export const generatePodcast = (fileId) => api.post('/podcast/generate', { fileId });
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
+
+// --- FIX: Removed the duplicate declaration ---
+export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${fileId}`, { newOriginalName });

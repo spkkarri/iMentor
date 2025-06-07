@@ -1,164 +1,77 @@
 // server/routes/upload.js
 
 const express = require('express');
+const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const axios = require('axios');
 const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
+const User = require('../models/User');
+const axios = require('axios');
 
-const router = express.Router();
+// Use memory storage to handle the file temporarily before we know its final name
+const upload = multer({ storage: multer.memoryStorage() });
 
-// --- Your existing Multer Config and Helper Functions (NO CHANGES NEEDED HERE) ---
-const UPLOAD_DIR = path.join(__dirname, '..', 'assets');
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const allowedMimeTypes = {
-    'application/pdf': 'docs',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docs',
-    'application/msword': 'docs',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'docs',
-    'application/vnd.ms-powerpoint': 'docs',
-    'text/plain': 'docs',
-    'text/x-python': 'code',
-    'application/javascript': 'code',
-    'text/javascript': 'code',
-    'text/markdown': 'code',
-    'text/html': 'code',
-    'application/xml': 'code',
-    'text/xml': 'code',
-    'application/json': 'code',
-    'text/csv': 'code',
-    'image/jpeg': 'images',
-    'image/png': 'images',
-    'image/bmp': 'images',
-    'image/gif': 'images',
-};
-const allowedExtensions = [
-    '.pdf', '.docx', '.doc', '.pptx', '.ppt', '.txt',
-    '.py', '.js', '.md', '.html', '.xml', '.json', '.csv', '.log',
-    '.jpg', '.jpeg', '.png', '.bmp', '.gif'
-];
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        if (!req.user || !req.user.username) {
-            return cb(new Error("Authentication error: User context not found."));
+// @route   POST /api/upload
+// @desc    Upload a file, save metadata, rename file to its DB ID, then trigger RAG
+// @access  Private
+router.post('/', tempAuth, upload.single('file'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded.' });
+    }
+
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
         }
-        const sanitizedUsername = req.user.username.replace(/[^a-zA-Z0-9_-]/g, '_');
-        const fileMimeType = file.mimetype.toLowerCase();
-        const fileTypeSubfolder = allowedMimeTypes[fileMimeType] || 'others';
-        const destinationPath = path.join(UPLOAD_DIR, sanitizedUsername, fileTypeSubfolder);
-        fs.mkdir(destinationPath, { recursive: true }, (err) => {
-             if (err) cb(err);
-             else cb(null, destinationPath);
-         });
-    },
-    filename: (req, file, cb) => {
-        const timestamp = Date.now();
-        const fileExt = path.extname(file.originalname).toLowerCase();
-        const sanitizedBaseName = path.basename(file.originalname, fileExt)
-                                      .replace(/[^a-zA-Z0-9._-]/g, '_')
-                                      .substring(0, 100);
-        const uniqueFilename = `${timestamp}-${sanitizedBaseName}${fileExt}`;
-        cb(null, uniqueFilename);
-    }
-});
-const fileFilter = (req, file, cb) => {
-    if (!req.user) {
-         const error = new multer.MulterError('UNAUTHENTICATED');
-         error.message = `User not authenticated.`;
-         return cb(error, false);
-    }
-    const fileExt = path.extname(file.originalname).toLowerCase();
-    const mimeType = file.mimetype.toLowerCase();
-    const isMimeTypeKnown = !!allowedMimeTypes[mimeType];
-    const isExtensionAllowed = allowedExtensions.includes(fileExt);
-    if (isMimeTypeKnown && isExtensionAllowed) {
-        cb(null, true);
-    } else {
-        const error = new multer.MulterError('LIMIT_UNEXPECTED_FILE');
-        error.message = `Invalid file type or extension.`;
-        cb(error, false);
-    }
-};
-const upload = multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_SIZE } });
-// --- End of Unchanged Section ---
 
-
-// --- MODIFIED UPLOAD ROUTE ---
-router.post('/', tempAuth, (req, res) => {
-    const uploader = upload.single('file');
-
-    uploader(req, res, async function (err) {
-        // This function is the callback that runs AFTER multer is done.
+        // 1. Create the database record first to get the unique _id
+        const newFile = new File({
+            user: req.user.id,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+            // We will set the final filename and path in the next steps
+        });
         
-        // 1. Handle Multer-specific errors first
-        if (err) {
-            console.error(`!!! Error during upload middleware for user ${req.user?.username || 'Unknown'}:`, err);
-            if (err instanceof multer.MulterError) {
-                let message = "File upload failed.";
-                if (err.code === 'LIMIT_FILE_SIZE') message = `File too large. Max: ${Math.round(MAX_FILE_SIZE / 1024 / 1024)} MB.`;
-                else if (err.code === 'LIMIT_UNEXPECTED_FILE') message = err.message || 'Invalid file type.';
-                return res.status(400).json({ message });
-            }
-            // Handle other errors (e.g., filesystem errors from storage)
-            return res.status(500).json({ message: "Server error during file storage." });
-        }
+        // 2. Determine the final filename and path using the new _id
+        const extension = path.extname(req.file.originalname);
+        const finalFilename = `${newFile._id}${extension}`;
+        const userUploadsDir = path.join(__dirname, '..', 'assets', user.username, 'docs');
+        const finalPath = path.join(userUploadsDir, finalFilename);
 
-        // 2. Handle cases where multer succeeded but there's no file
-        if (!req.file) {
-            return res.status(400).json({ message: "No valid file received or file type rejected." });
-        }
+        // Ensure the directory exists
+        fs.mkdirSync(userUploadsDir, { recursive: true });
+
+        // 3. Write the file from memory to the disk with its final name
+        fs.writeFileSync(finalPath, req.file.buffer);
+
+        // 4. Update the database record with the final filename and path
+        newFile.filename = finalFilename;
+        newFile.path = finalPath;
+        await newFile.save();
+
+        console.log(`✅ File upload successful for User '${user.username}'. Final filename: ${finalFilename}.`);
         
-        // 3. If we get here, the file is on disk. Now we use a try/catch for OUR logic.
-        try {
-            const { path: filePath, originalname: originalName, filename: serverFilename, mimetype, size } = req.file;
-            const absoluteFilePath = path.resolve(filePath);
-            const userId = req.user._id;
+        // 5. Trigger background RAG processing with the guaranteed correct path
+        const pythonRagUrl = process.env.PYTHON_RAG_SERVICE_URL;
+        axios.post(`${pythonRagUrl}/add_document`, {
+            user_id: req.user.id,
+            file_path: finalPath // Use the final, correct path
+        }).then(response => {
+            console.log(`✅ Background RAG processing for '${req.file.originalname}' SUCCEEDED.`);
+        }).catch(err => {
+            console.error(`❌ Background RAG processing for '${req.file.originalname}' FAILED:`, err.message);
+        });
 
-            console.log(`<<< POST /api/upload successful for User '${req.user.username}'. File: ${serverFilename}.`);
+        res.status(201).json(newFile);
 
-            // Save file record to database
-            const newFile = new File({
-                user: userId,
-                filename: serverFilename,
-                originalname: originalName,
-                path: absoluteFilePath,
-                mimetype: mimetype,
-                size: size,
-            });
-            await newFile.save();
-            console.log(`   File record saved to DB. ID: ${newFile._id}`);
-
-            // Respond to the user immediately
-            res.status(201).json(newFile);
-
-            // Trigger background processing
-            console.log(`   Triggering background RAG processing for ${originalName}...`);
-            axios.post(`${process.env.PYTHON_RAG_SERVICE_URL}/add_document`, {
-                user_id: userId.toString(),
-                file_path: absoluteFilePath,
-                original_name: originalName
-            }, { timeout: 300000 })
-            .then(response => {
-                console.log(`✅ Background RAG processing for '${originalName}' completed. Status: ${response.data?.status}`);
-            })
-            .catch(error => {
-                const errorMsg = error.response?.data?.error || error.message;
-                console.error(`❌ Background RAG processing for '${originalName}' FAILED: ${errorMsg}`);
-            });
-
-        } catch (dbError) {
-            // This block catches errors from OUR logic (e.g., database save)
-            console.error("!!! Error saving file record to database:", dbError);
-            if (req.file) {
-                fs.unlink(req.file.path, (unlinkErr) => {
-                    if (unlinkErr) console.error(`!!! Failed to clean up orphaned file: ${req.file.path}`, unlinkErr);
-                });
-            }
-            res.status(500).json({ message: "Failed to save file record to database." });
-        }
-    });
+    } catch (error) {
+        console.error('Error during file upload process:', error);
+        res.status(500).json({ message: 'Server error during file upload.' });
+    }
 });
 
 module.exports = router;

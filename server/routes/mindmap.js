@@ -1,4 +1,4 @@
-// server/routes/podcast.js
+// server/routes/mindmap.js
 
 const express = require('express');
 const router = express.Router();
@@ -7,8 +7,8 @@ const axios = require('axios');
 const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
 
-// @route   POST /api/podcast/generate
-// @desc    Generate a podcast from a file
+// @route   POST /api/mindmap/generate
+// @desc    Generate a mind map from a file
 // @access  Private
 router.post('/generate', tempAuth, async (req, res) => {
     if (!req.user) {
@@ -34,23 +34,21 @@ router.post('/generate', tempAuth, async (req, res) => {
             return res.status(500).json({ message: 'Server configuration error: RAG service URL is missing.' });
         }
 
-        console.log(`[Podcast] Requesting generation from Python service for file: ${file.path}`);
+        console.log(`[MindMap] Requesting generation from Python service for file: ${file.path}`);
 
-        const pythonResponse = await axios.post(`${pythonRagUrl}/generate_podcast`, {
-            user_id: userId.toString(),
-            file_path: file.path,
-            original_name: file.originalname
+        const pythonResponse = await axios.post(`${pythonRagUrl}/generate_mindmap`, {
+            file_path: file.path
         });
 
-        if (pythonResponse.data && pythonResponse.data.audioUrl) {
-            return res.json({ audioUrl: pythonResponse.data.audioUrl });
+        if (pythonResponse.data && pythonResponse.data.nodes && pythonResponse.data.edges) {
+            return res.json(pythonResponse.data);
         } else {
-            throw new Error(pythonResponse.data?.error || 'Python service returned an invalid response.');
+            throw new Error(pythonResponse.data?.error || 'Python service returned an invalid response for mind map.');
         }
 
     } catch (error) {
-        console.error('Error in podcast generation route:', error.response ? error.response.data : error.message);
-        const message = error.response?.data?.error || 'An internal server error occurred while generating the podcast.';
+        console.error('Error in mind map generation route:', error.response ? error.response.data : error.message);
+        const message = error.response?.data?.error || 'An internal server error occurred while generating the mind map.';
         const status = error.response?.status || 500;
         res.status(status).json({ message });
     }

@@ -3,17 +3,23 @@
 import os
 import sys
 import uuid
-import re  # <-- NEW
+import re
+import json
+import google.generativeai as genai
 from flask import Flask, request, jsonify, send_from_directory
-import pyttsx3  # <-- NEW
-from pydub import AudioSegment  # <-- NEW
+import pyttsx3
+from pydub import AudioSegment
 
-# Add server directory to sys.path
+# --- Configuration ---
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    raise ValueError("FATAL: GEMINI_API_KEY environment variable is not set.")
+genai.configure(api_key=GEMINI_API_KEY)
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 server_dir = os.path.dirname(current_dir)
 sys.path.insert(0, server_dir)
 
-# Now import local modules AFTER adjusting sys.path
 from rag_service import config
 import rag_service.file_parser as file_parser
 import rag_service.faiss_handler as faiss_handler
@@ -24,7 +30,23 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# --- HELPER FUNCTIONS FOR PODCAST GENERATION (FROM YOUR SCRIPT) ---
+# --- MODEL NAME CONSTANT ---
+MODEL_NAME = "gemini-1.5-flash-latest"
+
+# --- HELPER FUNCTIONS ---
+
+def get_model_with_prompt(system_prompt):
+    return genai.GenerativeModel(MODEL_NAME, system_instruction=system_prompt)
+
+def format_history_for_gemini(history):
+    gemini_history = []
+    for msg in history:
+        role = 'model' if msg['role'] == 'assistant' else 'user'
+        if gemini_history and gemini_history[-1]['role'] == role:
+            gemini_history[-1]['parts'].append(msg['parts'][0]['text'])
+        else:
+            gemini_history.append({'role': role, 'parts': [part['text'] for part in msg['parts']]})
+    return gemini_history
 
 def clean_text(text):
     text = re.sub(r'\n+', '\n', text).strip()
@@ -37,126 +59,73 @@ def split_text_into_chunks(text, max_chars_per_chunk=200):
     chunks = []
     current_chunk = ""
     for sentence in sentences:
-        if not sentence.strip():
-            continue
         if len(current_chunk) + len(sentence) + 1 < max_chars_per_chunk:
             current_chunk += (sentence + " ").strip()
         else:
-            if current_chunk:
-                chunks.append(current_chunk.strip())
+            if current_chunk: chunks.append(current_chunk.strip())
             current_chunk = sentence.strip()
-    if current_chunk:
-        chunks.append(current_chunk.strip())
-    
-    final_chunks = []
-    for chunk in chunks:
-        if len(chunk) > max_chars_per_chunk:
-            words = chunk.split()
-            temp_chunk = ""
-            for i, word in enumerate(words):
-                if len(temp_chunk) + len(word) + 1 < max_chars_per_chunk:
-                    temp_chunk += word + " "
-                else:
-                    if temp_chunk:
-                        final_chunks.append(temp_chunk.strip())
-                    temp_chunk = word + " "
-                if i == len(words) - 1 and temp_chunk:
-                     final_chunks.append(temp_chunk.strip())
-        else:
-            final_chunks.append(chunk)
-    return final_chunks
+    if current_chunk: chunks.append(current_chunk.strip())
+    return chunks
 
 def generate_conversational_script(text_chunks):
-    script = []
-    speakers = ["Alex", "Brenda"]
-    
-    script.append({
-        "speaker": speakers[0],
-        "line": "Welcome everyone! Today, we're diving into an interesting document."
-    })
-    script.append({
-        "speaker": speakers[1],
-        "line": f"That's right, {speakers[0]}. Let's see what it's all about. What's the first part you have?"
-    })
-
+    script = [{"speaker": "Alex", "line": "Welcome everyone! Today, we're diving into an interesting document."}]
+    speakers = ["Brenda", "Alex"]
     for i, chunk in enumerate(text_chunks):
-        speaker_idx = i % 2
-        current_speaker = speakers[speaker_idx]
-        other_speaker = speakers[(speaker_idx + 1) % 2]
-        script.append({"speaker": current_speaker, "line": chunk})
-        if i < len(text_chunks) - 1:
-            if (i + 1) % 4 == 0:
-                 script.append({
-                    "speaker": other_speaker,
-                    "line": f"Interesting point, {current_speaker}. What comes next?"
-                })
-    
-    script.append({
-        "speaker": speakers[len(text_chunks) % 2],
-        "line": "And that seems to cover the main points from the document."
-    })
-    script.append({
-        "speaker": speakers[(len(text_chunks) + 1) % 2],
-        "line": f"Indeed, {speakers[len(text_chunks) % 2]}. A good overview. Thanks for joining us, listeners!"
-    })
+        script.append({"speaker": speakers[i % 2], "line": chunk})
+    script.append({"speaker": "Alex", "line": "And that covers the main points. Thanks for joining us!"})
     return script
 
 def create_podcast_audio(script, output_filename_base, user_id):
     output_dir = os.path.join(config.PODCAST_OUTPUT_DIR, user_id)
     os.makedirs(output_dir, exist_ok=True)
-    
     engine = pyttsx3.init()
     voices = engine.getProperty('voices')
-    voice_map = {}
-    if len(voices) >= 2:
-        voice_map["Alex"] = voices[0].id
-        voice_map["Brenda"] = voices[1].id
-    elif len(voices) == 1:
-        logger.warning("Only one TTS voice available. Both speakers will sound the same.")
-        voice_map["Alex"] = voice_map["Brenda"] = voices[0].id
-    else:
-        logger.error("No TTS voices found!")
+    if len(voices) < 2:
+        logger.error("Not enough TTS voices available for a two-person podcast.")
         return None
-
+    voice_map = {"Alex": voices[0].id, "Brenda": voices[1].id}
     engine.setProperty('rate', 160)
-    temp_audio_files = []
     combined_audio = AudioSegment.empty()
-
+    temp_files = []
     for i, part in enumerate(script):
-        speaker, line = part["speaker"], part["line"]
-        if not line.strip(): continue
-        engine.setProperty('voice', voice_map[speaker])
-        temp_filename = os.path.join(output_dir, f"temp_{output_filename_base}_{i}.wav")
-        
-        try:
-            engine.save_to_file(line, temp_filename)
-            engine.runAndWait()
-            if os.path.exists(temp_filename) and os.path.getsize(temp_filename) > 0:
-                segment = AudioSegment.from_wav(temp_filename)
-                combined_audio += segment
-                temp_audio_files.append(temp_filename)
-            else:
-                logger.warning(f"Failed to generate or empty audio for: {line[:50]}")
-        except Exception as e:
-            logger.error(f"Error during TTS for '{line[:50]}...': {e}")
-
-    final_audio_path = os.path.join(output_dir, f"{output_filename_base}.mp3")
-    try:
-        if len(combined_audio) > 0:
-            combined_audio.export(final_audio_path, format="mp3")
-        else:
-            logger.error("Combined audio is empty. Cannot export.")
-            return None
-    finally:
-        for f_path in temp_audio_files:
-            if os.path.exists(f_path):
-                try:
-                    os.remove(f_path)
-                except Exception as e_clean:
-                    logger.error(f"Error deleting temp file {f_path}: {e_clean}")
-    
+        engine.setProperty('voice', voice_map[part["speaker"]])
+        temp_filename = os.path.join(output_dir, f"temp_{i}.wav")
+        engine.save_to_file(part["line"], temp_filename)
+        engine.runAndWait()
+        if os.path.exists(temp_filename):
+            segment = AudioSegment.from_wav(temp_filename)
+            combined_audio += segment
+            temp_files.append(temp_filename)
+    final_path = os.path.join(output_dir, f"{output_filename_base}.mp3")
+    combined_audio.export(final_path, format="mp3")
+    for f in temp_files: os.remove(f)
     return os.path.join(user_id, f"{output_filename_base}.mp3")
 
+def generate_mindmap_data_with_gemini(text_content):
+    model = genai.GenerativeModel(MODEL_NAME)
+    prompt = f"""Analyze the following text and generate a mind map in JSON format. The structure must be: {{"central_idea": "...", "main_topics": [{{"topic": "...", "sub_topics": ["..."]}}]}}. Output only the valid JSON. Text: --- {text_content[:15000]} ---"""
+    try:
+        response = model.generate_content(prompt)
+        cleaned_text = response.text.strip().replace('```json', '').replace('```', '').strip()
+        return json.loads(cleaned_text)
+    except Exception as e:
+        logger.error(f"Gemini mind map generation failed: {e}")
+        return None
+
+def format_for_react_flow(mindmap_data):
+    if not mindmap_data: return None
+    nodes, edges = [], []
+    central_id = 'node-central'
+    nodes.append({'id': central_id, 'position': {'x': 400, 'y': 50}, 'data': {'label': mindmap_data.get('central_idea', 'Central Idea')}, 'type': 'input'})
+    for i, main_topic in enumerate(mindmap_data.get('main_topics', [])):
+        main_id = f'node-main-{i}'
+        nodes.append({'id': main_id, 'position': {'x': 150 + i * 350, 'y': 250}, 'data': {'label': main_topic.get('topic', '')}})
+        edges.append({'id': f'edge-central-main-{i}', 'source': central_id, 'target': main_id, 'animated': True})
+        for j, sub_topic in enumerate(main_topic.get('sub_topics', [])):
+            sub_id = f'node-sub-{i}-{j}'
+            nodes.append({'id': sub_id, 'position': {'x': 150 + i * 350, 'y': 400 + j * 120}, 'data': {'label': sub_topic}, 'type': 'output'})
+            edges.append({'id': f'edge-main-{i}-sub-{j}', 'source': main_id, 'target': sub_id})
+    return {'nodes': nodes, 'edges': edges}
 
 # --- API ENDPOINTS ---
 
@@ -164,70 +133,111 @@ def create_error_response(message, status_code=500):
     logger.error(f"API Error Response ({status_code}): {message}")
     return jsonify({"error": message}), status_code
 
-# ... (keep your existing /health, /add_document, /query routes here) ...
 @app.route('/health', methods=['GET'])
 def health_check():
-    # ... your existing health check code ...
     return jsonify({"status": "ok"}), 200
 
 @app.route('/add_document', methods=['POST'])
 def add_document():
-    # ... your existing add_document code ...
-    return jsonify({"status": "added"}), 200
+    logger.info("\n--- Received request at /add_document (RAG Processing) ---")
+    data = request.get_json()
+    user_id, file_path = data.get('user_id'), data.get('file_path')
+    if not all([user_id, file_path]): return create_error_response("Missing user_id or file_path", 400)
+    if not os.path.exists(file_path): return create_error_response(f"File not found: {file_path}", 404)
+    try:
+        text_content = file_parser.parse_file(file_path)
+        if not text_content: return create_error_response("Could not extract text.", 400)
+        faiss_handler.create_and_save_faiss_index(user_id, text_content)
+        logger.info(f"Successfully indexed document for user {user_id}")
+        return jsonify({"status": "processed_and_indexed"}), 200
+    except Exception as e:
+        logger.error(f"Error in /add_document: {e}", exc_info=True)
+        return create_error_response("Error during document processing.", 500)
+
+@app.route('/chat', methods=['POST'])
+def chat_route():
+    logger.info("\n--- Received request at /chat ---")
+    data = request.get_json()
+    history, system_prompt = data.get('history'), data.get('system_prompt', "You are a helpful assistant.")
+    if not history: return create_error_response("Missing history", 400)
+    try:
+        model = get_model_with_prompt(system_prompt)
+        history_for_session, last_message = history[:-1], history[-1]['parts'][0]['text']
+        formatted_history = format_history_for_gemini(history_for_session)
+        chat_session = model.start_chat(history=formatted_history)
+        response = chat_session.send_message(last_message)
+        return jsonify({"text": response.text})
+    except Exception as e:
+        logger.error(f"Error in /chat: {e}", exc_info=True)
+        return create_error_response("Error during chat processing.", 500)
 
 @app.route('/query', methods=['POST'])
 def query_index_route():
-    # ... your existing query code ...
-    return jsonify({"relevantDocs": []}), 200
+    logger.info("\n--- Received request at /query (RAG) ---")
+    data = request.get_json()
+    user_id, history, system_prompt = data.get('user_id'), data.get('history', []), data.get('system_prompt', "You are a helpful assistant.")
+    if not user_id or not history: return create_error_response("Missing user_id or history", 400)
+    try:
+        model = get_model_with_prompt(system_prompt)
+        query, history_for_session = history[-1]['parts'][0]['text'], history[:-1]
+        relevant_docs = faiss_handler.search_faiss_index(user_id, query, k=3)
+        context = "\n".join([doc.page_content for doc in relevant_docs])
+        rag_prompt = f"Context:\n---\n{context}\n---\nBased ONLY on the context and our conversation, answer the query. If the context is not relevant, say so.\n\nQuery: \"{query}\""
+        formatted_history = format_history_for_gemini(history_for_session)
+        chat_session = model.start_chat(history=formatted_history)
+        response = chat_session.send_message(rag_prompt)
+        return jsonify({"text": response.text, "relevantDocs": [doc.metadata for doc in relevant_docs]})
+    except Exception as e:
+        logger.error(f"Error in /query: {e}", exc_info=True)
+        return create_error_response("Error during RAG processing.", 500)
 
-
-# --- NEW ENDPOINT FOR THE NODE.JS SERVER TO CALL ---
 @app.route('/generate_podcast', methods=['POST'])
 def generate_podcast_from_path_route():
     logger.info("\n--- Received request at /generate_podcast ---")
     data = request.get_json()
-    user_id = data.get('user_id')
-    file_path = data.get('file_path')
-    original_name = data.get('original_name')
-
-    if not all([user_id, file_path, original_name]):
-        return create_error_response("Missing user_id, file_path, or original_name", 400)
-
-    if not os.path.exists(file_path):
-        return create_error_response(f"File not found on server: {file_path}", 404)
-
+    user_id, file_path, original_name = data.get('user_id'), data.get('file_path'), data.get('original_name')
+    if not all([user_id, file_path, original_name]): return create_error_response("Missing data", 400)
+    if not os.path.exists(file_path): return create_error_response(f"File not found: {file_path}", 404)
     try:
         text_content = file_parser.parse_file(file_path)
-        if not text_content:
-            return create_error_response("Could not extract text from document.", 400)
-
+        if not text_content: return create_error_response("Could not extract text.", 400)
         cleaned_text = clean_text(text_content)
         text_chunks = split_text_into_chunks(cleaned_text)
-        if not text_chunks:
-            return create_error_response("No text chunks could be generated from the document.", 400)
-
         script = generate_conversational_script(text_chunks)
-        
         unique_id = uuid.uuid4()
-        safe_filename = "".join(c for c in os.path.splitext(original_name)[0] if c.isalnum() or c in (' ', '_')).rstrip()
+        safe_filename = "".join(c for c in os.path.splitext(original_name)[0] if c.isalnum()).rstrip()
         podcast_filename_base = f"podcast_{safe_filename}_{unique_id}"
-        
         relative_audio_path = create_podcast_audio(script, podcast_filename_base, user_id)
-
         if relative_audio_path:
             audio_url = f"{request.host_url}podcasts/{relative_audio_path.replace(os.path.sep, '/')}"
-            logger.info(f"Podcast generated. URL: {audio_url}")
             return jsonify({"audioUrl": audio_url})
         else:
-            return create_error_response("Server failed to generate podcast audio.", 500)
+            return create_error_response("Failed to generate podcast audio.", 500)
     except Exception as e:
-        logger.error(f"Error in /generate_podcast route: {e}", exc_info=True)
-        return create_error_response("An internal server error occurred during podcast generation.", 500)
+        logger.error(f"Error in /generate_podcast: {e}", exc_info=True)
+        return create_error_response("Error during podcast generation.", 500)
 
-# --- ROUTE TO SERVE THE AUDIO FILES ---
+@app.route('/generate_mindmap', methods=['POST'])
+def generate_mindmap_route():
+    logger.info("\n--- Received request at /generate_mindmap ---")
+    data = request.get_json()
+    file_path = data.get('file_path')
+    if not file_path: return create_error_response("Missing file_path", 400)
+    if not os.path.exists(file_path): return create_error_response(f"File not found: {file_path}", 404)
+    try:
+        text_content = file_parser.parse_file(file_path)
+        if not text_content: return create_error_response("Could not extract text.", 400)
+        mindmap_structure = generate_mindmap_data_with_gemini(text_content)
+        if not mindmap_structure: return create_error_response("AI model failed to generate mind map.", 500)
+        react_flow_data = format_for_react_flow(mindmap_data)
+        if not react_flow_data: return create_error_response("Failed to format mind map data.", 500)
+        return jsonify(react_flow_data)
+    except Exception as e:
+        logger.error(f"Error in /generate_mindmap: {e}", exc_info=True)
+        return create_error_response("Error during mind map generation.", 500)
+
 @app.route('/podcasts/<path:filename>')
 def serve_podcast(filename):
-    logger.info(f"Serving podcast file: {filename}")
     return send_from_directory(config.PODCAST_OUTPUT_DIR, filename)
 
 if __name__ == '__main__':
@@ -238,9 +248,7 @@ if __name__ == '__main__':
     except Exception as e:
         logger.critical(f"CRITICAL: Could not create base directories. Exiting. Error: {e}", exc_info=True)
         sys.exit(1)
-
-    # ... (rest of your startup code for embedding model, etc.)
     
     port = config.RAG_SERVICE_PORT
     logger.info(f"--- Starting RAG service on port {port} ---")
-    app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_DEBUG') == '1')
+    app.run(host='0.0.0.0', port=port, debug=True)

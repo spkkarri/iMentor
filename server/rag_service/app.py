@@ -1,5 +1,3 @@
-# server/rag_service/app.py
-
 import os
 import sys
 import uuid
@@ -9,6 +7,7 @@ import google.generativeai as genai
 from flask import Flask, request, jsonify, send_from_directory
 import pyttsx3
 from pydub import AudioSegment
+import random # We will use this standard library to vary the speech
 
 # --- Configuration ---
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
@@ -25,6 +24,7 @@ import rag_service.file_parser as file_parser
 import rag_service.faiss_handler as faiss_handler
 import logging
 
+# --- THIS IS THE CORRECTED LINE ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(name)s:%(lineno)d] - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,7 @@ app = Flask(__name__)
 # --- MODEL NAME CONSTANT ---
 MODEL_NAME = "gemini-1.5-flash-latest"
 
-# --- HELPER FUNCTIONS ---
-
+# --- HELPER FUNCTIONS (Unchanged) ---
 def get_model_with_prompt(system_prompt):
     return genai.GenerativeModel(MODEL_NAME, system_instruction=system_prompt)
 
@@ -48,59 +47,130 @@ def format_history_for_gemini(history):
             gemini_history.append({'role': role, 'parts': [part['text'] for part in msg['parts']]})
     return gemini_history
 
-def clean_text(text):
-    text = re.sub(r'\n+', '\n', text).strip()
-    text = re.sub(r'[ \t]+', ' ', text)
-    text = text.replace("’", "'").replace("“", '"').replace("”", '"')
-    return text
+# --- PODCAST HELPER FUNCTIONS (Completely Revamped) ---
 
-def split_text_into_chunks(text, max_chars_per_chunk=200):
-    sentences = re.split(r'(?<=[.!?])\s+', text)
-    chunks = []
-    current_chunk = ""
-    for sentence in sentences:
-        if len(current_chunk) + len(sentence) + 1 < max_chars_per_chunk:
-            current_chunk += (sentence + " ").strip()
+def generate_advanced_podcast_script(text_content: str):
+    """
+    --- NEW FUNCTION ---
+    This is the "Brain". It instructs Gemini to be a creative scriptwriter,
+    adding conversational elements to make the dialogue flow naturally.
+    """
+    logger.info("Generating ADVANCED conversational podcast script with Gemini...")
+    model = genai.GenerativeModel(MODEL_NAME)
+    
+    prompt = f"""
+    You are a master podcast scriptwriter. Your task is to transform the following technical document into an engaging, conversational podcast script for two hosts: Alex and Brenda.
+
+    **CRITICAL INSTRUCTIONS:**
+    1.  **Create a Real Dialogue:** Do not just split the text. Alex should explain a concept, and Brenda should react, ask clarifying questions, or summarize. This back-and-forth is essential.
+    2.  **Use Conversational Language:** Inject natural filler words and phrases (e.g., "So, what you're saying is...", "Right, that makes sense.", "Hmm, interesting.", "Well...", "You know...").
+    3.  **Structure:** The script must have a clear intro, a body with conversational turns, and a concluding outro.
+    4.  **Output Format:** Your output MUST be a valid JSON array of objects. Each object must have a "speaker" key ("Alex" or "Brenda") and a "line" key. Do not include any text outside of the JSON array.
+
+    Example of good dialogue flow:
+    [
+      {{"speaker": "Alex", "line": "Welcome to 'Docu-Dive'! Today, we're tackling a paper on Ohm's Law."}},
+      {{"speaker": "Brenda", "line": "Great! So, for anyone new to this, what's the core idea of Ohm's Law, Alex?"}},
+      {{"speaker": "Alex", "line": "Well, at its heart, it's a simple formula: V equals I times R. It describes how voltage, current, and resistance are related."}},
+      {{"speaker": "Brenda", "line": "Right, so V=IR. And what do those letters actually stand for in a practical sense?"}},
+      ...
+    ]
+
+    Here is the document text to transform:
+    ---
+    {text_content[:12000]}
+    ---
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text
+        json_match = re.search(r'\[.*\]', raw_text, re.DOTALL)
+        if json_match:
+            json_string = json_match.group(0)
+            script = json.loads(json_string)
+            logger.info(f"Successfully generated advanced script with {len(script)} lines.")
+            return script
         else:
-            if current_chunk: chunks.append(current_chunk.strip())
-            current_chunk = sentence.strip()
-    if current_chunk: chunks.append(current_chunk.strip())
-    return chunks
+            logger.error(f"No JSON array found in the AI's advanced script response. Raw: {raw_text}")
+            return None
+    except Exception as e:
+        logger.error(f"Error during Gemini advanced script generation: {e}", exc_info=True)
+        return None
 
-def generate_conversational_script(text_chunks):
-    script = [{"speaker": "Alex", "line": "Welcome everyone! Today, we're diving into an interesting document."}]
-    speakers = ["Brenda", "Alex"]
-    for i, chunk in enumerate(text_chunks):
-        script.append({"speaker": speakers[i % 2], "line": chunk})
-    script.append({"speaker": "Alex", "line": "And that covers the main points. Thanks for joining us!"})
-    return script
-
-def create_podcast_audio(script, output_filename_base, user_id):
+def create_dynamic_podcast_audio(script, output_filename_base, user_id):
+    """
+    --- REVISED FUNCTION ---
+    This is the "Voice". It uses pyttsx3 but simulates human-like prosody by
+    varying the speech rate and adding strategic pauses. No new packages needed.
+    """
     output_dir = os.path.join(config.PODCAST_OUTPUT_DIR, user_id)
     os.makedirs(output_dir, exist_ok=True)
-    engine = pyttsx3.init()
-    voices = engine.getProperty('voices')
-    if len(voices) < 2:
-        logger.error("Not enough TTS voices available for a two-person podcast.")
-        return None
-    voice_map = {"Alex": voices[0].id, "Brenda": voices[1].id}
-    engine.setProperty('rate', 160)
-    combined_audio = AudioSegment.empty()
-    temp_files = []
-    for i, part in enumerate(script):
-        engine.setProperty('voice', voice_map[part["speaker"]])
-        temp_filename = os.path.join(output_dir, f"temp_{i}.wav")
-        engine.save_to_file(part["line"], temp_filename)
-        engine.runAndWait()
-        if os.path.exists(temp_filename):
-            segment = AudioSegment.from_wav(temp_filename)
-            combined_audio += segment
-            temp_files.append(temp_filename)
-    final_path = os.path.join(output_dir, f"{output_filename_base}.mp3")
-    combined_audio.export(final_path, format="mp3")
-    for f in temp_files: os.remove(f)
-    return os.path.join(user_id, f"{output_filename_base}.mp3")
+    
+    try:
+        engine = pyttsx3.init()
+        voices = engine.getProperty('voices')
+        if len(voices) < 2:
+            logger.error("Not enough TTS voices available for a two-person podcast.")
+            return None
+        
+        voice_map = {"Alex": voices[0].id, "Brenda": voices[1].id}
+        combined_audio = AudioSegment.silent(duration=500) # Start with a half-second pause
+        temp_files = []
 
+        logger.info(f"Starting DYNAMIC audio generation for {len(script)} script parts using pyttsx3.")
+        for i, part in enumerate(script):
+            speaker = part.get("speaker")
+            line = part.get("line")
+            
+            if not speaker or not line or speaker not in voice_map:
+                continue
+
+            # --- DYNAMIC SPEECH SIMULATION ---
+            # 1. Vary the speech rate for each line to avoid monotony
+            dynamic_rate = random.randint(155, 170)
+            engine.setProperty('rate', dynamic_rate)
+            engine.setProperty('voice', voice_map[speaker])
+            
+            temp_filename = os.path.join(output_dir, f"temp_{i}.wav")
+            engine.save_to_file(line, temp_filename)
+            engine.runAndWait()
+
+            if os.path.exists(temp_filename):
+                segment = AudioSegment.from_wav(temp_filename)
+                combined_audio += segment
+                temp_files.append(temp_filename)
+
+                # 2. Add strategic pauses
+                # Add a longer pause when the speaker changes to simulate turn-taking
+                is_last_part = (i == len(script) - 1)
+                if not is_last_part and script[i+1]['speaker'] != speaker:
+                    pause_duration = random.randint(600, 900) # Longer pause (0.6-0.9s)
+                    combined_audio += AudioSegment.silent(duration=pause_duration)
+                else:
+                    # Add a shorter, more natural pause between sentences from the same speaker
+                    pause_duration = random.randint(250, 400) # Shorter pause (0.25-0.4s)
+                    combined_audio += AudioSegment.silent(duration=pause_duration)
+            
+            logger.info(f"Appended audio for part {i+1}/{len(script)} ({speaker}) with rate {dynamic_rate}")
+
+        final_path = os.path.join(output_dir, f"{output_filename_base}.mp3")
+        combined_audio.export(final_path, format="mp3")
+        
+        return os.path.join(user_id, f"{output_filename_base}.mp3")
+
+    except Exception as e:
+        logger.error(f"Error during dynamic pyttsx3 podcast generation: {e}", exc_info=True)
+        return None
+    finally:
+        # Clean up all the temporary .wav files
+        for f in temp_files:
+            try:
+                os.remove(f)
+            except OSError as e:
+                logger.warning(f"Could not remove temp file {f}: {e}")
+
+# --- MINDMAP AND OTHER HELPERS (Unchanged) ---
 def generate_mindmap_data_with_gemini(text_content):
     model = genai.GenerativeModel(MODEL_NAME)
     prompt = f"""Analyze the following text and generate a mind map in JSON format. The structure must be: {{"central_idea": "...", "main_topics": [{{"topic": "...", "sub_topics": ["..."]}}]}}. Output only the valid JSON. Text: --- {text_content[:15000]} ---"""
@@ -203,26 +273,33 @@ def query_index_route():
 
 @app.route('/generate_podcast', methods=['POST'])
 def generate_podcast_from_path_route():
-    logger.info("\n--- Received request at /generate_podcast ---")
+    logger.info("\n--- Received request at /generate_podcast (DYNAMIC PYTTSX3) ---")
     data = request.get_json()
     user_id, file_path, original_name = data.get('user_id'), data.get('file_path'), data.get('original_name')
     if not all([user_id, file_path, original_name]): return create_error_response("Missing data", 400)
     if not os.path.exists(file_path): return create_error_response(f"File not found: {file_path}", 404)
+    
     try:
+        # 1. Parse the document to get the full text
         text_content = file_parser.parse_file(file_path)
         if not text_content: return create_error_response("Could not extract text.", 400)
-        cleaned_text = clean_text(text_content)
-        text_chunks = split_text_into_chunks(cleaned_text)
-        script = generate_conversational_script(text_chunks)
+
+        # 2. Use Gemini to generate a high-quality, conversational script
+        script = generate_advanced_podcast_script(text_content)
+        if not script: return create_error_response("AI model failed to generate a podcast script.", 500)
+
+        # 3. Generate the dynamic audio from the script using only existing packages
         unique_id = uuid.uuid4()
         safe_filename = "".join(c for c in os.path.splitext(original_name)[0] if c.isalnum()).rstrip()
         podcast_filename_base = f"podcast_{safe_filename}_{unique_id}"
-        relative_audio_path = create_podcast_audio(script, podcast_filename_base, user_id)
+        
+        relative_audio_path = create_dynamic_podcast_audio(script, podcast_filename_base, user_id)
         if relative_audio_path:
             audio_url = f"{request.host_url}podcasts/{relative_audio_path.replace(os.path.sep, '/')}"
             return jsonify({"audioUrl": audio_url})
         else:
-            return create_error_response("Failed to generate podcast audio.", 500)
+            return create_error_response("Failed to generate dynamic podcast audio.", 500)
+            
     except Exception as e:
         logger.error(f"Error in /generate_podcast: {e}", exc_info=True)
         return create_error_response("Error during podcast generation.", 500)

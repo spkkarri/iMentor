@@ -426,3 +426,34 @@ body {
      .input-area button svg { width: 18px; height: 18px; }
 
 }
+
+/*
+ =================================================================
+  MIND MAP STYLING FIXES
+ =================================================================
+*/
+
+/* 
+  This targets the default wrapper that React Flow puts around our custom nodes.
+  We make it transparent and remove its default styling to let our custom node's style show through.
+*/
+.react-flow__node-customInput,
+.react-flow__node-customDefault,
+.react-flow__node-customOutput {
+  background-color: transparent !important; /* Remove the default white background */
+  border: none !important;                 /* Remove the default border */
+  box-shadow: none !important;             /* Remove any default shadow */
+  padding: 0 !important;                   /* Remove default padding */
+  border-radius: 0 !important;             /* Reset the border radius */
+  width: auto !important;                  /* Let our custom node define the width */
+  height: auto !important;                 /* Let our custom node define the height */
+}
+
+/* 
+  This ensures the handles (the small connection circles) are visible against the dark background.
+  It uses your theme's accent color for a consistent look.
+*/
+.react-flow__handle {
+  background-color: var(--accent-blue-light) !important; /* Use a bright, primary color from your theme */
+  border: 1px solid var(--bg-main) !important; /* Add a dark border for contrast */
+}

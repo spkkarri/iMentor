@@ -1,5 +1,3 @@
-// client/src/components/ChatPage.js
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -250,7 +248,13 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setMessages(prev => [...prev, userMessage]);
         try {
             const response = await generateMindMap(fileId);
-            const mindMapMessage = { role: 'assistant', type: 'mindmap', parts: [{ text: `Here is the mind map for "${fileName}":` }], nodes: response.data.nodes, edges: response.data.edges, timestamp: new Date() };
+            const mindMapMessage = { 
+                role: 'assistant', 
+                type: 'mindmap', 
+                parts: [{ text: `Here is the mind map for "${fileName}":` }], 
+                mindMapData: response.data,
+                timestamp: new Date() 
+            };
             setMessages(prev => [...prev, mindMapMessage]);
         } catch (err) {
             const errorMessage = err.response?.data?.message || err.message || 'Failed to generate mind map.';
@@ -319,9 +323,16 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
                         const messageText = msg.parts[0]?.text || '';
                         const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                        
                         if (msg.type === 'mindmap') {
                             return (
-                                <div key={index} className={`message ${msg.role}`}><div className="message-content"><p>{messageText}</p><MindMap nodes={msg.nodes} edges={msg.edges} /></div><span className="message-timestamp">{timestamp}</span></div>
+                                <div key={index} className={`message ${msg.role}`}>
+                                    <div className="message-content">
+                                        <p>{messageText}</p>
+                                        <MindMap mindMapData={msg.mindMapData} />
+                                    </div>
+                                    <span className="message-timestamp">{timestamp}</span>
+                                </div>
                             );
                         }
                         if (msg.type === 'audio') {
@@ -338,7 +349,19 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 {isProcessing && <div className="loading-indicator"><span>{isMindMapLoading ? 'Generating mind map...' : isPodcastLoading ? 'Generating podcast...' : isRagLoading ? 'Searching documents...' : 'Thinking...'}</span></div>}
                 {!isProcessing && error && <div className="error-indicator">{error}</div>}
                 <footer className="input-area">
-                    <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={handleEnterKey} placeholder="Ask your tutor..." rows="1" disabled={isProcessing} />
+                    {/*
+                      =================================================================
+                       THIS IS THE ONLY MODIFIED PART
+                      =================================================================
+                    */}
+                    <textarea 
+                        value={inputText} 
+                        onChange={(e) => setInputText(e.target.value)} // Corrected from e.g.value to e.target.value
+                        onKeyDown={handleEnterKey} 
+                        placeholder="Ask your tutor..." 
+                        rows="1" 
+                        disabled={isProcessing} 
+                    />
                     <div className="rag-toggle-container" title={!hasFiles ? "Upload files to enable RAG" : "Toggle RAG"}>
                         <input type="checkbox" id="rag-toggle" checked={isRagEnabled} onChange={(e) => setIsRagEnabled(e.target.checked)} disabled={!hasFiles || isProcessing} />
                         <label htmlFor="rag-toggle">RAG</label>

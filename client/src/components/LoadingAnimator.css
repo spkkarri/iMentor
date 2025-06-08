@@ -1,0 +1,24 @@
+.loading-animator-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  margin: 15px 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+}
+
+.lottie-wrapper {
+  width: 120px;
+  height: 120px;
+}
+
+.status-text {
+  margin-top: 10px;
+  color: var(--text-secondary);
+  font-family: 'monospace';
+  font-size: 0.9rem;
+  text-align: center;
+  min-height: 40px; /* Reserve space to prevent layout shifts */
+}

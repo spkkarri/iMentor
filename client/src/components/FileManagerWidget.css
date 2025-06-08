@@ -1,0 +1,242 @@
+/* client/src/components/FileManagerWidget.css */
+
+/* 
+   The root element of FileManagerWidget in JS now has className="widget-container file-manager-widget".
+   General container styles (padding, background, border-bottom) come from .widget-container in ChatPage.css.
+   The .file-manager-widget class here is for any *additional* styling specific ONLY to this widget's container,
+   or for more specific targeting of its children.
+   Since FileManagerWidget is designed to grow and contain a scrollable list, we ensure it's a flex column.
+*/
+.file-manager-widget {
+    box-sizing: border-box;
+    display: flex; /* Make the widget itself a flex container */
+    flex-direction: column; /* Stack header and content vertically */
+    flex-grow: 1; /* Allow this widget to take up available vertical space in the sidebar */
+    overflow: hidden; /* Crucial: The widget container itself should not scroll; internal elements will. */
+    /* Padding is now handled by .widget-container from ChatPage.css, so remove 'padding' from here */
+}
+
+/* 
+   The old .fm-header (containing title and refresh button) is now replaced by
+   the .widget-header structure in FileManagerWidget.js (icon, conditional .widget-title, conditional refresh button).
+   Styling for .widget-header, .widget-icon, .widget-title comes from ChatPage.css.
+   The original .file-manager-widget h4 rule is no longer needed as the h4 now has .widget-title.
+   Refresh button styles (.fm-refresh-btn) can be kept if you still use that class, or adapted.
+*/
+
+/* Styles for the refresh button (if you keep the class .fm-refresh-btn for the expanded version) */
+/* These styles are now applied to the button inside the .widget-header */
+.widget-header .fm-refresh-btn { /* Target refresh button inside the new widget-header */
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 3px 6px; /* Keep this for a compact button */
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem; /* Or use FontAwesomeIcon's size prop */
+    line-height: 1;
+    transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+    margin-left: auto; /* Pushes it to the right of the title */
+}
+.widget-header .fm-refresh-btn:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: #555;
+    background-color: #3a3a40;
+}
+.widget-header .fm-refresh-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* Styles for the icon-only refresh button when sidebar is collapsed */
+/* Ensure you add className="fm-refresh-btn-collapsed widget-icon-button" in JS */
+.fm-refresh-btn-collapsed.widget-icon-button { 
+    background: none;
+    border: none;
+    color: var(--text-secondary); /* Or var(--text-primary) as in ChatPage.css */
+    padding: 4px;
+    cursor: pointer;
+    font-size: 1em; /* Match general .widget-icon if desired, or keep specific */
+    line-height: 1;
+}
+.fm-refresh-btn-collapsed.widget-icon-button:hover:not(:disabled) {
+    color: var(--accent-blue);
+}
+.fm-refresh-btn-collapsed.widget-icon-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* Error, Loading, Empty state messages */
+/* These are inside .widget-content, so they will be hidden when collapsed */
+.fm-error,
+.fm-loading,
+.fm-empty {
+    font-size: 0.85rem;
+    padding: 10px 0; /* Padding adjusted as parent .widget-content has padding */
+    border-radius: 4px;
+    text-align: center;
+    /* margin: 5px 20px 5px 0; /* Original margin - might not be needed if .widget-content has padding */
+    flex-shrink: 0; /* Good for preventing these messages from collapsing */
+}
+
+.fm-error {
+    color: var(--error-color);
+    border: 1px solid var(--error-color);
+    background-color: var(--error-bg);
+    margin: 5px 0; /* Add some vertical margin if padding is removed */
+}
+
+.fm-loading,
+.fm-empty {
+    color: var(--text-secondary);
+    font-style: italic;
+     margin: 5px 0; /* Add some vertical margin */
+}
+
+.fm-loading-bottom {
+    margin-top: auto; 
+    padding: 5px 0;
+}
+
+/* This container holds the scrollable list of files */
+/* It should be inside the .widget-content div in your JS */
+.fm-file-list-container {
+    flex-grow: 1; /* CRITICAL: Allows this to take up space within .widget-content (if .widget-content is flex column) */
+    overflow-y: auto; /* CRITICAL: Enables scrolling for the list */
+    position: relative; 
+    /* padding-right: 10px; /* This can create an uneven look if scrollbar isn't always visible */
+    /* Consider adding padding to .fm-file-item instead if needed */
+}
+
+/* Scrollbar styling (good as is) */
+.fm-file-list-container::-webkit-scrollbar {
+    width: 8px;
+}
+.fm-file-list-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+.fm-file-list-container::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb); /* Use theme variable */
+    border-radius: 10px;
+}
+.fm-file-list-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent; /* Use theme variable */
+}
+
+
+/* Styles for the file list and items (largely good as is) */
+.fm-file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.fm-file-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 5px; 
+    margin-bottom: 5px; /* Space between items */
+    border-radius: 4px;
+    background-color: #2f2f34; /* Or var(--bg-widget-item) */
+    transition: background-color 0.2s ease;
+    gap: 10px;
+}
+/* Add right margin if scrollbar padding on container isn't ideal */
+.fm-file-list-container:hover .fm-file-item { 
+    /* Example: margin-right: 8px; if scrollbar appears on hover and shifts content */
+}
+
+
+.fm-file-item:hover {
+    background-color: #3a3a40; /* Or var(--bg-widget-item-hover) */
+}
+
+.fm-file-icon {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    line-height: 1;
+    width: 20px; /* Give a fixed width for alignment */
+    text-align: center;
+}
+
+.fm-file-details {
+    flex-grow: 1;
+    overflow: hidden; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* min-height: 30px; /* Removed, let content define height or use padding */
+}
+
+.fm-file-name {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fm-file-size {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.fm-file-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+    /* margin-left: auto; /* This pushes actions to the far right; remove if not desired or handled by flex on parent */
+}
+
+.fm-action-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 3px; 
+    font-size: 1rem; 
+    line-height: 1;
+    border-radius: 3px;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+.fm-action-btn:hover:not(:disabled) {
+    color: var(--text-primary);
+    background-color: #4a4a50;
+}
+.fm-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Specific hover colors for action buttons (good as is) */
+.fm-delete-btn:hover:not(:disabled) { color: var(--error-color); }
+.fm-rename-btn:hover:not(:disabled) { color: var(--accent-blue-light); }
+.fm-save-btn:hover:not(:disabled) { color: var(--success-color); /* Use theme success */ }
+.fm-cancel-btn:hover:not(:disabled) { color: #ffc107; /* Keep or use a theme warning/neutral */ }
+
+
+.fm-rename-section {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+.fm-rename-input {
+    flex-grow: 1;
+    padding: 4px 8px;
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    outline: none;
+    min-width: 50px;
+}
+.fm-rename-input:focus {
+    border-color: var(--accent-blue);
+}

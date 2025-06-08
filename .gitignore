@@ -1,0 +1,40 @@
+# Dependencies
+/node_modules
+/client/node_modules
+
+# Environment Variables File (very important for security)
+.env
+.env.*
+!.env.example
+
+# Production/Build folder
+/dist
+/build
+
+# Log files and temporary files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+o.txt
+structure.txt
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Python virtual environment
+/.venv/
+/server/rag_service/.venv/
+__pycache__/
+*.pyc
+
+
+# Ignore user-specific assets, backups, and generated data
+/server/backup_assets/
+/server/faiss_indices/
+/server/uploads/
+
+# Ignore specific file types that are often generated
+*.faiss
+*.pkl

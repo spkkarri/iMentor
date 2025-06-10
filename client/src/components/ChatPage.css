@@ -254,3 +254,193 @@
     --error-bg: #ffeded;
     --border-radius: 8px;
 } */
+
+/* Existing styles in ChatPage.css */
+
+/* ... (ensure other layout and theming styles are here) ... */
+
+/* Styles for message bubbles */
+.message {
+    display: flex;
+    flex-direction: column;
+    max-width: 70%;
+    align-self: flex-start; /* Default for assistant */
+    position: relative; /* Needed for positioning the speaker icon */
+}
+
+.message.user {
+    align-self: flex-end;
+}
+
+.message-content {
+    padding: 10px 15px;
+    border-radius: 18px;
+    word-wrap: break-word;
+}
+
+.message.user .message-content {
+    background-color: var(--user-message-bg);
+    color: var(--user-message-text);
+    border-bottom-right-radius: 2px;
+}
+
+.message.assistant .message-content {
+    background-color: var(--assistant-message-bg);
+    color: var(--assistant-message-text);
+    border-bottom-left-radius: 2px;
+    padding-right: 40px; /* Make space for the speaker icon */
+}
+
+.message-timestamp {
+    font-size: 0.75rem;
+    color: var(--text-color-secondary);
+    margin-top: 4px;
+    align-self: flex-end; /* Timestamp for user messages */
+}
+
+.message.assistant .message-timestamp {
+    align-self: flex-start; /* Timestamp for assistant messages */
+}
+
+
+/* NEW: Styles for the speaker icon button */
+.speaker-icon-button {
+    position: absolute;
+    top: 5px; /* Adjust as needed */
+    right: 5px; /* Adjust as needed, to position inside message bubble */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px; /* Adjust padding for click area */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color-secondary); /* Icon color */
+    transition: color 0.2s ease;
+}
+
+.speaker-icon-button:hover {
+    color: var(--primary-color); /* Hover effect */
+}
+
+.speaker-icon-button svg {
+    width: 18px; /* Size of the speaker icon */
+    height: 18px;
+}
+
+/* ... (rest of your existing ChatPage.css, including input-area and button styles) ... */
+
+/* Example CSS Variables (define these in your :root or similar global style) */
+/*
+:root {
+    --primary-color: #007bff;
+    --primary-color-dark: #0056b3;
+    --background-color-dark: #222;
+    --sidebar-bg-color: #333;
+    --chat-bg-color: #282828;
+    --header-bg-color: #3a3a3a;
+    --input-bg-color: #333;
+    --border-color: #555;
+    --text-color: #eee;
+    --text-color-secondary: #aaa;
+    --button-bg-color: #555;
+    --button-text-color: #fff;
+    --button-hover-bg: #666;
+    --button-disabled-bg: #444;
+    --user-message-bg: #007bff;
+    --user-message-text: #fff;
+    --assistant-message-bg: #444;
+    --assistant-message-text: #eee;
+    --error-color: #ff6347;
+    --error-bg: #ffeded;
+    --border-radius: 8px;
+}
+*/
+/* Existing styles in ChatPage.css */
+
+/* ... (ensure other layout and theming styles are here) ... */
+
+/* Styles for message bubbles */
+.message {
+    display: flex; /* Change to flex */
+    flex-direction: column; /* Stack content and footer vertically */
+    max-width: 70%;
+    align-self: flex-start; /* Default for assistant */
+    position: relative;
+    margin-bottom: 10px; /* Add some space between messages */
+}
+
+.message.user {
+    align-self: flex-end;
+}
+
+.message-content {
+    padding: 10px 15px;
+    border-radius: 18px;
+    word-wrap: break-word;
+    /* Remove padding-right here if it was added for the icon */
+    /* padding-right: 40px;  <-- REMOVE THIS if you had it */
+}
+
+.message.user .message-content {
+    background-color: var(--user-message-bg);
+    color: var(--user-message-text);
+    border-bottom-right-radius: 2px;
+}
+
+.message.assistant .message-content {
+    background-color: var(--assistant-message-bg);
+    color: var(--assistant-message-text);
+    border-bottom-left-radius: 2px;
+}
+
+/* NEW: Styles for the message footer */
+.message-footer {
+    display: flex; /* Make it a flex container */
+    align-items: center; /* Vertically align items in the footer */
+    gap: 5px; /* Space between timestamp and icon */
+    margin-top: 4px; /* Space between message content and footer */
+}
+
+.message.user .message-footer {
+    justify-content: flex-end; /* Align footer to the right for user messages */
+}
+
+.message.assistant .message-footer {
+    justify-content: flex-start; /* Align footer to the left for assistant messages */
+    padding-left: 15px; /* Match left padding of message content */
+}
+
+
+.message-timestamp {
+    font-size: 0.75rem;
+    color: var(--text-color-secondary);
+    /* margin-top: 4px; <-- REMOVE THIS, replaced by margin-top on .message-footer */
+    /* align-self: flex-end; <-- REMOVE THIS, replaced by flex in .message-footer */
+}
+
+/* NEW: Styles for the speaker icon button */
+.speaker-icon-button {
+    /* position: absolute; <-- REMOVE THIS: no longer absolutely positioned */
+    /* top: 5px; right: 5px; <-- REMOVE THESE: no longer absolutely positioned */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px; /* Reduce padding slightly for a tighter fit */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color-secondary); /* Icon color */
+    transition: color 0.2s ease;
+}
+
+.speaker-icon-button:hover {
+    color: var(--primary-color); /* Hover effect */
+}
+
+.speaker-icon-button svg {
+    width: 16px; /* Adjust size if needed, slightly smaller than 18px */
+    height: 16px;
+}
+
+/* ... (rest of your existing ChatPage.css, including input-area and button styles) ... */

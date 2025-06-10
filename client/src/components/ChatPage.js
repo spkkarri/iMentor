@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-    sendMessage, saveChatHistory, queryRagService, generatePodcast, generateMindMap, 
-    getUserFiles, deleteUserFile, renameUserFile 
+import {
+    sendMessage, saveChatHistory, queryRagService, generatePodcast, generateMindMap,
+    getUserFiles, deleteUserFile, renameUserFile
 } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -20,13 +20,14 @@ const ChatPage = ({ setIsAuthenticated }) => {
     // State for chat messages and input
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
-    
+
     // State for various loading indicators
     const [isLoading, setIsLoading] = useState(false);
     const [isRagLoading, setIsRagLoading] = useState(false);
     const [isPodcastLoading, setIsPodcastLoading] = useState(false);
     const [isMindMapLoading, setIsMindMapLoading] = useState(false);
-    
+    const [isListening, setIsListening] = useState(false); // NEW: State for microphone listening
+
     // State for UI and session management
     const [error, setError] = useState('');
     const [sessionId, setSessionId] = useState('');
@@ -35,7 +36,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [currentSystemPromptId, setCurrentSystemPromptId] = useState('friendly');
     const [editableSystemPromptText, setEditableSystemPromptText] = useState(() => getPromptTextById('friendly'));
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-    
+
     // State for file management, now owned by ChatPage
     const [files, setFiles] = useState([]);
     const [isFileLoading, setIsFileLoading] = useState(false);
@@ -111,9 +112,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
             navigate('/login', { replace: true });
         };
         if (!skipSave && messages.length > 0) {
-             saveAndReset(true, performCleanup);
+            saveAndReset(true, performCleanup);
         } else {
-             performCleanup();
+            performCleanup();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [messages.length]);
@@ -122,8 +123,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
         const currentSessionId = localStorage.getItem('sessionId');
         const currentUserId = localStorage.getItem('userId');
         if (!currentSessionId || !currentUserId || isProcessing || messages.length === 0) {
-             if (onCompleteCallback) onCompleteCallback();
-             return;
+            if (onCompleteCallback) onCompleteCallback();
+            return;
         }
         try {
             const firstUserMessage = messages.find(m => m.role === 'user');
@@ -194,13 +195,47 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     }, [inputText, isProcessing, messages, isRagEnabled, editableSystemPromptText, handleLogout]);
 
+    // NEW: Handler for mic button click
+    const handleMicButtonClick = useCallback(() => {
+        // This is a placeholder. In a real application, you would integrate
+        // with the Web Speech API (SpeechRecognition) here.
+        alert("Microphone button clicked! Voice input functionality needs to be implemented.");
+        setIsListening(prev => !prev); // Toggle listening state for UI feedback
+        // Example of starting speech recognition (conceptual):
+        // const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        // if (SpeechRecognition) {
+        //     const recognition = new SpeechRecognition();
+        //     recognition.interimResults = false;
+        //     recognition.lang = 'en-US';
+        //     recognition.onresult = (event) => {
+        //         const transcript = event.results[0][0].transcript;
+        //         setInputText(transcript);
+        //         setIsListening(false);
+        //         // Optionally auto-send: handleSendMessage();
+        //     };
+        //     recognition.onerror = (event) => {
+        //         console.error('Speech recognition error:', event.error);
+        //         setError('Voice input error. Please try again.');
+        //         setIsListening(false);
+        //     };
+        //     if (!isListening) {
+        //         recognition.start();
+        //     } else {
+        //         recognition.stop();
+        //     }
+        // } else {
+        //     alert("Speech Recognition not supported in this browser.");
+        // }
+    }, [isListening]);
+
+
     // --- File Action Handlers ---
 
     const handleDeleteFile = async (fileId, fileName) => {
         if (window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
             try {
                 await deleteUserFile(fileId);
-                fetchFiles(); 
+                fetchFiles();
             } catch (err) {
                 setFileError(`Could not delete ${fileName}.`);
                 setTimeout(() => setFileError(''), 3000);
@@ -248,12 +283,12 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setMessages(prev => [...prev, userMessage]);
         try {
             const response = await generateMindMap(fileId);
-            const mindMapMessage = { 
-                role: 'assistant', 
-                type: 'mindmap', 
-                parts: [{ text: `Here is the mind map for "${fileName}":` }], 
+            const mindMapMessage = {
+                role: 'assistant',
+                type: 'mindmap',
+                parts: [{ text: `Here is the mind map for "${fileName}":` }],
                 mindMapData: response.data,
-                timestamp: new Date() 
+                timestamp: new Date()
             };
             setMessages(prev => [...prev, mindMapMessage]);
         } catch (err) {
@@ -323,7 +358,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
                         const messageText = msg.parts[0]?.text || '';
                         const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                        
+
                         if (msg.type === 'mindmap') {
                             return (
                                 <div key={index} className={`message ${msg.role}`}>
@@ -349,25 +384,36 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 {isProcessing && <div className="loading-indicator"><span>{isMindMapLoading ? 'Generating mind map...' : isPodcastLoading ? 'Generating podcast...' : isRagLoading ? 'Searching documents...' : 'Thinking...'}</span></div>}
                 {!isProcessing && error && <div className="error-indicator">{error}</div>}
                 <footer className="input-area">
-                    {/*
-                      =================================================================
-                       THIS IS THE ONLY MODIFIED PART
-                      =================================================================
-                    */}
-                    <textarea 
-                        value={inputText} 
-                        onChange={(e) => setInputText(e.target.value)} // Corrected from e.g.value to e.target.value
-                        onKeyDown={handleEnterKey} 
-                        placeholder="Ask your tutor..." 
-                        rows="1" 
-                        disabled={isProcessing} 
+                    <textarea
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        onKeyDown={handleEnterKey}
+                        placeholder="Ask your tutor..."
+                        rows="1"
+                        disabled={isProcessing}
                     />
                     <div className="rag-toggle-container" title={!hasFiles ? "Upload files to enable RAG" : "Toggle RAG"}>
                         <input type="checkbox" id="rag-toggle" checked={isRagEnabled} onChange={(e) => setIsRagEnabled(e.target.checked)} disabled={!hasFiles || isProcessing} />
                         <label htmlFor="rag-toggle">RAG</label>
                     </div>
+                    {/* NEW: Microphone Button - SVG width/height removed to be controlled by CSS */}
+                    <button
+                        onClick={handleMicButtonClick}
+                        className={`icon-button mic-button ${isListening ? 'listening' : ''}`}
+                        disabled={isProcessing}
+                        title={isListening ? "Stop Voice Input" : "Start Voice Input"}
+                    >
+                        {/* Mic SVG Icon (from Heroicons, common for React projects) */}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
+                            <path d="M10.868 18.847c.692 0 1.25-.558 1.25-1.25v-3.5a.75.75 0 011.5 0v3.5A5.25 5.25 0 017.5 14.5v-3.5a.75.75 0 011.5 0v3.5c0 .692.558 1.25 1.25 1.25h1.25z" />
+                        </svg>
+                    </button>
+                    {/* Send Button - SVG width/height removed to be controlled by CSS */}
                     <button onClick={handleSendMessage} disabled={isProcessing || !inputText.trim()} title="Send Message">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                        </svg>
                     </button>
                 </footer>
             </div>

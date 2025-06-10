@@ -15,10 +15,10 @@ try:
     from rag_service import faiss_handler
     from rag_service import file_parser
 except ImportError as e:
-     print("ImportError:", e)
-     print("Failed to import modules. Ensure the script is run correctly relative to the project structure.")
-     print("Current sys.path:", sys.path)
-     exit(1)
+    print("ImportError:", e)
+    print("Failed to import modules. Ensure the script is run correctly relative to the project structure.")
+    print("Current sys.path:", sys.path)
+    exit(1)
 
 # Configure logging
 logging.basicConfig(
@@ -35,7 +35,7 @@ class DefaultVectorDBBuilder:
             # Use SentenceTransformer as configured in config.py
             self.embed_model = faiss_handler.get_embedding_model()
             if self.embed_model is None:
-                 raise RuntimeError("Failed to initialize Sentence Transformer embedding model.")
+                raise RuntimeError("Failed to initialize Sentence Transformer embedding model.")
         except Exception as e:
             logger.error(f"Fatal error initializing embedding model: {e}", exc_info=True)
             raise
@@ -55,8 +55,8 @@ class DefaultVectorDBBuilder:
             faiss_handler.ensure_faiss_dir()
             os.makedirs(self.default_index_user_path, exist_ok=True)
         except Exception as e:
-             logger.error(f"Failed to create necessary directories: {e}")
-             raise
+            logger.error(f"Failed to create necessary directories: {e}")
+            raise
 
         logger.info(f"Default assets directory: {self.default_docs_dir}")
         logger.info(f"Default index directory: {self.default_index_user_path}")
@@ -80,15 +80,15 @@ class DefaultVectorDBBuilder:
                 logger.error(f"Error removing existing index files: {e}")
                 return False # Stop if we can't remove old files
         elif not force_rebuild and (os.path.exists(self.index_file_path) or os.path.exists(self.pkl_file_path)):
-             logger.info("Default index already exists and force_rebuild=False. Skipping creation.")
-             # Try loading it to confirm validity
-             try:
-                 faiss_handler.load_or_create_index(self.default_user_id)
-                 logger.info("Existing default index loaded successfully.")
-                 return True
-             except Exception as load_err:
-                 logger.error(f"Failed to load existing default index: {load_err}. Consider running with force_rebuild=True.")
-                 return False
+            logger.info("Default index already exists and force_rebuild=False. Skipping creation.")
+            # Try loading it to confirm validity
+            try:
+                faiss_handler.load_or_create_index(self.default_user_id)
+                logger.info("Existing default index loaded successfully.")
+                return True
+            except Exception as load_err:
+                logger.error(f"Failed to load existing default index: {load_err}. Consider running with force_rebuild=True.")
+                return False
 
 
         # --- Process Documents ---
@@ -108,8 +108,9 @@ class DefaultVectorDBBuilder:
                 try:
                     text_content = file_parser.parse_file(file_path)
                     if text_content and text_content.strip():
+                        # Pass the original filename (basename) as source_id
                         langchain_docs = file_parser.chunk_text(
-                            text_content, filename, self.default_user_id
+                            text_content, os.path.basename(filename), self.default_user_id
                         )
                         if langchain_docs:
                             all_documents.extend(langchain_docs)
@@ -130,13 +131,14 @@ class DefaultVectorDBBuilder:
             logger.error(f"No processable documents found or generated in {self.default_docs_dir}. Cannot create index.")
             # Still create an empty index structure if the directory was valid
             try:
-                 logger.info("Creating an empty index structure as no documents were found.")
-                 faiss_handler.load_or_create_index(self.default_user_id) # Creates empty index
-                 logger.info("Empty default index created successfully.")
-                 return True # Success, but empty
+                logger.info("Creating an empty index structure as no documents were found.")
+                # This will initialize the cache entry in faiss_handler.loaded_indices
+                faiss_handler.load_or_create_index(self.default_user_id)
+                logger.info("Empty default index structure prepared.")
+                return True # Success, but empty
             except Exception as empty_create_err:
-                 logger.error(f"Failed to create empty index structure: {empty_create_err}", exc_info=True)
-                 return False
+                logger.error(f"Failed to create empty index structure: {empty_create_err}", exc_info=True)
+                return False
 
 
         logger.info(f"Total files processed: {files_processed}, skipped: {files_skipped}")
@@ -145,8 +147,8 @@ class DefaultVectorDBBuilder:
         try:
             # The load_or_create_index function will handle creating the empty structure
             # if it doesn't exist (or after deletion if force_rebuild=True)
-            logger.info("Ensuring FAISS index structure exists...")
-            index_instance = faiss_handler.load_or_create_index(self.default_user_id)
+            logger.info("Ensuring FAISS index structure exists/is loaded...")
+            faiss_handler.load_or_create_index(self.default_user_id) # Ensure cache entry is ready
 
             logger.info(f"Adding {len(all_documents)} documents to the default index '{self.default_user_id}'...")
             # Use the updated handler function which now manages IDs correctly
@@ -154,8 +156,8 @@ class DefaultVectorDBBuilder:
 
             # Verify save occurred
             if not os.path.exists(self.index_file_path) or not os.path.exists(self.pkl_file_path):
-                 logger.error("Index files were not found after adding documents. Check permissions or disk space.")
-                 return False
+                logger.error("Index files were not found after adding documents. Check permissions or disk space.")
+                return False
 
             logger.info(f"Successfully created/updated and saved default index ({self.default_user_id}) with {len(all_documents)} document chunks.")
             logger.info("--- Default Index Creation Finished ---")
@@ -175,8 +177,15 @@ def main():
         sys.exit(1)
 
     if not os.path.isdir(builder.default_docs_dir):
-         logger.error(f"Default assets directory '{builder.default_docs_dir}' is missing.")
-         sys.exit(1)
+        logger.error(f"Default assets directory '{builder.default_docs_dir}' is missing.")
+        # Attempt to create it if missing, then continue to build an empty index perhaps
+        try:
+            os.makedirs(builder.default_docs_dir, exist_ok=True)
+            logger.info(f"Created missing default assets directory: {builder.default_docs_dir}")
+        except Exception as e:
+            logger.error(f"Could not create default assets directory: {e}")
+            sys.exit(1)
+
 
     # --- Always force rebuild as requested ---
     force = True

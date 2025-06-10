@@ -1,50 +1,93 @@
-# server/rag_service/file_parser.py
-
 import os
 import logging
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document # Import Document
+from pptx import Presentation # pip install python-pptx
 
-# It's good practice to have a logger in helper files too
 logger = logging.getLogger(__name__)
 
 def parse_file(file_path: str) -> str:
     """
-    Parses a file based on its extension and returns its text content as a single string.
-    
-    Args:
-        file_path: The absolute path to the file.
-
-    Returns:
-        The extracted text content, or an empty string if parsing fails or the file type is unsupported.
+    Parses various file types and returns their text content.
+    Supports .txt, .pdf, .docx, and .pptx.
     """
-    # Check if the file exists first
     if not os.path.exists(file_path):
-        logger.error(f"File not found at path: {file_path}")
+        logger.error(f"File not found: {file_path}")
         return ""
 
-    # Get the file extension and convert to lowercase
-    _, extension = os.path.splitext(file_path)
-    extension = extension.lower()
-
-    loader = None
-    if extension == '.pdf':
-        loader = PyPDFLoader(file_path)
-    elif extension == '.txt':
-        # Specify UTF-8 encoding for broad compatibility
-        loader = TextLoader(file_path, encoding='utf-8')
-    elif extension == '.docx':
-        loader = Docx2txtLoader(file_path)
-    else:
-        logger.warning(f"Unsupported file type '{extension}' for file: {file_path}")
-        return ""
+    file_extension = os.path.splitext(file_path)[1].lower()
+    text_content = ""
 
     try:
-        logger.info(f"Loading and parsing file: {file_path}")
-        documents = loader.load()
-        # Combine the page_content of all loaded documents into a single string
-        full_text = "\n".join([doc.page_content for doc in documents])
-        logger.info(f"Successfully parsed file. Extracted {len(full_text)} characters.")
-        return full_text
+        if file_extension == ".txt":
+            logger.info(f"Loading .txt file: {file_path}")
+            loader = TextLoader(file_path, encoding="utf-8")
+            docs = loader.load()
+            text_content = "\n".join([doc.page_content for doc in docs])
+        elif file_extension == ".pdf":
+            logger.info(f"Loading .pdf file: {file_path}")
+            loader = PyPDFLoader(file_path)
+            docs = loader.load()
+            text_content = "\n".join([doc.page_content for doc in docs])
+        elif file_extension == ".docx":
+            logger.info(f"Loading .docx file: {file_path}")
+            loader = Docx2txtLoader(file_path)
+            docs = loader.load()
+            text_content = "\n".join([doc.page_content for doc in docs])
+        elif file_extension == ".pptx":
+            logger.info(f"Loading .pptx file: {file_path}")
+            prs = Presentation(file_path)
+            full_text = []
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        full_text.append(shape.text)
+            text_content = "\n".join(full_text)
+        else:
+            logger.warning(f"Unsupported file type for parsing: {file_extension} in {file_path}")
+            return ""
+
+        if not text_content.strip():
+            logger.warning(f"No text content extracted from {file_path}.")
+            return ""
+
+        logger.info(f"Successfully extracted {len(text_content)} characters from {os.path.basename(file_path)}.")
+        return text_content
+
     except Exception as e:
-        logger.error(f"An error occurred while parsing file {file_path}: {e}", exc_info=True)
+        logger.error(f"Error parsing file {file_path}: {e}", exc_info=True)
         return ""
+
+def chunk_text(text_content: str, filename: str, user_id: str) -> list[Document]:
+    """
+    Chunks raw text content into Langchain Document objects with metadata.
+    """
+    if not text_content or not text_content.strip():
+        logger.warning(f"No text content provided for chunking from file: {filename}. Skipping.")
+        return []
+
+    from rag_service import config # Import config here to avoid circular dependency if file_parser imports config earlier
+
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=config.CHUNK_SIZE,
+        chunk_overlap=config.CHUNK_OVERLAP,
+        length_function=len,
+        add_start_index=True,
+    )
+
+    chunks = text_splitter.create_documents([text_content])
+
+    # Add metadata to each chunk
+    langchain_docs = []
+    for i, chunk in enumerate(chunks):
+        chunk.metadata = {
+            "source": filename,
+            "user_id": user_id,
+            "chunk_id": f"{user_id}_{filename}_{i}",
+            "start_index": chunk.metadata.get("start_index", 0),
+        }
+        langchain_docs.append(chunk)
+
+    logger.info(f"Chunked '{filename}' into {len(langchain_docs)} documents for user '{user_id}'.")
+    return langchain_docs

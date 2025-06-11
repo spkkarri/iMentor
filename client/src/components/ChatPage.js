@@ -351,57 +351,31 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         const messageText = msg.parts[0]?.text || '';
                         const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
-                        if (msg.type === 'mindmap') {
-                            return (
-                                <div key={index} className={`message ${msg.role}`}>
-                                    <div className="message-content">
-                                        <p>{messageText}</p>
-                                        <div id={`mindmap-container-${index}`} className="mindmap-container-for-export">
-                                            <MindMap mindMapData={msg.mindMapData} />
-                                        </div>
-                                        <div className="mindmap-actions">
-                                            <button onClick={() => handleOpenMindMapFullscreen(index)} className="mindmap-action-button">
-                                                View Fullscreen
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="message-footer">
-                                        <span className="message-timestamp">{timestamp}</span>
-                                        {msg.role === 'assistant' && (
-                                            <button onClick={() => handleSpeakMessage(messageText)} className="speaker-icon-button" title="Listen to message">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                                                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        }
-                        if (msg.type === 'audio') {
-                            return (
-                                <div key={index} className={`message ${msg.role}`}>
-                                    <div className="message-content">
-                                        <p>{messageText}</p>
-                                        <audio controls src={msg.audioUrl} style={{ width: '100%', marginTop: '10px' }} />
-                                    </div>
-                                    <div className="message-footer">
-                                        <span className="message-timestamp">{timestamp}</span>
-                                        {msg.role === 'assistant' && (
-                                            <button onClick={() => handleSpeakMessage(messageText)} className="speaker-icon-button" title="Listen to message">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                                                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        }
+                        // --- THIS IS THE ONLY MODIFIED SECTION ---
+                        // We now use a consistent structure for all messages
                         return (
                             <div key={index} className={`message ${msg.role}`}>
                                 <div className="message-content">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                                    {msg.type === 'mindmap' ? (
+                                        <>
+                                            <p>{messageText}</p>
+                                            <div id={`mindmap-container-${index}`} className="mindmap-container-for-export">
+                                                <MindMap mindMapData={msg.mindMapData} />
+                                            </div>
+                                            <div className="mindmap-actions">
+                                                <button onClick={() => handleOpenMindMapFullscreen(index)} className="mindmap-action-button">
+                                                    View Fullscreen
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : msg.type === 'audio' ? (
+                                        <>
+                                            <p>{messageText}</p>
+                                            <audio controls src={msg.audioUrl} style={{ width: '100%', marginTop: '10px' }} />
+                                        </>
+                                    ) : (
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                                    )}
                                 </div>
                                 <div className="message-footer">
                                     <span className="message-timestamp">{timestamp}</span>
@@ -415,6 +389,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                 </div>
                             </div>
                         );
+                        // --- END OF MODIFIED SECTION ---
                     })}
                     <div ref={messagesEndRef} />
                 </div>

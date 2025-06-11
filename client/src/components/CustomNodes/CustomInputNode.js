@@ -1,7 +1,7 @@
 // client/src/components/CustomNodes/CustomInputNode.js
 import React from 'react';
 import { Handle, Position } from 'reactflow';
-import './CustomNodes.css';
+import './CustomNode.css';
 
 const CustomInputNode = ({ data }) => {
     return (

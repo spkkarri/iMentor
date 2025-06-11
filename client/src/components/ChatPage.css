@@ -1,442 +1,137 @@
-/* Existing styles in ChatPage.css (ensure these are present) */
+/* client/src/components/ChatPage.css */
 
+/* --- Main Layout --- */
 .chat-page-container {
-    display: flex;
-    height: 100vh;
-    background-color: var(--background-color-dark); /* Example: adjust to your theme */
-    color: var(--text-color);
+  display: flex;
+  height: calc(100vh - 40px);
+  gap: 20px;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .sidebar-area {
-    width: 280px; /* Adjust as needed */
-    background-color: var(--sidebar-bg-color); /* Example: adjust to your theme */
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    border-right: 1px solid var(--border-color);
-    overflow-y: auto;
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  padding-right: 10px;
 }
 
 .chat-container {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--chat-bg-color); /* Example: adjust to your theme */
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
+/* --- Header --- */
 .chat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 20px;
-    background-color: var(--header-bg-color); /* Example: adjust to your theme */
-    border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: #3c3c3c;
+  border-bottom: 1px solid #444;
 }
 
 .chat-header h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: var(--header-text-color);
+  margin: 0;
+  font-size: 1.2rem;
 }
 
 .header-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .username-display {
-    font-size: 0.95rem;
-    color: var(--text-color-secondary);
+  font-size: 0.9rem;
+  color: #b3b3b3;
 }
 
 .header-button {
-    background-color: var(--button-bg-color);
-    color: var(--button-text-color);
-    border: none;
-    border-radius: var(--border-radius);
-    padding: 8px 15px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
+  background: none;
+  border: 1px solid #555;
+  color: #e0e0e0;
+  padding: 6px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
 }
 
-.header-button:hover:not(:disabled) {
-    background-color: var(--button-hover-bg);
+.header-button:hover {
+  background-color: #4a4a4a;
+  border-color: #777;
 }
 
-.header-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
+/* --- Messages Area --- */
 .messages-area {
-    flex-grow: 1;
-    padding: 20px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Space between messages */
 }
 
+/* --- THIS IS THE NEW, MODERN CHAT BUBBLE STYLING --- */
 .message {
-    display: flex;
-    flex-direction: column;
-    max-width: 70%;
-    align-self: flex-start; /* Default for assistant */
+  display: flex;
+  flex-direction: column;
+  max-width: 75%; /* Bubbles don't span the whole screen */
 }
 
 .message.user {
-    align-self: flex-end;
+  align-self: flex-end; /* User messages on the right */
+}
+
+.message.assistant {
+  align-self: flex-start; /* Assistant messages on the left */
 }
 
 .message-content {
-    padding: 10px 15px;
-    border-radius: 18px;
-    word-wrap: break-word;
+  padding: 10px 15px;
+  border-radius: 18px; /* Rounded corners */
+  line-height: 1.6;
+  word-wrap: break-word;
 }
 
 .message.user .message-content {
-    background-color: var(--user-message-bg);
-    color: var(--user-message-text);
-    border-bottom-right-radius: 2px;
+  background-color: #3c3c3c; /* Dark background for user */
+  color: #e0e0e0;
+  border-bottom-right-radius: 4px; /* "Tail" for the bubble */
 }
 
 .message.assistant .message-content {
-    background-color: var(--assistant-message-bg);
-    color: var(--assistant-message-text);
-    border-bottom-left-radius: 2px;
+  background-color: #4a4a4a; /* Slightly different grey for assistant */
+  color: #e0e0e0;
+  border-bottom-left-radius: 4px; /* "Tail" for the bubble */
 }
 
-.message-timestamp {
-    font-size: 0.75rem;
-    color: var(--text-color-secondary);
-    margin-top: 4px;
-    align-self: flex-end; /* Timestamp for user messages */
-}
-
-.message.assistant .message-timestamp {
-    align-self: flex-start; /* Timestamp for assistant messages */
-}
-
-.loading-indicator,
-.error-indicator {
-    padding: 10px;
-    text-align: center;
-    font-size: 0.9rem;
-    color: var(--text-color-secondary);
-}
-
-.error-indicator {
-    color: var(--error-color); /* A red color for errors */
-    background-color: var(--error-bg); /* A light red background */
-    border-radius: var(--border-radius);
-    margin: 10px;
-}
-
-/* --- Input Area and Button Styles --- */
-.input-area {
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    background-color: var(--input-bg-color);
-    border-top: 1px solid var(--border-color);
-    gap: 10px;
-}
-
-.input-area textarea {
-    flex-grow: 1;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 8px 12px;
-    resize: none;
-    font-size: 1rem;
-    line-height: 1.4;
-    max-height: 100px;
-    overflow-y: auto;
-    background-color: var(--background-color-light);
-    color: var(--text-color);
-}
-
-.input-area button {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: var(--border-radius);
-    padding: 12px; /* Set uniform padding for all buttons */
-    cursor: pointer;
-    display: flex; /* Make it a flex container to center SVG */
-    align-items: center; /* Center SVG vertically */
-    justify-content: center; /* Center SVG horizontally */
-    transition: background-color 0.2s ease;
-    flex-shrink: 0;
-}
-
-.input-area button:hover:not(:disabled) {
-    background-color: var(--primary-color-dark);
-}
-
-.input-area button:disabled {
-    background-color: var(--button-disabled-bg);
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-/* CRUCIAL: Target the SVG directly within the button to control its size */
-.input-area button svg {
-    width: 24px;   /* Desired width for the icon */
-    height: 24px;  /* Desired height for the icon */
-    display: block; /* Ensure it behaves as a block element within flex container */
-    /* You can add color here if fill="currentColor" isn't enough, e.g., color: white; */
-}
-
-
-/* Specific style for the microphone button */
-.mic-button {
-    /* Inherits general button styles. Add specific visual cues here. */
-}
-
-.mic-button.listening {
-    background-color: #ff4d4d; /* Red color when listening */
-    animation: pulse 1s infinite alternate; /* Simple pulse effect */
-}
-
-@keyframes pulse {
-    from { transform: scale(1); }
-    to { transform: scale(1.05); }
-}
-
-.rag-toggle-container {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-shrink: 0;
-}
-
-.rag-toggle-container label {
-    font-size: 0.9rem;
-    color: var(--text-color);
-    cursor: pointer;
-}
-
-.rag-toggle-container input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-}
-
-.rag-toggle-container input[type="checkbox"]:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-}
-
-/* If you have root CSS variables, ensure they are defined, e.g.: */
-/* :root {
-    --primary-color: #007bff;
-    --primary-color-dark: #0056b3;
-    --background-color-dark: #222;
-    --sidebar-bg-color: #333;
-    --chat-bg-color: #282828;
-    --header-bg-color: #3a3a3a;
-    --input-bg-color: #333;
-    --border-color: #555;
-    --text-color: #eee;
-    --text-color-secondary: #aaa;
-    --button-bg-color: #555;
-    --button-text-color: #fff;
-    --button-hover-bg: #666;
-    --button-disabled-bg: #444;
-    --user-message-bg: #007bff;
-    --user-message-text: #fff;
-    --assistant-message-bg: #444;
-    --assistant-message-text: #eee;
-    --error-color: #ff6347;
-    --error-bg: #ffeded;
-    --border-radius: 8px;
-} */
-
-/* Existing styles in ChatPage.css */
-
-/* ... (ensure other layout and theming styles are here) ... */
-
-/* Styles for message bubbles */
-.message {
-    display: flex;
-    flex-direction: column;
-    max-width: 70%;
-    align-self: flex-start; /* Default for assistant */
-    position: relative; /* Needed for positioning the speaker icon */
-}
-
-.message.user {
-    align-self: flex-end;
-}
-
-.message-content {
-    padding: 10px 15px;
-    border-radius: 18px;
-    word-wrap: break-word;
-}
-
-.message.user .message-content {
-    background-color: var(--user-message-bg);
-    color: var(--user-message-text);
-    border-bottom-right-radius: 2px;
-}
-
-.message.assistant .message-content {
-    background-color: var(--assistant-message-bg);
-    color: var(--assistant-message-text);
-    border-bottom-left-radius: 2px;
-    padding-right: 40px; /* Make space for the speaker icon */
-}
-
-.message-timestamp {
-    font-size: 0.75rem;
-    color: var(--text-color-secondary);
-    margin-top: 4px;
-    align-self: flex-end; /* Timestamp for user messages */
-}
-
-.message.assistant .message-timestamp {
-    align-self: flex-start; /* Timestamp for assistant messages */
-}
-
-
-/* NEW: Styles for the speaker icon button */
-.speaker-icon-button {
-    position: absolute;
-    top: 5px; /* Adjust as needed */
-    right: 5px; /* Adjust as needed, to position inside message bubble */
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 5px; /* Adjust padding for click area */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-color-secondary); /* Icon color */
-    transition: color 0.2s ease;
-}
-
-.speaker-icon-button:hover {
-    color: var(--primary-color); /* Hover effect */
-}
-
-.speaker-icon-button svg {
-    width: 18px; /* Size of the speaker icon */
-    height: 18px;
-}
-
-/* ... (rest of your existing ChatPage.css, including input-area and button styles) ... */
-
-/* Example CSS Variables (define these in your :root or similar global style) */
-/*
-:root {
-    --primary-color: #007bff;
-    --primary-color-dark: #0056b3;
-    --background-color-dark: #222;
-    --sidebar-bg-color: #333;
-    --chat-bg-color: #282828;
-    --header-bg-color: #3a3a3a;
-    --input-bg-color: #333;
-    --border-color: #555;
-    --text-color: #eee;
-    --text-color-secondary: #aaa;
-    --button-bg-color: #555;
-    --button-text-color: #fff;
-    --button-hover-bg: #666;
-    --button-disabled-bg: #444;
-    --user-message-bg: #007bff;
-    --user-message-text: #fff;
-    --assistant-message-bg: #444;
-    --assistant-message-text: #eee;
-    --error-color: #ff6347;
-    --error-bg: #ffeded;
-    --border-radius: 8px;
-}
-*/
-/* Existing styles in ChatPage.css */
-
-/* ... (ensure other layout and theming styles are here) ... */
-
-/* Styles for message bubbles */
-.message {
-    display: flex; /* Change to flex */
-    flex-direction: column; /* Stack content and footer vertically */
-    max-width: 70%;
-    align-self: flex-start; /* Default for assistant */
-    position: relative;
-    margin-bottom: 10px; /* Add some space between messages */
-}
-
-.message.user {
-    align-self: flex-end;
-}
-
-.message-content {
-    padding: 10px 15px;
-    border-radius: 18px;
-    word-wrap: break-word;
-    /* Remove padding-right here if it was added for the icon */
-    /* padding-right: 40px;  <-- REMOVE THIS if you had it */
-}
-
-.message.user .message-content {
-    background-color: var(--user-message-bg);
-    color: var(--user-message-text);
-    border-bottom-right-radius: 2px;
-}
-
-.message.assistant .message-content {
-    background-color: var(--assistant-message-bg);
-    color: var(--assistant-message-text);
-    border-bottom-left-radius: 2px;
-}
-
-/* NEW: Styles for the message footer */
 .message-footer {
-    display: flex; /* Make it a flex container */
-    align-items: center; /* Vertically align items in the footer */
-    gap: 5px; /* Space between timestamp and icon */
-    margin-top: 4px; /* Space between message content and footer */
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  gap: 10px;
 }
 
 .message.user .message-footer {
-    justify-content: flex-end; /* Align footer to the right for user messages */
+  justify-content: flex-end;
 }
 
 .message.assistant .message-footer {
-    justify-content: flex-start; /* Align footer to the left for assistant messages */
-    padding-left: 15px; /* Match left padding of message content */
-}
-
-
-.message-timestamp {
-    font-size: 0.75rem;
-    color: var(--text-color-secondary);
-    /* margin-top: 4px; <-- REMOVE THIS, replaced by margin-top on .message-footer */
-    /* align-self: flex-end; <-- REMOVE THIS, replaced by flex in .message-footer */
-}
-
-
-  /* In client/src/components/ChatPage.css */
-
-/* ... (keep all other styles the same) ... */
-
-/* --- BUG 3 FIX: Correctly position the footer items --- */
-.message-footer {
-  display: flex; /* Use Flexbox */
-  justify-content: flex-end; /* Push items to the right */
-  align-items: center; /* Vertically align them */
-  margin-top: 8px;
-  gap: 10px; /* Add space between items */
+  justify-content: flex-start;
+  padding-left: 5px;
 }
 
 .message-timestamp {
   font-size: 0.75rem;
   color: #888;
-  /* No longer need to float or position this */
 }
 
 .speaker-icon-button {
@@ -447,6 +142,7 @@
   padding: 0;
   display: flex;
   align-items: center;
+  transition: color 0.2s;
 }
 
 .speaker-icon-button:hover {
@@ -457,16 +153,90 @@
   width: 18px;
   height: 18px;
 }
+/* --- END OF NEW STYLING --- */
 
-/* ... (keep all other styles the same) ... */
+
+/* --- Input Area --- */
+.input-area {
+  display: flex;
+  padding: 15px;
+  border-top: 1px solid #444;
+  gap: 10px;
+  align-items: center;
+}
+
+.input-area textarea {
+  flex-grow: 1;
+  background-color: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 8px;
+  color: #fff;
+  padding: 10px 15px;
+  font-size: 1rem;
+  resize: none;
+  font-family: inherit;
+  min-height: 24px;
+  max-height: 150px;
+}
+
+.input-area button {
+  flex-shrink: 0;
+  background-color: #90caf9;
+  color: #121212;
+  border: none;
+  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.input-area button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.input-area .icon-button {
+  background: none;
+  color: #888;
+}
+
+.input-area .icon-button:hover {
+  color: #fff;
+}
+
+.input-area .mic-button.listening {
+  color: #f44336;
+}
+
+.rag-toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #b3b3b3;
+}
+
+/* --- Indicators & Mind Map --- */
+.loading-indicator,
+.error-indicator {
+  text-align: center;
+  padding: 10px;
+  font-style: italic;
+  color: #b3b3b3;
+}
+
+.error-indicator {
+  color: #f44336;
+}
+
 .mindmap-container-for-export {
-  /* This background is crucial for the SVG/PNG capture */
   background-color: #2d2d2d; 
   padding: 20px;
   border-radius: 8px;
   margin-top: 12px;
   margin-bottom: 12px;
-  /* Ensure it has a defined size */
   height: 400px; 
   width: 100%;
 }
@@ -486,15 +256,8 @@
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: bold;
-  transition: background-color 0.2s;
 }
 
 .mindmap-action-button:hover {
   background-color: #5a5a5a;
-}
-
-/* Make the speaker icon a bit more uniform */
-.speaker-icon-button svg {
-    width: 16px;
-    height: 16px;
 }

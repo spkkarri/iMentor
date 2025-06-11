@@ -5,7 +5,7 @@ import sys
 import uuid
 import re
 import json
-import math  # <-- CRITICAL: ADD THIS IMPORT
+# We no longer need 'math' for the layout, so it can be removed.
 import google.generativeai as genai
 from flask import Flask, request, jsonify, send_from_directory
 import pyttsx3
@@ -150,63 +150,45 @@ def generate_mindmap_data_with_gemini(text_content):
         logger.error(f"Gemini mind map generation failed: {e}", exc_info=True)
         return None
 
-# --- THIS IS THE REPLACED AND CORRECTED FUNCTION ---
+# --- THIS IS THE NEW, SIMPLIFIED FUNCTION ---
+# We no longer calculate positions here. The frontend will do it.
 def format_for_react_flow(mindmap_data):
     if not mindmap_data or 'central_idea' not in mindmap_data:
         return None
         
     nodes, edges = [], []
     
-    # 1. Central Node (always at the center)
+    # Central Node
     central_id = 'node-central'
     nodes.append({
         'id': central_id,
         'data': {'label': mindmap_data.get('central_idea', 'Central Idea')},
-        'position': {'x': 0, 'y': 0}, # CRITICAL: Add position
+        # NO 'position' property here anymore
         'type': 'customInput'
     })
     
-    main_topics = mindmap_data.get('main_topics', [])
-    num_main_topics = len(main_topics)
-    
-    # 2. Main Topic Nodes (arranged in a circle)
-    for i, main_topic in enumerate(main_topics):
+    # Main Topic Nodes
+    for i, main_topic in enumerate(mindmap_data.get('main_topics', [])):
         main_id = f'node-main-{i}'
-        # Calculate position in a circle around the center
-        angle = (i / num_main_topics) * 2 * math.pi if num_main_topics > 0 else 0
-        radius = 300
-        x_pos = radius * math.cos(angle)
-        y_pos = radius * math.sin(angle)
-        
         nodes.append({
             'id': main_id,
             'data': {'label': main_topic.get('topic', 'Main Topic')},
-            'position': {'x': x_pos, 'y': y_pos}, # CRITICAL: Add position
             'type': 'customDefault'
         })
         edges.append({'id': f'edge-central-main-{i}', 'source': central_id, 'target': main_id, 'animated': True})
         
-        # 3. Sub-Topic Nodes (arranged around their main topic)
-        sub_topics = main_topic.get('sub_topics', [])
-        num_sub_topics = len(sub_topics)
-        for j, sub_topic in enumerate(sub_topics):
+        # Sub-Topic Nodes
+        for j, sub_topic in enumerate(main_topic.get('sub_topics', [])):
             sub_id = f'node-sub-{i}-{j}'
-            # Calculate position in a smaller circle around the main topic node
-            sub_angle = (j / (num_sub_topics + 1)) * 2 * math.pi
-            sub_radius = 150
-            sub_x_pos = x_pos + sub_radius * math.cos(sub_angle)
-            sub_y_pos = y_pos + sub_radius * math.sin(sub_angle)
-            
             nodes.append({
                 'id': sub_id,
                 'data': {'label': sub_topic},
-                'position': {'x': sub_x_pos, 'y': sub_y_pos}, # CRITICAL: Add position
                 'type': 'customOutput'
             })
             edges.append({'id': f'edge-main-{i}-sub-{j}', 'source': main_id, 'target': sub_id})
             
     return {'nodes': nodes, 'edges': edges}
-# --- END OF REPLACED FUNCTION ---
+# --- END OF MODIFIED FUNCTION ---
 
 
 # --- API ENDPOINTS ---

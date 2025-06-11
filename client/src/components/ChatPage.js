@@ -41,7 +41,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
-    const mindMapRefs = useRef({});
     const navigate = useNavigate();
 
     const isProcessing = isLoading || isRagLoading || isPodcastLoading || isMindMapLoading;
@@ -264,24 +263,17 @@ const ChatPage = ({ setIsAuthenticated }) => {
     }, [isProcessing]);
 
     const handleOpenMindMapFullscreen = useCallback((messageIndex) => {
-        const mindMapInstance = mindMapRefs.current[messageIndex];
-        if (mindMapInstance && typeof mindMapInstance.getSvgData === 'function') {
-            try {
-                const svgString = mindMapInstance.getSvgData(); // This is no longer async
-                if (svgString) {
-                    const htmlContent = `
-                        <!DOCTYPE html><html lang="en"><head><title>Mind Map Fullscreen</title><style>body{margin:0;padding:20px;background-color:#1a1a1a;display:flex;justify-content:center;align-items:center;height:100vh;box-sizing:border-box;}svg{max-width:100%;max-height:100%;}</style></head><body>${svgString}</body></html>`;
-                    const blob = new Blob([htmlContent], { type: 'text/html' });
-                    const url = URL.createObjectURL(blob);
-                    window.open(url, '_blank');
-                    setTimeout(() => URL.revokeObjectURL(url), 1000);
-                } else {
-                    throw new Error("getSvgData returned empty data.");
-                }
-            } catch (err) {
-                console.error("Failed to get SVG data from MindMap component:", err);
-                setError("Could not generate fullscreen mind map.");
+        const mindMapContainer = document.getElementById(`mindmap-container-${messageIndex}`);
+        if (mindMapContainer) {
+            if (mindMapContainer.requestFullscreen) {
+                mindMapContainer.requestFullscreen();
+            } else if (mindMapContainer.webkitRequestFullscreen) { /* Safari */
+                mindMapContainer.webkitRequestFullscreen();
+            } else if (mindMapContainer.msRequestFullscreen) { /* IE11 */
+                mindMapContainer.msRequestFullscreen();
             }
+        } else {
+            setError("Could not find the mind map element to make fullscreen.");
         }
     }, []);
 
@@ -364,11 +356,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                 <div key={index} className={`message ${msg.role}`}>
                                     <div className="message-content">
                                         <p>{messageText}</p>
-                                        <div id={`mindmap-${index}`} className="mindmap-container-for-export">
-                                            <MindMap
-                                                ref={(el) => (mindMapRefs.current[index] = el)}
-                                                mindMapData={msg.mindMapData}
-                                            />
+                                        <div id={`mindmap-container-${index}`} className="mindmap-container-for-export">
+                                            <MindMap mindMapData={msg.mindMapData} />
                                         </div>
                                         <div className="mindmap-actions">
                                             <button onClick={() => handleOpenMindMapFullscreen(index)} className="mindmap-action-button">

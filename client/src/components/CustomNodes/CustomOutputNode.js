@@ -1,15 +1,16 @@
 // client/src/components/CustomNodes/CustomOutputNode.js
-import React from 'react';
+import React, { memo } from 'react';
 import { Handle, Position } from 'reactflow';
-import './CustomNodes.css';
+import { FaFileAlt } from 'react-icons/fa'; // Icon for sub-topics
 
 const CustomOutputNode = ({ data }) => {
-    return (
-        <div className="custom-node output">
-            <Handle type="target" position={Position.Top} />
-            <div>{data.label}</div>
-        </div>
-    );
+  return (
+    <div className="custom-node custom-output-node">
+      <FaFileAlt className="node-icon" />
+      <div className="node-label">{data.label}</div>
+      <Handle type="target" position={Position.Top} />
+    </div>
+  );
 };
 
-export default CustomOutputNode;
+export default memo(CustomOutputNode);

@@ -1,39 +1,84 @@
 /* client/src/components/MindMap.css */
 
 .react-flow-mindmap {
-    background-color: #2d2d2d;
-    border-radius: 8px;
+  background-color: #1a1a1a;
 }
 
+.mindmap-loading,
 .mindmap-error {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    color: #f44336;
-    background-color: #333;
-    border-radius: 8px;
-    font-style: italic;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #a0a0a0;
+  font-style: italic;
 }
 
-/* Styling for the minimap */
+/* --- Base Custom Node Styling --- */
+.custom-node {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  border-radius: 8px;
+  background: #2d2d2d;
+  color: #e0e0e0;
+  border: 2px solid;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+  /* --- CRITICAL LAYOUT FIX --- */
+  width: 200px; /* Give nodes a consistent width */
+  text-align: center; /* Center the text */
+}
+
+.custom-node:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Icon Styling --- */
+.node-icon {
+  margin-right: 10px;
+  font-size: 18px;
+  flex-shrink: 0; /* Prevent icon from shrinking */
+}
+
+.node-label {
+  flex-grow: 1;
+  /* --- CRITICAL LAYOUT FIX --- */
+  white-space: normal;  /* Allow text to wrap to new lines */
+  word-break: break-word; /* Break long words if necessary */
+}
+
+/* --- Specific Node Type Colors --- */
+.custom-input-node { border-color: #81c784; }
+.custom-input-node .node-icon { color: #81c784; }
+
+.custom-default-node { border-color: #64b5f6; }
+.custom-default-node .node-icon { color: #64b5f6; }
+
+.custom-output-node { border-color: #e57373; }
+.custom-output-node .node-icon { color: #e57373; }
+
+/* --- Styling the React Flow UI Elements --- */
 .react-flow__minimap {
-    background-color: #1a1a1a !important;
-    border: 1px solid #444;
+  background-color: #2d2d2d !important;
+  border: 1px solid #555;
+  border-radius: 5px;
 }
 
-/* Styling for the controls */
 .react-flow__controls button {
-    background-color: #333 !important;
-    color: #fff !important;
-    border-bottom: 1px solid #444 !important;
+  background-color: #2d2d2d !important;
+  border-bottom: 1px solid #555 !important;
+  color: #e0e0e0;
 }
 
 .react-flow__controls button:hover {
-    background-color: #444 !important;
+  background-color: #444 !important;
 }
 
-/* Styling for the background pattern */
 .react-flow__background {
-    background-color: #1a1a1a;
+  background-color: #1a1a1a;
 }

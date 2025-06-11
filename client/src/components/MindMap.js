@@ -1,15 +1,14 @@
 // client/src/components/MindMap.js
 
-import React, { useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import ReactFlow, {
     Background,
     Controls,
     MiniMap,
-    useNodesState,
-    useEdgesState,
-    useReactFlow,
     ReactFlowProvider,
+    MarkerType,
 } from 'reactflow';
+import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 import './MindMap.css';
 
@@ -17,110 +16,98 @@ import CustomInputNode from './CustomNodes/CustomInputNode';
 import CustomDefaultNode from './CustomNodes/CustomDefaultNode';
 import CustomOutputNode from './CustomNodes/CustomOutputNode';
 
-// This is the inner component that has access to the React Flow instance
-const MindMapContent = forwardRef(({ mindMapData }, ref) => {
-    const [nodes, setNodes, onNodesChange] = useNodesState(mindMapData.nodes || []);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(mindMapData.edges || []);
-    
-    // Get the functions we need from the useReactFlow hook
-    const { getNodes, getEdges } = useReactFlow();
+const getLayoutedElements = (nodes, edges) => {
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+    const nodeWidth = 200;
+    const nodeHeight = 50; // This is an estimate; CSS will determine the real height
+    dagreGraph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 70 });
+
+    nodes.forEach((node) => {
+        dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    });
+
+    edges.forEach((edge) => {
+        dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    nodes.forEach((node) => {
+        const nodeWithPosition = dagreGraph.node(node.id);
+        node.targetPosition = 'top';
+        node.sourcePosition = 'bottom';
+        node.position = {
+            x: nodeWithPosition.x - nodeWidth / 2,
+            y: nodeWithPosition.y - nodeHeight / 2,
+        };
+    });
+
+    return { nodes, edges };
+};
+
+const MindMapContent = ({ mindMapData }) => {
+    const [layoutedElements, setLayoutedElements] = useState(null);
 
     const nodeTypes = useMemo(() => ({
         customInput: CustomInputNode,
         customDefault: CustomDefaultNode,
         customOutput: CustomOutputNode,
     }), []);
+    
+    const defaultEdgeOptions = {
+        type: 'smoothstep',
+        animated: true,
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#90caf9' },
+        style: { stroke: '#90caf9', strokeWidth: 2 },
+    };
 
-    // This function will be exposed to the parent component (ChatPage)
-    useImperativeHandle(ref, () => ({
-        getSvgData: () => {
-            // CRITICAL: Get the current, rendered nodes and edges
-            const nodesToExport = getNodes();
-            const edgesToExport = getEdges();
-
-            if (nodesToExport.length === 0) {
-                return null;
-            }
-
-            // This is a robust SVG generator that now uses the correct node dimensions
-            const padding = 40;
-            const xCoords = nodesToExport.map((node) => node.position.x);
-            const yCoords = nodesToExport.map((node) => node.position.y);
-            const widths = nodesToExport.map((node) => node.width || 0);
-            const heights = nodesToExport.map((node) => node.height || 0);
-
-            const minX = Math.min(...xCoords);
-            const minY = Math.min(...yCoords);
-            const maxX = Math.max(...xCoords.map((x, i) => x + widths[i]));
-            const maxY = Math.max(...yCoords.map((y, i) => y + heights[i]));
-
-            const width = maxX - minX + padding * 2;
-            const height = maxY - minY + padding * 2;
-
-            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${minX - padding} ${minY - padding} ${width} ${height}">
-                <style>
-                    .edge-path { stroke: #90caf9; stroke-width: 2; fill: none; }
-                    .node-label { font-family: Arial, sans-serif; font-size: 14px; fill: #ffffff; dominant-baseline: middle; text-anchor: middle; }
-                    .node-rect { fill: #2d2d2d; stroke-width: 2; rx: 5; }
-                    .node-rect-custominput { stroke: #4caf50; }
-                    .node-rect-customdefault { stroke: #90caf9; }
-                    .node-rect-customoutput { stroke: #f44336; }
-                </style>
-                <g>`;
-
-            edgesToExport.forEach(edge => {
-                const sourceNode = nodesToExport.find(n => n.id === edge.source);
-                const targetNode = nodesToExport.find(n => n.id === edge.target);
-                if (sourceNode && targetNode) {
-                    const sourceX = sourceNode.position.x + (sourceNode.width / 2);
-                    const sourceY = sourceNode.position.y + (sourceNode.height);
-                    const targetX = targetNode.position.x + (targetNode.width / 2);
-                    const targetY = targetNode.position.y;
-                    svg += `<path d="M ${sourceX},${sourceY} C ${sourceX},${sourceY + 60} ${targetX},${targetY - 60} ${targetX},${targetY}" class="edge-path" />`;
-                }
-            });
-
-            nodesToExport.forEach(node => {
-                const nodeClass = `node-rect-${node.type}`;
-                svg += `<g transform="translate(${node.position.x}, ${node.position.y})">
-                    <rect width="${node.width}" height="${node.height}" class="node-rect ${nodeClass}" />
-                    <text x="${node.width / 2}" y="${node.height / 2}" class="node-label">${node.data.label}</text>
-                </g>`;
-            });
-
-            svg += `</g></svg>`;
-            return svg;
+    useEffect(() => {
+        if (mindMapData.nodes && mindMapData.edges) {
+            const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+                mindMapData.nodes,
+                mindMapData.edges
+            );
+            setLayoutedElements({ nodes: layoutedNodes, edges: layoutedEdges });
         }
-    }));
+    }, [mindMapData]);
+
+    if (!layoutedElements) {
+        return <div className="mindmap-loading">Generating layout...</div>;
+    }
 
     return (
         <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            nodes={layoutedElements.nodes}
+            edges={layoutedElements.edges}
             nodeTypes={nodeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
             fitView
             className="react-flow-mindmap"
         >
-            <Background />
+            <Background gap={20} color="#444" />
             <Controls />
-            <MiniMap />
+            <MiniMap nodeColor={(n) => {
+                if (n.type === 'customInput') return '#81c784';
+                if (n.type === 'customOutput') return '#e57373';
+                return '#64b5f6';
+            }} nodeStrokeWidth={3} pannable />
         </ReactFlow>
     );
-});
+};
 
-// The main component wraps the content in a ReactFlowProvider
-const MindMap = forwardRef(({ mindMapData }, ref) => {
+// The main component is now much simpler
+const MindMap = ({ mindMapData }) => {
     if (!mindMapData || !mindMapData.nodes || !mindMapData.edges) {
         return <div className="mindmap-error">Invalid mind map data provided.</div>;
     }
 
     return (
         <ReactFlowProvider>
-            <MindMapContent mindMapData={mindMapData} ref={ref} />
+            <MindMapContent mindMapData={mindMapData} />
         </ReactFlowProvider>
     );
-});
+};
 
 export default MindMap;

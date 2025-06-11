@@ -5,7 +5,6 @@ import sys
 import uuid
 import re
 import json
-# We no longer need 'math' for the layout, so it can be removed.
 import google.generativeai as genai
 from flask import Flask, request, jsonify, send_from_directory
 import pyttsx3
@@ -150,24 +149,19 @@ def generate_mindmap_data_with_gemini(text_content):
         logger.error(f"Gemini mind map generation failed: {e}", exc_info=True)
         return None
 
-# --- THIS IS THE NEW, SIMPLIFIED FUNCTION ---
-# We no longer calculate positions here. The frontend will do it.
 def format_for_react_flow(mindmap_data):
     if not mindmap_data or 'central_idea' not in mindmap_data:
         return None
         
     nodes, edges = [], []
     
-    # Central Node
     central_id = 'node-central'
     nodes.append({
         'id': central_id,
         'data': {'label': mindmap_data.get('central_idea', 'Central Idea')},
-        # NO 'position' property here anymore
         'type': 'customInput'
     })
     
-    # Main Topic Nodes
     for i, main_topic in enumerate(mindmap_data.get('main_topics', [])):
         main_id = f'node-main-{i}'
         nodes.append({
@@ -177,7 +171,6 @@ def format_for_react_flow(mindmap_data):
         })
         edges.append({'id': f'edge-central-main-{i}', 'source': central_id, 'target': main_id, 'animated': True})
         
-        # Sub-Topic Nodes
         for j, sub_topic in enumerate(main_topic.get('sub_topics', [])):
             sub_id = f'node-sub-{i}-{j}'
             nodes.append({
@@ -188,8 +181,6 @@ def format_for_react_flow(mindmap_data):
             edges.append({'id': f'edge-main-{i}-sub-{j}', 'source': main_id, 'target': sub_id})
             
     return {'nodes': nodes, 'edges': edges}
-# --- END OF MODIFIED FUNCTION ---
-
 
 # --- API ENDPOINTS ---
 def create_error_response(message, status_code=500):
@@ -224,10 +215,7 @@ def chat_route():
     except Exception as e:
         return create_error_response(f"Error during chat processing: {e}", 500)
 
-# In rag_service/app.py
-
-# ... (keep all other code the same)
-
+# --- THIS IS THE MODIFIED AND CORRECTED ROUTE ---
 @app.route('/query', methods=['POST'])
 def query_index_route():
     data = request.get_json()
@@ -244,26 +232,23 @@ def query_index_route():
         relevant_docs = faiss_handler.search_faiss_index(user_id, query, k=3)
         context = "\n".join([doc.page_content for doc in relevant_docs])
 
-        # --- BUG 2 FIX: New Hybrid RAG Prompt ---
+        # --- BUG FIX: New, more seamless RAG prompt ---
         rag_prompt = f"""
-        You are a helpful assistant with a special task. You have been provided with a context from a user's document.
-        Your primary goal is to answer the user's question based *only* on this context.
+        You are a helpful assistant. You are given a user's question and a piece of context from their document.
 
-        **Instructions:**
-        1.  Analyze the user's question: "{query}"
-        2.  Analyze the provided context below.
-        3.  **Decision:**
-            - If the context contains information that directly answers the question, provide the answer based *strictly* on the context.
-            - If the context does **NOT** contain relevant information to answer the question, state that the document doesn't have the answer, and then answer the question using your general knowledge.
+        Your task is to follow these rules:
+        1.  First, analyze the provided context and the user's question.
+        2.  If the context contains information that is relevant and sufficient to answer the question, you MUST base your answer only on that context.
+        3.  If the context is NOT relevant or does not help answer the question, you MUST ignore the context completely and answer the question using your own general knowledge. Do NOT mention the context or that you are using general knowledge. Just give the direct answer.
 
-        **Provided Context:**
+        [CONTEXT]:
         ---
         {context}
         ---
-
-        Now, please answer the user's question: "{query}"
+        
+        [USER'S QUESTION]: "{query}"
         """
-        # --- END BUG 2 FIX ---
+        # --- END BUG FIX ---
 
         chat_session = model.start_chat(history=format_history_for_gemini(history_for_session))
         response = chat_session.send_message(rag_prompt)
@@ -271,8 +256,7 @@ def query_index_route():
         return jsonify({"text": response.text, "relevantDocs": [doc.metadata for doc in relevant_docs]})
     except Exception as e:
         return create_error_response(f"Error during RAG processing: {e}", 500)
-
-# ... (keep all other code the same)
+# --- END OF MODIFIED ROUTE ---
 
 @app.route('/generate_podcast', methods=['POST'])
 def generate_podcast_from_path_route():

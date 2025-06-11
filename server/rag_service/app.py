@@ -224,21 +224,55 @@ def chat_route():
     except Exception as e:
         return create_error_response(f"Error during chat processing: {e}", 500)
 
+# In rag_service/app.py
+
+# ... (keep all other code the same)
+
 @app.route('/query', methods=['POST'])
 def query_index_route():
     data = request.get_json()
     user_id, history, system_prompt = data.get('user_id'), data.get('history', []), data.get('system_prompt', "You are a helpful assistant.")
+    
+    if not history:
+        return create_error_response("History cannot be empty for a query.", 400)
+
     try:
         model = get_model_with_prompt(system_prompt)
-        query, history_for_session = history[-1]['parts'][0]['text'], history[:-1]
+        query = history[-1]['parts'][0]['text']
+        history_for_session = history[:-1]
+        
         relevant_docs = faiss_handler.search_faiss_index(user_id, query, k=3)
         context = "\n".join([doc.page_content for doc in relevant_docs])
-        rag_prompt = f"Context:\n---\n{context}\n---\nBased ONLY on the context, answer: \"{query}\""
+
+        # --- BUG 2 FIX: New Hybrid RAG Prompt ---
+        rag_prompt = f"""
+        You are a helpful assistant with a special task. You have been provided with a context from a user's document.
+        Your primary goal is to answer the user's question based *only* on this context.
+
+        **Instructions:**
+        1.  Analyze the user's question: "{query}"
+        2.  Analyze the provided context below.
+        3.  **Decision:**
+            - If the context contains information that directly answers the question, provide the answer based *strictly* on the context.
+            - If the context does **NOT** contain relevant information to answer the question, state that the document doesn't have the answer, and then answer the question using your general knowledge.
+
+        **Provided Context:**
+        ---
+        {context}
+        ---
+
+        Now, please answer the user's question: "{query}"
+        """
+        # --- END BUG 2 FIX ---
+
         chat_session = model.start_chat(history=format_history_for_gemini(history_for_session))
         response = chat_session.send_message(rag_prompt)
+        
         return jsonify({"text": response.text, "relevantDocs": [doc.metadata for doc in relevant_docs]})
     except Exception as e:
         return create_error_response(f"Error during RAG processing: {e}", 500)
+
+# ... (keep all other code the same)
 
 @app.route('/generate_podcast', methods=['POST'])
 def generate_podcast_from_path_route():

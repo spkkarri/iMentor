@@ -1,172 +1,91 @@
-// client/src/components/FileManagerWidget/index.js
+// client/src/components/FileManagerWidget.js
 
 import React, { useState } from 'react';
-import { 
-    IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Typography,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, TextField 
-} from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import EditIcon from '@mui/icons-material/Edit';
-import PodcastsIcon from '@mui/icons-material/Podcasts';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Popover } from 'react-tiny-popover';
+import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV } from 'react-icons/fa';
 import './index.css';
 
-const RenameDialog = ({ open, file, onClose, onSave }) => {
-    const [newName, setNewName] = useState(file?.originalname || '');
-
-    React.useEffect(() => {
-        if (file) {
-            setNewName(file.originalname);
-        }
-    }, [file]);
-
-    const handleSave = () => {
-        onSave(file._id, newName);
-        onClose();
-    };
-
-    return (
-        <Dialog open={open} onClose={onClose}>
-            <DialogTitle>Rename File</DialogTitle>
-            <DialogContent>
-                <DialogContentText>
-                    Please enter a new name for the file "{file?.originalname}".
-                </DialogContentText>
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    id="name"
-                    label="New File Name"
-                    type="text"
-                    fullWidth
-                    variant="standard"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                />
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button onClick={handleSave} disabled={!newName.trim()}>Save</Button>
-            </DialogActions>
-        </Dialog>
-    );
-};
-
-const FileItem = ({ file, isProcessing, onGeneratePodcast, onGenerateMindMap, onDeleteFile, onRenameFile }) => {
-    const [anchorEl, setAnchorEl] = useState(null);
-    const open = Boolean(anchorEl);
-
-    const handleClick = (event) => setAnchorEl(event.currentTarget);
-    const handleClose = () => setAnchorEl(null);
-
-    const handleDelete = () => { handleClose(); onDeleteFile(file._id, file.originalname); };
-    const handlePodcast = () => { handleClose(); onGeneratePodcast(file._id, file.originalname); };
-    const handleMindMap = () => { handleClose(); onGenerateMindMap(file._id, file.originalname); };
-    const handleRename = () => { handleClose(); onRenameFile(file); };
-
-    // --- FIX: Added the correct JSX for the return statement ---
-    return (
-        <li className="file-item">
-            <span className="file-name" title={file.originalname}>{file.originalname}</span>
-            <IconButton
-                aria-label="more"
-                id={`long-button-${file._id}`}
-                aria-controls={open ? 'long-menu' : undefined}
-                aria-expanded={open ? 'true' : undefined}
-                aria-haspopup="true"
-                onClick={handleClick}
-                disabled={isProcessing}
-            >
-                <MoreVertIcon />
-            </IconButton>
-            <Menu
-                id={`long-menu-${file._id}`}
-                anchorEl={anchorEl}
-                open={open}
-                onClose={handleClose}
-            >
-                <MenuItem onClick={handleRename}>
-                    <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Edit Name</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={handlePodcast}>
-                    <ListItemIcon><PodcastsIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Generate Podcast</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={handleMindMap}>
-                    <ListItemIcon><AccountTreeIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Generate Mind Map</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={handleDelete}>
-                    <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-                    <ListItemText primaryTypographyProps={{ color: 'error' }}>Delete</ListItemText>
-                </MenuItem>
-            </Menu>
-        </li>
-    );
-};
-
-const FileManagerWidget = ({ 
-    files, 
-    isLoading, 
-    error, 
-    onDeleteFile, 
-    onRenameFile, 
-    onGeneratePodcast, 
-    onGenerateMindMap, 
-    isProcessing 
+const FileManagerWidget = ({
+    files,
+    isLoading,
+    error,
+    onDeleteFile,
+    onRenameFile,
+    onGeneratePodcast,
+    onGenerateMindMap,
+    isProcessing
 }) => {
-    const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-    const [fileToRename, setFileToRename] = useState(null);
+    // State to track which file's menu is currently open
+    const [openMenuId, setOpenMenuId] = useState(null);
 
-    const handleOpenRenameDialog = (file) => {
-        setFileToRename(file);
-        setIsRenameDialogOpen(true);
+    const handleRename = (fileId, currentName) => {
+        setOpenMenuId(null); // Close the menu first
+        const newName = prompt("Enter new file name:", currentName);
+        if (newName && newName !== currentName) {
+            onRenameFile(fileId, newName);
+        }
     };
 
-    const handleCloseRenameDialog = () => {
-        setIsRenameDialogOpen(false);
-        setFileToRename(null);
-    };
-
-    const handleSaveRename = (fileId, newName) => {
-        onRenameFile(fileId, newName);
+    const handleActionClick = (action, fileId, fileName) => {
+        setOpenMenuId(null); // Close the menu after any action
+        action(fileId, fileName);
     };
 
     return (
         <div className="file-manager-widget">
-            <Typography variant="h6" component="h4" sx={{ mb: 1 }}>My Files</Typography>
-            {isLoading && <p className="loading-text">Loading files...</p>}
-            {error && <p className="error-text">{error}</p>}
-            
-            {!isLoading && !error && (
+            <h3>My Files</h3>
+            {isLoading ? (
+                <div className="file-manager-loading">Loading...</div>
+            ) : error ? (
+                <div className="file-manager-error">{error}</div>
+            ) : (
                 <ul className="file-list">
-                    {files.length > 0 ? (
-                        files.map(file => (
-                            <FileItem
-                                key={file._id}
-                                file={file}
-                                isProcessing={isProcessing}
-                                onGeneratePodcast={onGeneratePodcast}
-                                onGenerateMindMap={onGenerateMindMap}
-                                onDeleteFile={onDeleteFile}
-                                onRenameFile={handleOpenRenameDialog}
-                            />
-                        ))
-                    ) : (
-                        <p className="no-files-text">No files uploaded.</p>
-                    )}
+                    {files.map(file => (
+                        <li key={file._id} className="file-item">
+                            <span className="file-name" title={file.originalname}>
+                                {file.originalname}
+                            </span>
+                            
+                            <Popover
+                                isOpen={openMenuId === file._id}
+                                // --- THIS IS THE FIX ---
+                                // We tell the popover to try opening on the 'right' first.
+                                // If there's no space, it will try the other positions as fallbacks.
+                                positions={['right', 'left', 'bottom', 'top']} 
+                                align="center" // This helps align the popover nicely with the button
+                                // --- END FIX ---
+                                padding={10}
+                                onClickOutside={() => setOpenMenuId(null)}
+                                content={
+                                    <div className="popover-menu">
+                                        <button onClick={() => handleActionClick(onGeneratePodcast, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
+                                            <FaFileAudio /> Generate Podcast
+                                        </button>
+                                        <button onClick={() => handleActionClick(onGenerateMindMap, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
+                                            <FaProjectDiagram /> Generate Mind Map
+                                        </button>
+                                        <button onClick={() => handleRename(file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
+                                            <FaEdit /> Rename
+                                        </button>
+                                        <div className="popover-divider" />
+                                        <button onClick={() => handleActionClick(onDeleteFile, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item danger">
+                                            <FaTrash /> Delete
+                                        </button>
+                                    </div>
+                                }
+                            >
+                                <button 
+                                    onClick={() => setOpenMenuId(openMenuId === file._id ? null : file._id)} 
+                                    className="icon-button menu-button"
+                                    title="More options"
+                                >
+                                    <FaEllipsisV />
+                                </button>
+                            </Popover>
+                        </li>
+                    ))}
                 </ul>
             )}
-            
-            <RenameDialog
-                open={isRenameDialogOpen}
-                file={fileToRename}
-                onClose={handleCloseRenameDialog}
-                onSave={handleSaveRename}
-            />
         </div>
     );
 };

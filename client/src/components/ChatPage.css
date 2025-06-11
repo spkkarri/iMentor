@@ -419,38 +419,46 @@
     /* align-self: flex-end; <-- REMOVE THIS, replaced by flex in .message-footer */
 }
 
-/* NEW: Styles for the speaker icon button */
+
+  /* In client/src/components/ChatPage.css */
+
+/* ... (keep all other styles the same) ... */
+
+/* --- BUG 3 FIX: Correctly position the footer items --- */
+.message-footer {
+  display: flex; /* Use Flexbox */
+  justify-content: flex-end; /* Push items to the right */
+  align-items: center; /* Vertically align them */
+  margin-top: 8px;
+  gap: 10px; /* Add space between items */
+}
+
+.message-timestamp {
+  font-size: 0.75rem;
+  color: #888;
+  /* No longer need to float or position this */
+}
+
 .speaker-icon-button {
-    /* position: absolute; <-- REMOVE THIS: no longer absolutely positioned */
-    /* top: 5px; right: 5px; <-- REMOVE THESE: no longer absolutely positioned */
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 2px; /* Reduce padding slightly for a tighter fit */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-color-secondary); /* Icon color */
-    transition: color 0.2s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 0;
+  display: flex;
+  align-items: center;
 }
 
 .speaker-icon-button:hover {
-    color: var(--primary-color); /* Hover effect */
+  color: #ccc;
 }
 
 .speaker-icon-button svg {
-    width: 16px; /* Adjust size if needed, slightly smaller than 18px */
-    height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
-/* ... (rest of your existing ChatPage.css, including input-area and button styles) ... */
-
-/* --- ADD THIS ENTIRE BLOCK TO THE END OF THE FILE --- */
-
-/*
-  New styles for the Mind Map container to ensure
-  the capture works reliably and looks good.
-*/
+/* ... (keep all other styles the same) ... */
 .mindmap-container-for-export {
   /* This background is crucial for the SVG/PNG capture */
   background-color: #2d2d2d; 

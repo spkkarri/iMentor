@@ -1,0 +1,39 @@
+/* client/src/components/MindMap.css */
+
+.react-flow-mindmap {
+    background-color: #2d2d2d;
+    border-radius: 8px;
+}
+
+.mindmap-error {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #f44336;
+    background-color: #333;
+    border-radius: 8px;
+    font-style: italic;
+}
+
+/* Styling for the minimap */
+.react-flow__minimap {
+    background-color: #1a1a1a !important;
+    border: 1px solid #444;
+}
+
+/* Styling for the controls */
+.react-flow__controls button {
+    background-color: #333 !important;
+    color: #fff !important;
+    border-bottom: 1px solid #444 !important;
+}
+
+.react-flow__controls button:hover {
+    background-color: #444 !important;
+}
+
+/* Styling for the background pattern */
+.react-flow__background {
+    background-color: #1a1a1a;
+}

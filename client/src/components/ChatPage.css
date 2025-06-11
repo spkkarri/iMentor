@@ -444,3 +444,49 @@
 }
 
 /* ... (rest of your existing ChatPage.css, including input-area and button styles) ... */
+
+/* --- ADD THIS ENTIRE BLOCK TO THE END OF THE FILE --- */
+
+/*
+  New styles for the Mind Map container to ensure
+  the capture works reliably and looks good.
+*/
+.mindmap-container-for-export {
+  /* This background is crucial for the SVG/PNG capture */
+  background-color: #2d2d2d; 
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  /* Ensure it has a defined size */
+  height: 400px; 
+  width: 100%;
+}
+
+.mindmap-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.mindmap-action-button {
+  background-color: #4a4a4a;
+  color: #ffffff;
+  border: 1px solid #666;
+  border-radius: 5px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.mindmap-action-button:hover {
+  background-color: #5a5a5a;
+}
+
+/* Make the speaker icon a bit more uniform */
+.speaker-icon-button svg {
+    width: 16px;
+    height: 16px;
+}

@@ -1,0 +1,23 @@
+/* client/src/components/CustomNodes/CustomNode.css */
+
+.custom-node {
+    background-color: #2d2d2d;
+    border: 2px solid #90caf9;
+    border-radius: 8px;
+    padding: 10px 15px;
+    color: #ffffff;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    text-align: center;
+    min-width: 150px;
+    max-width: 250px;
+    word-wrap: break-word;
+}
+
+.custom-node.input {
+    border-color: #4caf50; /* Green for input */
+}
+
+.custom-node.output {
+    border-color: #f44336; /* Red for output */
+}

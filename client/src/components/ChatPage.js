@@ -19,6 +19,7 @@ import MindMap from './MindMap';
 import './ChatPage.css';
 
 const ChatPage = ({ setIsAuthenticated }) => {
+    // ... (all state is the same)
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -38,11 +39,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [fileError, setFileError] = useState('');
     const [hasFiles, setHasFiles] = useState(false);
     const [isRagEnabled, setIsRagEnabled] = useState(false);
-
-    // --- MODIFIED STATE FOR DEEP SEARCH ---
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
     const [isDeepSearching, setIsDeepSearching] = useState(false);
-    // We no longer need lastUserQuery
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
@@ -50,6 +48,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const isProcessing = isLoading || isRagLoading || isPodcastLoading || isMindMapLoading || isDeepSearching;
 
+    // ... (all functions are the same until the return statement)
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -363,29 +362,33 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
                         const messageText = msg.parts[0]?.text || '';
                         const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                        
+                        // --- THIS IS THE MODIFIED JSX STRUCTURE ---
                         return (
-                            <div key={index} className={`message ${msg.role} ${msg.type === 'deep_search' ? 'deep-search-result' : ''}`}>
-                                <div className="message-content">
-                                    {msg.type === 'mindmap' ? (
-                                        <>
-                                            <p>{messageText}</p>
-                                            <div id={`mindmap-container-${index}`} className="mindmap-container-for-export">
-                                                <MindMap mindMapData={msg.mindMapData} />
-                                            </div>
-                                            <div className="mindmap-actions">
-                                                <button onClick={() => handleOpenMindMapFullscreen(index)} className="mindmap-action-button">
-                                                    View Fullscreen
-                                                </button>
-                                            </div>
-                                        </>
-                                    ) : msg.type === 'audio' ? (
-                                        <>
-                                            <p>{messageText}</p>
-                                            <audio controls src={msg.audioUrl} style={{ width: '100%', marginTop: '10px' }} />
-                                        </>
-                                    ) : (
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                                    )}
+                            <div key={index} className={`message-wrapper ${msg.role}`}>
+                                <div className={`message ${msg.type === 'deep_search' ? 'deep-search-result' : ''}`}>
+                                    <div className="message-content">
+                                        {msg.type === 'mindmap' ? (
+                                            <>
+                                                <p>{messageText}</p>
+                                                <div id={`mindmap-container-${index}`} className="mindmap-container-for-export">
+                                                    <MindMap mindMapData={msg.mindMapData} />
+                                                </div>
+                                                <div className="mindmap-actions">
+                                                    <button onClick={() => handleOpenMindMapFullscreen(index)} className="mindmap-action-button">
+                                                        View Fullscreen
+                                                    </button>
+                                                </div>
+                                            </>
+                                        ) : msg.type === 'audio' ? (
+                                            <>
+                                                <p>{messageText}</p>
+                                                <audio controls src={msg.audioUrl} style={{ width: '100%', marginTop: '10px' }} />
+                                            </>
+                                        ) : (
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="message-footer">
                                     <span className="message-timestamp">{timestamp}</span>
@@ -399,11 +402,10 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                 </div>
                             </div>
                         );
+                        // --- END OF MODIFIED JSX STRUCTURE ---
                     })}
                     <div ref={messagesEndRef} />
                 </div>
-
-                {/* The Deep Search button is now gone from here */}
 
                 {(isProcessing) && (
                     <div className="loading-indicator">
@@ -426,7 +428,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         rows="1"
                         disabled={isProcessing || isListening}
                     />
-                    {/* --- NEW: Deep Search Toggle --- */}
                     <div className="toggle-container" title="Toggle Deep Search">
                         <input 
                             type="checkbox" 

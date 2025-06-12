@@ -26,6 +26,7 @@ Thumbs.db
 # Python virtual environment
 /.venv/
 /server/rag_service/.venv/
+/server/search_service/.venv/
 __pycache__/
 *.pyc
 

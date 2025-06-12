@@ -5,7 +5,7 @@ const { tempAuth } = require('../middleware/authMiddleware'); // Assuming this s
 const ChatHistory = require('../models/ChatHistory');
 const { v4: uuidv4 } = require('uuid');
 const { generateGroqChatCompletion } = require('../services/groqService'); // ADD THIS LINE
-const { searchSpecificWebsites } = require('../services/webSearchService');
+const { performWebSearch } = require('../services/webSearchService');
 const { getSearchOptimizedQuery } = require('../utils/llmUtils');
 const MAX_CONTEXT_LENGTH = parseInt(process.env.MAX_CONTEXT_LENGTH) || 15000;
 const { searchAcademicSources } = require('../academicSearchService');  
@@ -124,77 +124,58 @@ router.post('/rag', tempAuth, async (req, res) => {
     }
 });
 
+// +++ NEW AND IMPROVED WEB SEARCH PIPELINE +++
+// server/routes/chat.js
+
+// +++ FINAL AND CORRECTED WEB SEARCH PIPELINE +++
 async function performFullWebSearch(originalQuery, llmProviderForRefinement, modelIdForRefinement, sessionIdForRefinement) {
     let thinkingLog = "";
     let contextFromWeb = null;
-    let sourceName = "Web Search (No Results)"; // Default
-
+    let sourceName = "Web Search (No Results)";
     let queryForWebSearch = originalQuery;
 
-    
-    // 1. Query Refinement
+    // --- Step 1: Query Refinement (This logic is good and we keep it) ---
     const queryRefinementStartTime = Date.now();
-    let queryRefinementSubLog = "";
     try {
-        queryRefinementSubLog += `Attempting to refine query for web search using '${llmProviderForRefinement}' ${modelIdForRefinement ? `(Model: ${modelIdForRefinement})` : ''}...\n`;
+        thinkingLog += `Attempting to refine query for web search using '${llmProviderForRefinement}'...\n`;
         const refinedQuery = await getSearchOptimizedQuery(originalQuery, llmProviderForRefinement, modelIdForRefinement, sessionIdForRefinement);
-        if (refinedQuery && refinedQuery.toLowerCase().trim() !== originalQuery.toLowerCase().trim() && refinedQuery.trim() !== "") {
+        if (refinedQuery && refinedQuery.trim().toLowerCase() !== originalQuery.trim().toLowerCase()) {
             queryForWebSearch = refinedQuery;
-            queryRefinementSubLog += `Using refined query for web search: "${queryForWebSearch}" (Original: "${originalQuery}")\n`;
+            thinkingLog += `Using refined query for web search: "${queryForWebSearch}"\n`;
         } else {
-            queryRefinementSubLog += "Using original query for web search (no significant refinement made or needed).\n";
+            thinkingLog += `Using original query for web search.\n`;
         }
     } catch (e) {
         console.error("[WebSearchPipeline] Error during query refinement:", e);
-        queryRefinementSubLog += `Error during query refinement: ${e.message}. Using original query.\n`;
+        thinkingLog += `Error during query refinement. Using original query.\n`;
     }
     const queryRefinementEndTime = Date.now();
     thinkingLog += `Query Refinement Time: ${queryRefinementEndTime - queryRefinementStartTime} ms.\n`;
-    thinkingLog += queryRefinementSubLog;
 
-    // 2. Trigger Phrase Stripping
-    let finalQueryForGoogleApi = queryForWebSearch;
-    const triggerPhrases = ["search web for ", "search online for "];
-    for (const phrase of triggerPhrases) {
-        if (finalQueryForGoogleApi.toLowerCase().startsWith(phrase.toLowerCase())) {
-            finalQueryForGoogleApi = finalQueryForGoogleApi.substring(phrase.length).trim();
-            thinkingLog += `Stripped trigger phrase. Actual query to Google API: "${finalQueryForGoogleApi}"\n`;
-            console.log(`[WebSearchPipeline] Stripped trigger phrase. Actual query to Google API: "${finalQueryForGoogleApi}"`);
-            break;
-        }
-    }
-
-    // 3. Call Web Search API
+    // --- Step 2: Call Our New Web Search Service ---
     const webSearchApiCallStartTime = Date.now();
-    const rawWebSearchResults = await searchSpecificWebsites(finalQueryForGoogleApi, 5, 3); // Your actual function call
+    const searchResults = await performWebSearch(queryForWebSearch, 5); // Request 5 results from DuckDuckGo service
     const webSearchApiCallEndTime = Date.now();
-    thinkingLog += `Web Search API Call Time: ${webSearchApiCallEndTime - webSearchApiCallStartTime} ms.\n`;
+    thinkingLog += `DuckDuckGo Search Service Call Time: ${webSearchApiCallEndTime - webSearchApiCallStartTime} ms.\n`;
 
-    // 4. Format Results
-    if (rawWebSearchResults && typeof rawWebSearchResults === 'string' && rawWebSearchResults.trim() !== "") {
-        contextFromWeb = rawWebSearchResults;
-        thinkingLog += `Web search found context (length: ${contextFromWeb.length}).\n`;
+    // --- Step 3: Format the Results ---
+    if (searchResults && Array.isArray(searchResults) && searchResults.length > 0) {
+        contextFromWeb = searchResults.map((item) => {
+            return `Source: ${item.link}\nTitle: ${item.title}\nSnippet: ${item.snippet}`;
+        }).join('\n\n---\n\n');
+        
+        thinkingLog += `Web search found ${searchResults.length} results.\n`;
         sourceName = "Web Search";
-        console.log("[WebSearchPipeline] Web search provided context (as string).");
-    } else if (rawWebSearchResults && Array.isArray(rawWebSearchResults) && rawWebSearchResults.length > 0) {
-        let formattedWebContext = "";
-        rawWebSearchResults.forEach((item, index) => {
-            formattedWebContext += `Web Result ${index + 1}:\n  Title: ${item.title}\n  Snippet: ${item.snippet}\n  URL: ${item.link}\n\n`;
-        });
-        contextFromWeb = formattedWebContext;
-        thinkingLog += `Web search found ${rawWebSearchResults.length} results (formatted from array).\n`;
-        sourceName = "Web Search";
-        console.log("[WebSearchPipeline] Web search provided context (from array).");
+        console.log("[WebSearchPipeline] Web search via DuckDuckGo provided context.");
     } else {
-        thinkingLog += `No relevant information found from web search or snippets were empty.\n`;
-        // sourceName remains "Web Search (No Results)"
-        console.log("[WebSearchPipeline] Web search did not provide meaningful context.");
+        thinkingLog += `No relevant information found from web search.\n`;
+        console.log("[WebSearchPipeline] Web search via DuckDuckGo did not provide meaningful context.");
     }
 
+    // --- Step 4: Return the Final Object ---
     return { webContext: contextFromWeb, webThinking: thinkingLog, webSourceName: sourceName };
 }
-// +++ END OF HELPER FUNCTION +++
-
+// +++ END OF WEB SEARCH PIPELINE +++
 
 
 
@@ -241,62 +222,26 @@ router.post('/message', tempAuth, async (req, res) => {
     // +++ END OF toolMode VALIDATION BLOCK +++
 
           /// Determine effective tool mode for backend processing
-        let effectiveToolMode = 'default_behavior'; // Base behavior: RAG then conditional web search
-        if (clientToolMode === 'academic') {
-            effectiveToolMode = 'academic_search';
-        } else if (clientToolMode === 'web_explicit') {
-            effectiveToolMode = 'web_search_explicit';
-        }
-        console.log(`[Node Backend] CHAT /message: User=${userId || 'Guest'}, Session=${currentSessionId}, Provider=${effectiveLlmProvider}, EffectiveToolMode=${effectiveToolMode}, Query="${query}"`);
+         let effectiveToolMode = 'default_behavior';
+        if (clientToolMode === 'academic') effectiveToolMode = 'academic_search';
+        else if (clientToolMode === 'web_explicit') effectiveToolMode = 'web_search_explicit';
+        
+        console.log(`[Node Backend] CHAT /message: User=${userId || 'Guest'}, Session=${currentSessionId}, Provider=${effectiveLlmProvider}, Mode=${effectiveToolMode}, Query="${query}"`);
 
-        // --- RAG Context Retrieval (Now always attempted) ---
+        // --- RAG Context Retrieval ---
         let actualRagContext = null;
         let referencesFromRagService = [];
-        let ragThinking = "RAG Status: Permanent RAG - Always attempting context retrieval.\n";
-
-        console.log(`[Node Backend] Permanent RAG: querying RAG service. User for query: '${userId || "None (default index only)"}'`);
-        const ragStartTime = Date.now();
-        
+        let ragThinking = "RAG Status: Always attempting context retrieval.\n";
         const ragResult = await queryPythonRagService(userId, query.trim());
-        
-        const ragEndTime = Date.now();
-        ragThinking += `RAG Service Call Time: ${ragEndTime - ragStartTime} ms.\n`;
-
-        const PYTHON_RAG_DEFAULT_NO_CONTEXT_STRING = "no relevant information was found in the knowledge base for your query."; 
-        
-        const isContextMeaningful = ragResult.context &&
-                              ragResult.context.trim() !== "" &&
-                               ragResult.context.toLowerCase() !== PYTHON_RAG_DEFAULT_NO_CONTEXT_STRING.toLowerCase() && 
-                              !ragResult.context.toLowerCase().includes("error connecting to rag service") &&
-                              !ragResult.context.toLowerCase().includes("service configuration error");
-
+        const isContextMeaningful = ragResult.context && !ragResult.context.toLowerCase().includes("no relevant information") && !ragResult.context.toLowerCase().includes("error connecting");
         if (isContextMeaningful) {
             actualRagContext = ragResult.context;
             referencesFromRagService = ragResult.references || [];
-            ragThinking += `RAG Result: Context retrieved (length: ${actualRagContext.length}). References: ${referencesFromRagService.length}\nContext provided to LLM.\n`;
-            console.log(`[Node Backend] RAG service provided meaningful context. References: ${referencesFromRagService.length}`);
+            ragThinking += `RAG Result: Context retrieved (length: ${actualRagContext.length}).\n`;
         } else {
-            actualRagContext = null; 
-            ragThinking += `RAG Result: ${ragResult.context || "No meaningful context returned by RAG service."}\nNo specific context provided to LLM from RAG.\n`;
-            console.log("[Node Backend] RAG service returned no meaningful context or an error message.");
-            if (ragResult.context && ragResult.context.toLowerCase() ===PYTHON_RAG_DEFAULT_NO_CONTEXT_STRING.toLowerCase()) {
-                console.log("[Node Backend] RAG service returned the default 'no context' message.");
-            } else if (ragResult.context) {
-                console.log(`[Node Backend] RAG service returned context that was not considered meaningful (e.g., error string): "${ragResult.context}"`);
-            } else {
-                console.log("[Node Backend] RAG service returned no context at all.");
-            }
+            ragThinking += `RAG Result: No meaningful context returned.\n`;
         }
-        // --- End RAG Context Retrieval ---
-
-        // +++ NEW: Initialize thinkingProcess with RAG thinking +++
-        let thinkingProcess = ragThinking; 
-
-         // --- Tool-Specific Context Retrieval (Web Search OR Academic Search) ---
-      
-        // const isRagContextInsufficient = !isContextMeaningful; 
-        // const forceWebSearchByKeyword = query.toLowerCase().includes("search web for") || query.toLowerCase().includes("search online for");
-        // const shouldPerformWebSearch = isRagContextInsufficient || forceWebSearchByKeyword;
+        let thinkingProcess = ragThinking;
 
 
 

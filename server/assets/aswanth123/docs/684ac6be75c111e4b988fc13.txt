@@ -1,0 +1,1 @@
+Project Titan is a new initiative focused on deep learning optimization. The main goal of Project Titan is to reduce model training time by 50% using a novel technique called 'Sparse Gradient Aggregation'. The project lead is Dr. Evelyn Reed. The expected completion date is Q4 2025.

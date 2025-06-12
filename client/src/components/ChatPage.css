@@ -1,12 +1,8 @@
 /* client/src/components/ChatPage.css */
 
-/* --- Main Layout --- */
 .chat-page-container {
   display: flex;
-  height: calc(100vh - 40px);
-  gap: 20px;
-  padding: 20px;
-  box-sizing: border-box;
+  height: 100vh; /* Use full viewport height */
 }
 
 .sidebar-area {
@@ -16,7 +12,8 @@
   flex-direction: column;
   gap: 20px;
   overflow-y: auto;
-  padding-right: 10px;
+  padding: 20px;
+  background-color: #1a1a1a;
 }
 
 .chat-container {
@@ -24,11 +21,9 @@
   display: flex;
   flex-direction: column;
   background-color: #2d2d2d;
-  border-radius: 8px;
   overflow: hidden;
 }
 
-/* --- Header --- */
 .chat-header {
   display: flex;
   justify-content: space-between;
@@ -69,64 +64,49 @@
   border-color: #777;
 }
 
-/* --- Messages Area --- */
 .messages-area {
   flex-grow: 1;
   overflow-y: auto;
   padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* Space between messages */
 }
 
-/* --- THIS IS THE NEW, MODERN CHAT BUBBLE STYLING --- */
 .message {
   display: flex;
-  flex-direction: column;
-  max-width: 75%; /* Bubbles don't span the whole screen */
+  margin-bottom: 20px;
+  max-width: 85%;
 }
 
 .message.user {
-  align-self: flex-end; /* User messages on the right */
-}
-
-.message.assistant {
-  align-self: flex-start; /* Assistant messages on the left */
-}
-
-.message-content {
-  padding: 10px 15px;
-  border-radius: 18px; /* Rounded corners */
-  line-height: 1.6;
-  word-wrap: break-word;
+  margin-left: auto;
+  flex-direction: row-reverse;
 }
 
 .message.user .message-content {
-  background-color: #3c3c3c; /* Dark background for user */
-  color: #e0e0e0;
-  border-bottom-right-radius: 4px; /* "Tail" for the bubble */
+  background-color: #90caf9;
+  color: #121212;
 }
 
-.message.assistant .message-content {
-  background-color: #4a4a4a; /* Slightly different grey for assistant */
-  color: #e0e0e0;
-  border-bottom-left-radius: 4px; /* "Tail" for the bubble */
+.message.assistant {
+  margin-right: auto;
+}
+
+.message-content {
+  padding: 12px 15px;
+  border-radius: 12px;
+  background-color: #3c3c3c;
+  line-height: 1.6;
+}
+
+.message-content p {
+  margin: 0;
 }
 
 .message-footer {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
   margin-top: 8px;
   gap: 10px;
-}
-
-.message.user .message-footer {
-  justify-content: flex-end;
-}
-
-.message.assistant .message-footer {
-  justify-content: flex-start;
-  padding-left: 5px;
 }
 
 .message-timestamp {
@@ -142,7 +122,6 @@
   padding: 0;
   display: flex;
   align-items: center;
-  transition: color 0.2s;
 }
 
 .speaker-icon-button:hover {
@@ -153,16 +132,14 @@
   width: 18px;
   height: 18px;
 }
-/* --- END OF NEW STYLING --- */
 
-
-/* --- Input Area --- */
 .input-area {
   display: flex;
-  padding: 15px;
+  padding: 15px 20px;
   border-top: 1px solid #444;
-  gap: 10px;
+  gap: 15px;
   align-items: center;
+  background-color: #2d2d2d;
 }
 
 .input-area textarea {
@@ -174,9 +151,6 @@
   padding: 10px 15px;
   font-size: 1rem;
   resize: none;
-  font-family: inherit;
-  min-height: 24px;
-  max-height: 150px;
 }
 
 .input-area button {
@@ -201,6 +175,8 @@
 .input-area .icon-button {
   background: none;
   color: #888;
+  width: 44px;
+  height: 44px;
 }
 
 .input-area .icon-button:hover {
@@ -211,14 +187,29 @@
   color: #f44336;
 }
 
-.rag-toggle-container {
+/* --- NEW STYLES FOR TOGGLES --- */
+.toggle-container {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   color: #b3b3b3;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-/* --- Indicators & Mind Map --- */
+.toggle-container input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.toggle-container input[type="checkbox"]:disabled + label,
+.toggle-container input[type="checkbox"]:disabled {
+  color: #666;
+  cursor: not-allowed;
+}
+
 .loading-indicator,
 .error-indicator {
   text-align: center;
@@ -231,6 +222,7 @@
   color: #f44336;
 }
 
+/* Mind Map Specific Styles */
 .mindmap-container-for-export {
   background-color: #2d2d2d; 
   padding: 20px;
@@ -260,4 +252,10 @@
 
 .mindmap-action-button:hover {
   background-color: #5a5a5a;
+}
+
+/* Style for the placeholder deep search result */
+.deep-search-result .message-content {
+  border-left: 3px solid #90caf9;
+  background-image: linear-gradient(to right, rgba(144, 202, 249, 0.05), rgba(144, 202, 249, 0));
 }

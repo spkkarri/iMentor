@@ -61,10 +61,10 @@ def generate_advanced_podcast_script(text_content: str):
     4.  **Output Format:** Your output MUST be a valid JSON array of objects. Each object must have a "speaker" key ("Alex" or "Brenda") and a "line" key. Do not include any text outside of the JSON array.
     Example of good dialogue flow:
     [
-      {{"speaker": "Alex", "line": "Welcome to 'Docu-Dive'! Today, we're tackling a paper on Ohm's Law."}},
-      {{"speaker": "Brenda", "line": "Great! So, for anyone new to this, what's the core idea of Ohm's Law, Alex?"}},
-      {{"speaker": "Alex", "line": "Well, at its heart, it's a simple formula: V equals I times R. It describes how voltage, current, and resistance are related."}},
-      {{"speaker": "Brenda", "line": "Right, so V=IR. And what do those letters actually stand for in a practical sense?"}}
+      {{"speaker": "Aswanth", "line": "Welcome to 'Docu-Dive'! Today, we're tackling a paper on Ohm's Law."}},
+      {{"speaker": "Syamala", "line": "Great! So, for anyone new to this, what's the core idea of Ohm's Law, Alex?"}},
+      {{"speaker": "Aswanth", "line": "Well, at its heart, it's a simple formula: V equals I times R. It describes how voltage, current, and resistance are related."}},
+      {{"speaker": "Syamala", "line": "Right, so V=IR. And what do those letters actually stand for in a practical sense?"}}
     ]
     Here is the document text to transform:
     ---

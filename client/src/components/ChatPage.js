@@ -39,11 +39,16 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [hasFiles, setHasFiles] = useState(false);
     const [isRagEnabled, setIsRagEnabled] = useState(false);
 
+    // --- MODIFIED STATE FOR DEEP SEARCH ---
+    const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
+    const [isDeepSearching, setIsDeepSearching] = useState(false);
+    // We no longer need lastUserQuery
+
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
     const navigate = useNavigate();
 
-    const isProcessing = isLoading || isRagLoading || isPodcastLoading || isMindMapLoading;
+    const isProcessing = isLoading || isRagLoading || isPodcastLoading || isMindMapLoading || isDeepSearching;
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -105,7 +110,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
             recognition.lang = 'en-US';
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
-
             recognition.onstart = () => setIsListening(true);
             recognition.onresult = (event) => setInputText(event.results[0][0].transcript);
             recognition.onerror = (e) => setError(`STT Error: ${e.error}`);
@@ -114,14 +118,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } else {
             console.warn('Web Speech API is not supported in this browser.');
         }
-
         return () => {
-            if (recognitionRef.current) {
-                recognitionRef.current.stop();
-            }
-            if (window.speechSynthesis) {
-                window.speechSynthesis.cancel();
-            }
+            if (recognitionRef.current) recognitionRef.current.stop();
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
         };
     }, [handleLogout]);
 
@@ -196,25 +195,39 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setMessages(historyToSend);
         setInputText('');
         setError('');
-        const setLoading = isRagEnabled ? setIsRagLoading : setIsLoading;
-        setLoading(true);
 
-        try {
-            const response = isRagEnabled
-                ? await queryRagService({ history: historyToSend, systemPrompt: editableSystemPromptText })
-                : await apiSendMessage({ history: historyToSend, systemPrompt: editableSystemPromptText });
-            
-            const assistantMessage = { role: 'assistant', parts: [{ text: response.data.text }], timestamp: new Date() };
-            setMessages(prev => [...prev, assistantMessage]);
-        } catch (err) {
-            const errorMessage = err.response?.data?.message || 'An error occurred.';
-            setError(errorMessage);
-            setMessages(prev => prev.slice(0, -1));
-            if (err.response?.status === 401) handleLogout(true);
-        } finally {
-            setLoading(false);
+        if (isDeepSearchEnabled) {
+            setIsDeepSearching(true);
+            setTimeout(() => {
+                const deepSearchResult = {
+                    role: 'assistant',
+                    type: 'deep_search',
+                    parts: [{ text: `Here is a deep search result for "${trimmedInput}":\n\n- **Insight 1:** Detailed finding from multiple sources.\n- **Insight 2:** A synthesized conclusion.` }],
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, deepSearchResult]);
+                setIsDeepSearching(false);
+            }, 2000);
+        } else {
+            const setLoading = isRagEnabled ? setIsRagLoading : setIsLoading;
+            setLoading(true);
+            try {
+                const response = isRagEnabled
+                    ? await queryRagService({ history: historyToSend, systemPrompt: editableSystemPromptText })
+                    : await apiSendMessage({ history: historyToSend, systemPrompt: editableSystemPromptText });
+                
+                const assistantMessage = { role: 'assistant', parts: [{ text: response.data.text }], timestamp: new Date() };
+                setMessages(prev => [...prev, assistantMessage]);
+            } catch (err) {
+                const errorMessage = err.response?.data?.message || 'An error occurred.';
+                setError(errorMessage);
+                setMessages(prev => prev.slice(0, -1));
+                if (err.response?.status === 401) handleLogout(true);
+            } finally {
+                setLoading(false);
+            }
         }
-    }, [inputText, isProcessing, messages, isRagEnabled, editableSystemPromptText, handleLogout, isListening]);
+    }, [inputText, isProcessing, messages, isRagEnabled, isDeepSearchEnabled, editableSystemPromptText, handleLogout, isListening]);
 
     const handleMicButtonClick = useCallback(() => {
         if (!recognitionRef.current) return;
@@ -267,9 +280,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
         if (mindMapContainer) {
             if (mindMapContainer.requestFullscreen) {
                 mindMapContainer.requestFullscreen();
-            } else if (mindMapContainer.webkitRequestFullscreen) { /* Safari */
+            } else if (mindMapContainer.webkitRequestFullscreen) {
                 mindMapContainer.webkitRequestFullscreen();
-            } else if (mindMapContainer.msRequestFullscreen) { /* IE11 */
+            } else if (mindMapContainer.msRequestFullscreen) {
                 mindMapContainer.msRequestFullscreen();
             }
         } else {
@@ -350,11 +363,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
                         const messageText = msg.parts[0]?.text || '';
                         const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-
-                        // --- THIS IS THE ONLY MODIFIED SECTION ---
-                        // We now use a consistent structure for all messages
                         return (
-                            <div key={index} className={`message ${msg.role}`}>
+                            <div key={index} className={`message ${msg.role} ${msg.type === 'deep_search' ? 'deep-search-result' : ''}`}>
                                 <div className="message-content">
                                     {msg.type === 'mindmap' ? (
                                         <>
@@ -389,12 +399,24 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                 </div>
                             </div>
                         );
-                        // --- END OF MODIFIED SECTION ---
                     })}
                     <div ref={messagesEndRef} />
                 </div>
-                {isProcessing && <div className="loading-indicator"><span>{isMindMapLoading ? 'Generating mind map...' : isPodcastLoading ? 'Generating podcast...' : isRagLoading ? 'Searching documents...' : 'Thinking...'}</span></div>}
+
+                {/* The Deep Search button is now gone from here */}
+
+                {(isProcessing) && (
+                    <div className="loading-indicator">
+                        <span>
+                            {isDeepSearching ? 'Performing deep search...' :
+                             isMindMapLoading ? 'Generating mind map...' :
+                             isPodcastLoading ? 'Generating podcast...' :
+                             isRagLoading ? 'Searching documents...' : 'Thinking...'}
+                        </span>
+                    </div>
+                )}
                 {!isProcessing && error && <div className="error-indicator">{error}</div>}
+                
                 <footer className="input-area">
                     <textarea
                         value={inputText}
@@ -404,8 +426,25 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         rows="1"
                         disabled={isProcessing || isListening}
                     />
-                    <div className="rag-toggle-container" title={!hasFiles ? "Upload files to enable RAG" : "Toggle RAG"}>
-                        <input type="checkbox" id="rag-toggle" checked={isRagEnabled} onChange={(e) => setIsRagEnabled(e.target.checked)} disabled={!hasFiles || isProcessing || isListening} />
+                    {/* --- NEW: Deep Search Toggle --- */}
+                    <div className="toggle-container" title="Toggle Deep Search">
+                        <input 
+                            type="checkbox" 
+                            id="deep-search-toggle" 
+                            checked={isDeepSearchEnabled} 
+                            onChange={(e) => setIsDeepSearchEnabled(e.target.checked)} 
+                            disabled={isProcessing || isListening} 
+                        />
+                        <label htmlFor="deep-search-toggle">Deep Search</label>
+                    </div>
+                    <div className="toggle-container" title={!hasFiles ? "Upload files to enable RAG" : "Toggle RAG"}>
+                        <input 
+                            type="checkbox" 
+                            id="rag-toggle" 
+                            checked={isRagEnabled} 
+                            onChange={(e) => setIsRagEnabled(e.target.checked)} 
+                            disabled={!hasFiles || isProcessing || isListening} 
+                        />
                         <label htmlFor="rag-toggle">RAG</label>
                     </div>
                     <button
@@ -419,7 +458,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                             <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
                         </svg>
                     </button>
-                    <button onClick={handleSendMessage} disabled={isProcessing || !inputText.trim() || isListening} title="Send Message">
+                    <button onClick={handleSendMessage} disabled={!inputText.trim() || isProcessing || isListening} title="Send Message">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                         </svg>

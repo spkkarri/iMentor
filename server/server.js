@@ -1,7 +1,5 @@
 // server/server.js
 
-// --- FIX: Load environment variables from .env file FIRST ---
-// This must be at the very top to ensure all other files can access process.env
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -24,12 +22,10 @@ const DEFAULT_PORT = 5001;
 const DEFAULT_MONGO_URI = 'mongodb://localhost:27017/chatbotGeminiDB';
 const DEFAULT_PYTHON_RAG_URL = 'http://localhost:5002';
 
-// These variables will now be correctly loaded from your .env file
 let port = process.env.PORT || DEFAULT_PORT;
 let mongoUri = process.env.MONGO_URI || '';
 let pythonRagUrl = process.env.PYTHON_RAG_SERVICE_URL || '';
 let geminiApiKey = process.env.GEMINI_API_KEY || '';
-// JWT_SECRET is also loaded into process.env but we don't need a separate variable for it here.
 
 const app = express();
 
@@ -47,6 +43,10 @@ app.use('/api/files', require('./routes/files'));
 app.use('/api/syllabus', require('./routes/syllabus'));
 app.use('/api/podcast', require('./routes/podcast'));
 app.use('/api/mindmap', require('./routes/mindmap'));
+
+// --- THIS IS THE CRITICAL FIX ---
+// This line tells the server to use our new history routes.
+app.use('/api/history', require('./routes/history'));
 
 app.use((err, req, res, next) => {
     console.error("Unhandled Error:", err.stack || err);

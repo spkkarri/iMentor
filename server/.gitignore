@@ -1,1 +1,70 @@
-node_modules/
+model_cache/
+
+# Node.js dependencies
+/node_modules
+/server/node_modules
+/client/node_modules
+
+# Build output
+/client/build
+/dist
+/out
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor directories
+.idea
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+/venv/
+/server/rag_service/venv/
+
+# --- PROJECT SPECIFIC IGNORES (MOST IMPORTANT PART) ---
+
+# Ignore all generated user assets
+/server/assets/
+
+# Ignore all generated podcasts, presentations, etc.
+/server/generated_podcasts/
+
+# Ignore all FAISS search indexes
+/server/faiss_indices/
+
+# Ignore the AI model cache
+/server/rag_service/model_cache/
+
+# Ignore any local database files (if you were using something like SQLite)
+*.sqlite3
+*.db
+
+# Ignore user-uploaded test documents
+*.txt
+*.pdf
+*.docx
+*.pptx
+*.ppt
+# (Note: This is a broad rule. If you have essential .txt files that ARE part of the source code,
+# you can un-ignore them with a line like: !/path/to/your/important.txt)

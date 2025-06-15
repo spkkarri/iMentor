@@ -177,6 +177,6 @@ npm start
 
 | Name     | GitHub Username | Contribution Areas                                                                 |
 |----------|------------------|------------------------------------------------------------------------------------|
-| Aswanth | [AswanthAllu](https://github.com/AswanthAllu) | Chain of Thought, Persistent Chat History (MongoDB),STT/TTS, Podcast Generation, Mind Map Generation, RAG Pipeline,Chat & File Deletion Features,  Multiple File Upload, UI/UX Design |
+|Jaya Aswanth Allu | [AswanthAllu](https://github.com/AswanthAllu) | Chain of Thought, Persistent Chat History (MongoDB),STT/TTS, Podcast Generation, Mind Map Generation, RAG Pipeline,Chat & File Deletion Features,  Multiple File Upload, UI/UX Design |
 
 

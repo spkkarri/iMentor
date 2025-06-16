@@ -1,0 +1,18 @@
+# Ignore all files in the uploads directory
+uploads/
+# Ignore all files in the logs directory
+logs/
+# Ignore all files in the temp directory
+temp/
+# Ignore all files in the backups directory
+backups/
+# Ignore all files in the config directory
+config/
+# Ignore all files in the secrets directory 
+secrets/
+# Ignore all files in the default_pdfs directory
+default_pdfs/
+# Ignore all files in the faiss_store directory
+faiss_store/
+# Ignore Python cache directories
+__pycache__/

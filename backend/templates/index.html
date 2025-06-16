@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local AI Engineering Tutor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container-fluid mt-3 mb-3">
+
+        <!-- Landing View (Initially Visible) -->
+        <div id="landing-view" class="auth-container">
+            <h1 class="text-center mb-4 text-primary display-4">Local AI Engineering Tutor</h1>
+            <div class="d-grid gap-2 col-6 mx-auto" style="max-width: 300px;">
+                <button id="show-login-btn" class="btn btn-lg btn-success">Login</button>
+                <button id="show-signup-btn" class="btn btn-lg btn-info">Sign Up</button>
+            </div>
+        </div>
+
+        <!-- Signup View (Initially Hidden) -->
+        <div id="signup-view" class="auth-container" style="display: none;">
+            <div class="auth-form-container">
+                <h2 class="text-center mb-4 text-primary">Create Account</h2>
+                <form id="signup-form">
+                    <div class="row g-3">
+                        <div class="col-md-6 mb-3">
+                            <label for="signup-firstname" class="form-label">First Name</label>
+                            <input type="text" class="form-control form-control-sm" id="signup-firstname" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="signup-lastname" class="form-label">Last Name</label>
+                            <input type="text" class="form-control form-control-sm" id="signup-lastname" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="signup-username" class="form-label">Preferred Username</label>
+                        <input type="text" class="form-control form-control-sm" id="signup-username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="signup-gender" class="form-label">Gender</label>
+                        <select class="form-select form-select-sm" id="signup-gender" required>
+                            <option value="" selected disabled>Select...</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                            <option value="prefer_not_to_say">Prefer not to say</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="signup-mobile" class="form-label">Mobile Number</label>
+                        <input type="tel" class="form-control form-control-sm" id="signup-mobile" pattern="[0-9]{10,15}" title="Enter a valid mobile number (10-15 digits)">
+                    </div>
+                    <div class="mb-3">
+                        <label for="signup-email" class="form-label">Email ID</label>
+                        <input type="email" class="form-control form-control-sm" id="signup-email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="signup-organization" class="form-label">Company / Institute</label>
+                        <input type="text" class="form-control form-control-sm" id="signup-organization">
+                    </div>
+                    <div class="mb-3">
+                        <label for="signup-password" class="form-label">New Password</label>
+                        <input type="password" class="form-control form-control-sm" id="signup-password" required minlength="8">
+                    </div>
+                    <div class="mb-3">
+                        <label for="signup-confirm-password" class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control form-control-sm" id="signup-confirm-password" required>
+                    </div>
+                    <div id="signup-error" class="alert alert-danger mt-3" style="display: none;"></div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Sign Up</button>
+                    </div>
+                </form>
+                <p class="mt-3 text-center">Already have an account? <a href="#" id="show-login-from-signup">Login here</a></p>
+            </div>
+        </div>
+
+        <!-- Login View (Initially Hidden) -->
+        <div id="login-view" class="auth-container" style="display: none;">
+            <div class="auth-form-container">
+                <h2 class="text-center mb-4 text-primary">Login</h2>
+                <form id="login-form">
+                    <div class="mb-3">
+                        <label for="login-identifier" class="form-label">Username or Email</label>
+                        <input type="text" class="form-control form-control-sm" id="login-identifier" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="login-password" class="form-label">Password</label>
+                        <input type="password" class="form-control form-control-sm" id="login-password" required>
+                    </div>
+                    <div id="login-error" class="alert alert-danger mt-3" style="display: none;"></div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg">Login</button>
+                    </div>
+                </form>
+                <p class="mt-3 text-center">Don't have an account? <a href="#" id="show-signup-from-login">Sign up here</a></p>
+            </div>
+        </div>
+
+
+        <!-- Main Application Container (Initially Hidden) -->
+        <div id="main-app-container" class="main-app-container">
+            <div class="logout-button-container d-flex align-items-center">
+                <span id="username-display" class="me-3 text-muted small"></span>
+                <button id="logout-button" class="btn btn-sm btn-outline-danger">Logout</button>
+            </div>
+
+            <h1 class="text-center mb-4 text-primary">Local AI Engineering Tutor</h1>
+
+            <div class="status-area d-flex justify-content-between align-items-center mb-3 px-2 flex-wrap">
+                 <span id="connection-status" class="badge bg-secondary me-auto">Initializing...</span>
+                 <div id="status-message" class="alert alert-dismissible fade show ms-md-3" role="alert" style="display: none; margin-bottom: 0; padding: 0.5rem 1rem; padding-right: 2.5rem; flex-grow: 1; min-width: 250px;">
+                    <!-- Text content will be set by JS -->
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.6rem 0.8rem;"></button>
+                 </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card mb-3 control-card">
+                        <div class="card-header">Upload Document</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="pdf-upload" class="form-label small">Select Document:</label>
+                                <input class="form-control form-control-sm" type="file" id="pdf-upload" 
+                                       accept=".pdf,.docx,.pptx,.txt,.json,.py,.js,.html,.css,.java,.c,.cpp,.h,.hpp,.cs,.go,.rb,.php,.swift,.kt,.rs,.md,.jpg,.jpeg,.png">
+                            </div>
+                            <button id="upload-button" class="btn btn-primary btn-sm w-100" disabled>
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                                <span>Upload & Add to Knowledge Base</span>
+                            </button>
+                            <div id="upload-status" class="mt-2 small text-muted">Select a document to upload.</div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3 control-card">
+                        <div class="card-header">Document Utilities</div>
+                        <div class="card-body" id="analysis-section">
+                            <div class="mb-3">
+                                <label for="analysis-file-select" class="form-label small">Select Document:</label>
+                                <select class="form-select form-select-sm" id="analysis-file-select" disabled>
+                                    <option selected disabled value="">Loading documents...</option>
+                                </select>
+                            </div>
+                            <div class="btn-group w-100 mb-2 btn-group-sm" role="group" aria-label="Analysis types">
+                                <button class="btn btn-info analysis-btn" disabled data-analysis-type="faq">Gen FAQ</button>
+                                <button class="btn btn-info analysis-btn" disabled data-analysis-type="topics">Topics</button>
+                                <button class="btn btn-info analysis-btn" disabled data-analysis-type="mindmap">Mind Map</button>
+                            </div>
+                            <button class="btn btn-success analysis-btn mt-1 w-100 btn-sm" disabled data-analysis-type="podcast">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                                <span>Generate Podcast</span>
+                            </button>
+                            <div id="analysis-status" class="mt-1 small text-muted mb-2">Select a document and utility type.</div>
+
+                            <div id="analysis-reasoning-container" class="reasoning-widget mb-2" style="display: none;">
+                                <h6 class="text-muted small mb-1 fw-bold">AI Reasoning:</h6>
+                                <pre id="analysis-reasoning-output" class="analysis-reasoning-content"></pre>
+                            </div>
+                            <div id="latex-source-container" class="mt-2" style="display: none;">
+                                <h6 class="text-muted small mb-1 fw-bold">Processed Source (for Mindmap/PDFs):</h6>
+                                <pre id="latex-source-output" class="analysis-content" style="max-height: 150px; font-size: 0.75em;"></pre>
+                            </div>
+                            <div id="analysis-output-container" class="mt-2" style="display: none;">
+                                 <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <h5 id="analysis-output-title" class="text-light mb-0 small fw-bold">Analysis Result:</h5>
+                                 </div>
+                                <div id="analysis-output" class="analysis-content"></div>
+                                <div id="mindmap-output-container" class="mt-2" style="display: none;">
+                                    <!-- Mermaid will render here -->
+                                </div>
+                            </div>
+                            <!-- Podcast Output Area -->
+                            <div id="podcast-output-container" class="mt-3" style="display: none;">
+                                <h5 class="text-light mb-2 small fw-bold">Podcast Output:</h5>
+                                <div id="podcast-status" class="small text-muted mb-2"></div>
+                                <div class="mb-2">
+                                    <audio id="podcast-audio-player" controls style="width: 100%;">
+                                        Your browser does not support the audio element.
+                                    </audio>
+                                </div>
+                                <h6 class="small text-light">Podcast Script:</h6>
+                                <div id="podcast-script-output" class="analysis-content" style="max-height: 200px;">
+                                    <!-- Script will be displayed here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card chat-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>
+                                Chat Tutor
+                                <small id="session-id-display" class="text-muted small ms-2"></small>
+                            </span>
+                            <span>
+                                <button id="new-chat-btn" class="btn btn-sm btn-primary me-2">New Chat</button>
+                                <button id="show-sessions-btn" class="btn btn-sm btn-outline-info">Previous Sessions</button>
+                            </span>
+                        </div>
+                        <div class="card-body d-flex flex-column overflow-hidden p-2">
+                            <div id="chat-history" class="flex-grow-1 overflow-auto mb-2 p-2 border rounded">
+                                <!-- Dynamic thinking messages will appear here -->
+                                <div id="thinking-messages-container" class="thinking-messages-container"></div>
+                            </div>
+                            <div class="mt-auto chat-input-area">
+                                <div id="chat-status" class="mb-1 small text-muted text-center">Initializing...</div>
+                                <div class="input-group input-group-sm position-relative">
+                                    <input type="text" id="chat-input" class="form-control" placeholder="Ask a question..." aria-label="Chat input" disabled>
+                                    <!-- Document Suggestions Container -->
+                                    <div id="document-suggestions" class="document-suggestions-popup" style="display: none;">
+                                        <ul id="document-suggestions-list" class="list-unstyled mb-0">
+                                            <!-- Document items will be populated here by JavaScript -->
+                                        </ul>
+                                    </div>
+                                    <button id="voice-input-button" class="btn btn-outline-secondary" type="button" title="Start Voice Input" disabled>🎤</button>
+                                    <button id="pause-button" class="btn btn-outline-warning" type="button" title="Pause AI Response" disabled>⏸️</button>
+                                    <button id="stop-button" class="btn btn-outline-danger" type="button" title="Stop AI Response" disabled>⏹️</button>
+                                    <button id="send-button" class="btn btn-success" type="button" disabled>
+                                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                                         <span>Send</span>
+                                    </button>
+                                </div>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sessions Popup Modal (ensure it's outside main-app-container or adjust z-index) -->
+        <div id="sessions-popup">
+            <h5 class="mb-3 text-primary">Select a Previous Session</h5>
+            <ul id="sessions-list"></ul>
+            <button id="close-sessions-popup" class="btn btn-sm btn-outline-secondary mt-3 w-100">Close</button>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

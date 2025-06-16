@@ -1,0 +1,639 @@
+/* style.css - Enhanced Dark Theme and Custom Styles */
+
+:root {
+    /* Base Colors */
+    --bs-body-bg: #1a1d2e; /* Slightly deeper blue */
+    --bs-body-color: #e0e0e0; /* Lighter grey text */
+    --bs-border-color: #3b3f5c; /* Muted border */
+    --bs-dark: #2c2f44; /* Slightly lighter dark shade for contrasts */
+    --bs-secondary: #7a839e; /* Muted secondary text/elements */
+    --bs-tertiary-bg: #23263a; /* Background for some elements like chat history */
+
+    /* Accent Colors */
+    --bs-primary: #8a7ff0; /* Vibrant Purple */
+    --bs-info: #2cb67d;    /* Teal/Green for positive feedback/links */
+    --bs-success: #4caf50;  /* Standard Green */
+    --bs-warning: #ffc107;  /* Standard Yellow */
+    --bs-danger: #f44336;   /* Standard Red */
+    --bs-light: #f8f9fa;
+
+    /* Links */
+    --link-color: var(--bs-info);
+    --link-hover-color: #61e4a9;
+
+     /* Custom variables */
+    --card-bg: #282b3f;
+    --card-header-bg: rgba(var(--bs-primary-rgb), 0.1);
+    --input-bg: #353950;
+    --input-focus-bg: #404560;
+    --chat-history-bg: var(--bs-tertiary-bg);
+    --code-bg: #161825; /* Darker code background */
+    --code-text-color: #b0c4de;
+    --thinking-bg: rgba(0, 0, 0, 0.2); /* Background for thinking block */
+    --thinking-border: var(--bs-secondary); /* Border for thinking block */
+    --thinking-text-color: #b0b8c4; /* Text color for thinking block */
+    --reference-source-color: var(--bs-warning);
+    --message-user-bg: linear-gradient(135deg, #6a11cb 0%, #8a7ff0 100%); /* Purple gradient */
+    --message-bot-bg: #383c55; /* Slightly distinct bot message background */
+    --uploaded-indicator-color: #2cb67d;
+}
+
+/* Apply base theme */
+[data-bs-theme="dark"] {
+    --bs-body-bg: var(--bs-body-bg);
+    --bs-body-color: var(--bs-body-color);
+    --bs-border-color: var(--bs-border-color);
+    --bs-link-color: var(--link-color);
+    --bs-link-hover-color: var(--link-hover-color);
+    --bs-secondary-color: var(--bs-secondary);
+    --bs-tertiary-bg: var(--bs-tertiary-bg);
+}
+
+body {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    overscroll-behavior-y: none;
+    line-height: 1.6; /* Improve overall readability */
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--bs-primary);
+    font-weight: 500;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bs-dark); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background-color: var(--bs-secondary); border-radius: 4px; border: 2px solid var(--bs-dark); }
+::-webkit-scrollbar-thumb:hover { background-color: #8a95b0; }
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--bs-secondary) var(--bs-dark); }
+
+/* --- Cards --- */
+.card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.6rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); /* Slightly deeper shadow */
+}
+.card-header {
+    background-color: var(--card-header-bg);
+    color: var(--bs-light);
+    border-bottom: 1px solid var(--bs-border-color);
+    font-weight: 500;
+    padding: 0.6rem 1rem; /* Adjusted padding */
+}
+.control-card .card-body { padding: 0.8rem; } /* Less padding in control cards */
+.chat-card {
+    height: calc(100vh - 120px); /* Adjust height based on header/footer/margins */
+    min-height: 450px; /* Ensure minimum reasonable height */
+}
+
+/* --- Forms --- */
+.form-control, .form-select {
+    background-color: var(--input-bg);
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+.form-control:focus, .form-select:focus {
+    background-color: var(--input-focus-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+    outline: none;
+}
+.form-control::placeholder { color: #888e99; opacity: 0.8; }
+.form-control:disabled, .form-select:disabled { background-color: var(--bs-dark); opacity: 0.6; }
+.form-select { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23dcdcdc' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e"); }
+.form-control-sm, .form-select-sm, .btn-sm { font-size: 0.875rem; padding: 0.25rem 0.5rem; border-radius: 0.3rem; }
+.input-group-sm > .btn { padding: 0.25rem 0.5rem; }
+
+/* File dropdown indicator */
+.file-option.uploaded::before {
+    content: ''; display: inline-block; width: 8px; height: 8px;
+    background-color: var(--uploaded-indicator-color); border-radius: 50%;
+    margin-right: 8px; vertical-align: middle;
+}
+select optgroup { font-style: italic; font-weight: bold; color: var(--bs-info); }
+
+/* --- Buttons --- */
+.btn { transition: all 0.2s ease-in-out; font-weight: 500; border-radius: 0.4rem; }
+.btn:focus { box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25); }
+/* Spinner visibility handled by JS */
+.btn .spinner-border { margin-right: 5px; vertical-align: text-bottom; }
+/* Rule to hide button text when loading, if JS adds 'loading' class */
+.btn.loading span:not(.spinner-border) {
+    visibility: hidden;
+}
+.btn-primary { background-color: var(--bs-primary); border-color: var(--bs-primary); color: #fff;}
+.btn-primary:hover { background-color: #7a6ff0; border-color: #7a6ff0; filter: brightness(1.1); transform: translateY(-1px);}
+.btn-info { background-color: var(--bs-info); border-color: var(--bs-info); color: #fff; }
+.btn-info:hover { background-color: #25a26f; border-color: #25a26f; filter: brightness(1.1); transform: translateY(-1px); color: #fff;}
+.btn-success { background-color: var(--bs-success); border-color: var(--bs-success); color: #fff;}
+.btn-success:hover { background-color: #43a047; border-color: #43a047; filter: brightness(1.1); transform: translateY(-1px);}
+.btn-outline-secondary { border-color: var(--bs-secondary); color: var(--bs-secondary); }
+.btn-outline-secondary:hover { background-color: var(--bs-secondary); color: var(--bs-light); }
+.btn-danger { background-color: var(--bs-danger); border-color: var(--bs-danger); color: #fff;}
+.btn-danger:hover { background-color: #e53935; border-color: #e53935; filter: brightness(1.1); transform: translateY(-1px);}
+
+/* --- Chat Area --- */
+#chat-history {
+    background-color: var(--chat-history-bg);
+    border-color: var(--bs-border-color) !important;
+    padding: 0.75rem; /* Reduced padding */
+}
+.message-wrapper { margin-bottom: 1rem; display: flex; flex-direction: column; }
+.user-wrapper { align-items: flex-end; }
+.bot-wrapper { align-items: flex-start; }
+.message {
+    padding: 0.6rem 1rem; /* Adjusted padding */
+    border-radius: 1.1rem;
+    max-width: 85%; /* Slightly wider max */
+    word-wrap: break-word;
+    line-height: 1.5;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    position: relative;
+}
+.user-message { background: var(--message-user-bg); color: white; border-bottom-right-radius: 0.4rem; }
+.bot-message { background-color: var(--message-bot-bg); color: var(--bs-body-color); border-bottom-left-radius: 0.4rem; }
+
+/* Markdown in bot messages */
+.bot-message *:first-child { margin-top: 0; } /* Remove top margin from first element */
+.bot-message *:last-child { margin-bottom: 0; } /* Remove bottom margin from last element */
+.bot-message strong, .bot-message b { color: var(--bs-info); font-weight: 600; }
+.bot-message a { color: var(--link-color); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.bot-message a:hover { color: var(--link-hover-color); }
+.bot-message code { /* Inline */
+    background-color: rgba(255, 255, 255, 0.1); padding: 0.15em 0.4em; border-radius: 4px;
+    font-family: Consolas, 'Courier New', monospace; font-size: 0.88em; color: var(--code-text-color);
+    word-break: break-all;
+}
+.bot-message pre { /* Code blocks */
+    background-color: var(--code-bg); border: 1px solid var(--bs-border-color);
+    padding: 0.8rem; border-radius: 5px; overflow-x: auto; margin: 0.7rem 0;
+    font-size: 0.88em; scrollbar-width: thin; scrollbar-color: var(--bs-secondary) var(--bs-dark);
+}
+.bot-message pre code { background: transparent; padding: 0; border: none; color: var(--code-text-color); font-family: Consolas, 'Courier New', monospace; }
+.bot-message ul, .bot-message ol { padding-left: 1.8rem; margin: 0.5rem 0; }
+.bot-message li { margin-bottom: 0.3rem; }
+.bot-message blockquote {
+    border-left: 3px solid var(--bs-secondary);
+    padding-left: 1rem;
+    margin: 0.7rem 0;
+    color: var(--bs-secondary);
+    font-style: italic;
+}
+
+/* Thinking & References Metadata */
+.message-thinking, .message-references {
+    font-size: 0.8em; margin-top: 0.5rem; padding: 0.5rem 0.8rem; border-radius: 6px;
+    max-width: 85%; color: var(--thinking-text-color); border-left: 3px solid;
+}
+/* Specific styles for Thinking block */
+.message-thinking {
+    background-color: var(--thinking-bg);
+    border-color: var(--thinking-border);
+}
+.message-thinking details { line-height: 1.3; }
+.message-thinking details summary {
+    cursor: pointer; color: var(--bs-info); font-weight: 500;
+    outline: none; padding: 2px 0; transition: color 0.2s;
+    display: inline-block; /* Prevent summary taking full width */
+}
+.message-thinking details summary:hover { color: var(--link-hover-color); }
+.message-thinking details[open] summary { margin-bottom: 0.4rem; }
+.message-thinking pre {
+    margin: 0.4rem 0 0 0; background-color: rgba(0,0,0,0.25); color: var(--thinking-text-color);
+    padding: 0.6rem; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;
+    border: 1px solid var(--bs-border-color); font-size: 0.95em;
+    max-height: 150px; /* Limit height and make scrollable */
+    overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--bs-secondary) var(--bs-dark);
+}
+.message-thinking code { font-family: Consolas, 'Courier New', monospace; }
+
+/* Specific styles for References block */
+.message-references { background-color: rgba(var(--bs-warning-rgb), 0.05); border-color: var(--bs-warning); }
+.message-references ul { list-style: none; padding-left: 0; margin-bottom: 0; }
+.message-references li.ref-item { margin-bottom: 0.25rem; line-height: 1.4; }
+.message-references .ref-source { font-weight: 600; color: var(--reference-source-color); cursor: help; }
+.message-references .ref-source:hover { text-decoration: underline; }
+/* --- MODIFICATION START --- */
+/* Styles for message action buttons (Copy, Like, Dislike, Edit) */
+.message-actions {
+    display: flex;
+    gap: 0.3rem; /* Spacing between buttons */
+    margin-top: 0.5rem; /* Space above the buttons, below the message content */
+    opacity: 0.7; /* Slightly transparent by default */
+    transition: opacity 0.2s ease-in-out;
+}
+
+.message-wrapper:hover .message-actions {
+    opacity: 1; /* Fully visible on hover of the message wrapper */
+}
+
+.user-wrapper .message-actions {
+    justify-content: flex-end; /* Align to the right for user messages */
+}
+
+.bot-wrapper .message-actions {
+    justify-content: flex-start; /* Align to the left for bot messages */
+}
+
+.btn-action {
+    background-color: rgba(var(--bs-secondary-rgb), 0.2); /* Subtle background */
+    border: 1px solid rgba(var(--bs-secondary-rgb), 0.3);
+    color: var(--bs-secondary);
+    padding: 0.15rem 0.4rem; /* Smaller padding */
+    font-size: 0.75rem; /* Smaller font size */
+    line-height: 1.2;
+    border-radius: 0.25rem;
+}
+
+.btn-action:hover {
+    background-color: rgba(var(--bs-secondary-rgb), 0.4);
+    color: var(--bs-light);
+    border-color: rgba(var(--bs-secondary-rgb), 0.5);
+}
+
+.btn-action.active { /* Style for active like/dislike buttons */
+    background-color: var(--bs-primary);
+    color: white;
+    border-color: var(--bs-primary);
+}
+.btn-action.btn-copy:disabled,
+.btn-action.btn-like:disabled, /* if you decide to disable them after action */
+.btn-action.btn-dislike:disabled {
+    opacity: 0.6;
+}
+/* --- MODIFICATION END --- */
+/* --- Analysis Area --- */
+.analysis-content {
+    white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto;
+    background-color: var(--chat-history-bg); border: 1px solid var(--bs-border-color);
+    padding: 0.8rem; border-radius: 5px; line-height: 1.5; margin-bottom: 1rem;
+    scrollbar-width: thin; scrollbar-color: var(--bs-secondary) var(--bs-dark);
+    font-size: 0.9rem;
+}
+/* Markdown styles within analysis (similar to chat) */
+.analysis-content strong, .analysis-content b { color: var(--bs-info); }
+.analysis-content ul, .analysis-content ol { padding-left: 1.5rem; margin-bottom: 0.5rem; }
+.analysis-content li { margin-bottom: 0.25rem; }
+.analysis-content code { /* Inline */
+    background-color: rgba(255, 255, 255, 0.1); padding: 0.15em 0.4em; border-radius: 4px;
+    font-family: Consolas, 'Courier New', monospace; font-size: 0.9em; color: var(--code-text-color);
+}
+.analysis-content pre { /* Blocks */
+    background-color: var(--code-bg); border: 1px solid var(--bs-border-color); padding: 0.8rem;
+    border-radius: 5px; overflow-x: auto; margin: 0.7rem 0; font-size: 0.9em;
+}
+.analysis-content pre code { background: transparent; padding: 0; border: none; color: var(--code-text-color); }
+.analysis-content pre.mindmap-markdown-source { max-height: 100px; overflow-y: auto; font-size: 0.8em;} /* Smaller preview for mindmap source */
+
+
+/* Mindmap */
+#mindmap-container { position: relative; }
+.mindmap-svg-view {
+    width: 100%; height: 350px; border: 1px solid var(--bs-border-color);
+    background-color: var(--card-bg); border-radius: 5px; display: block;
+}
+/* Markmap Toolbar */
+.markmap-toolbar {
+    background-color: rgba(var(--card-bg-rgb), 0.9); border: 1px solid var(--bs-border-color);
+    border-radius: 4px; padding: 3px 5px; margin-bottom: 5px; display: inline-flex; gap: 5px;
+    position: absolute; /* Position toolbar over the map */
+    top: 5px; left: 5px; z-index: 10;
+}
+.markmap-toolbar-item button { background: none; border: none; color: var(--bs-body-color); padding: 3px 5px; border-radius: 3px; cursor: pointer; transition: background-color 0.2s; font-size: 0.8rem; }
+.markmap-toolbar-item button:hover { background-color: rgba(var(--bs-secondary-rgb), 0.3); }
+.markmap-toolbar-item button:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Markmap SVG elements */
+.markmap-node text { fill: var(--bs-body-color); font-size: 0.85rem; }
+.markmap-node circle { fill: var(--card-bg); stroke: var(--bs-primary); stroke-width: 1.5px; }
+.markmap-link { stroke: var(--bs-secondary); stroke-width: 1px; }
+
+/* === MODIFIED: Added Analysis Reasoning Widget Styles === */
+.reasoning-widget {
+    border: 1px solid var(--thinking-border); /* Use thinking border color */
+    border-radius: 5px;
+    background-color: var(--thinking-bg); /* Use thinking background */
+    padding: 0.5rem 0.8rem;
+    /* margin-bottom: 1rem; */ /* Added via mb-2 class in HTML */
+}
+.reasoning-widget h6 {
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    color: var(--bs-secondary); /* Muted heading */
+}
+.analysis-reasoning-content {
+    max-height: 100px; /* Limit height */
+    overflow-y: auto;
+    white-space: pre-wrap; /* Wrap text */
+    word-wrap: break-word;
+    font-size: 0.75em; /* Smaller font for reasoning */
+    line-height: 1.4;
+    color: var(--thinking-text-color); /* Use thinking text color */
+    background-color: var(--code-bg) !important; /* Use code bg for contrast */
+    border: 1px solid var(--bs-border-color) !important; /* Consistent border */
+    scrollbar-width: thin; /* Consistent scrollbar */
+    scrollbar-color: var(--bs-secondary) var(--bs-dark);
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+/* === END MODIFICATION === */
+
+
+/* --- Status Area --- */
+.status-area { min-height: 40px; /* Prevent layout shift */ }
+#connection-status { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+#status-message { font-size: 0.85rem; }
+#status-message .btn-close { filter: invert(1) grayscale(100%) brightness(200%); font-size: 0.7rem; }
+
+/* Input Area Status */
+#upload-status, #analysis-status, #chat-status {
+    min-height: 1.2em; transition: color 0.2s ease-in-out; padding-top: 2px;
+}
+.text-muted { color: #888e99 !important; }
+.text-success { color: var(--bs-success) !important; }
+.text-warning { color: var(--bs-warning) !important; }
+.text-danger { color: var(--bs-danger) !important; }
+
+/* --- Voice Button --- */
+#voice-input-button { padding: 0.25rem 0.6rem; /* Adjust padding for icon */ }
+#voice-input-button.listening {
+    color: white !important;
+    animation: pulse 1.5s infinite ease-in-out;
+    border-color: var(--bs-danger); /* Use border color from danger button */
+    background-color: var(--bs-danger); /* Use background color from danger button */
+}
+#voice-input-button:disabled { opacity: 0.5; cursor: not-allowed; animation: none; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(var(--bs-danger-rgb), 0.6); }
+  70% { box-shadow: 0 0 0 7px rgba(var(--bs-danger-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--bs-danger-rgb), 0); }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 767.98px) {
+    .col-md-4, .col-md-8 { width: 100%; }
+    .card { margin-bottom: 1rem; }
+    .chat-card { height: 65vh; min-height: 350px; }
+    .message { max-width: 92%; }
+    .message-thinking, .message-references { max-width: 92%; }
+    h1 { font-size: 1.6rem; }
+    .status-area { flex-wrap: wrap; }
+    #status-message { width: 100%; margin-left: 0 !important; margin-top: 0.5rem; }
+}
+
+
+/* backend/static/style.css */
+/* ... (existing styles) ... */
+
+/* Mindmap (Mermaid) */
+#mindmap-output-container {
+    width: 100%;
+    min-height: 300px; /* Adjust as needed */
+    border: 1px solid var(--bs-border-color);
+    background-color: var(--card-bg); /* Or a lighter/contrasting bg for the map */
+    border-radius: 5px;
+    display: flex; /* For centering if needed */
+    justify-content: center;
+    align-items: center;
+    overflow: auto; /* Allow scrolling for large maps */
+    padding: 10px;
+}
+
+.mermaid { /* Class used by Mermaid for the SVG container */
+    margin: auto; /* Center the diagram if it's smaller than container */
+}
+
+.mindmap-markdown-source { /* Styling for the raw mermaid code preview */
+    max-height: 100px;
+    overflow-y: auto;
+    font-size: 0.8em;
+    background-color: var(--code-bg);
+    border: 1px solid var(--bs-border-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    color: var(--code-text-color);
+}
+
+/* You might need to adjust Mermaid's default dark theme colors if they clash */
+/* Example: Overriding specific Mermaid dark theme elements if needed
+.mermaid .mindmap-node text { fill: var(--bs-body-color) !important; }
+.mermaid .mindmap-link { stroke: var(--bs-secondary) !important; }
+*/
+
+/* === MODIFIED: Analysis Reasoning Widget Styles (already present, ensure it's good) === */
+/* ... your existing .reasoning-widget styles ... */
+
+/* ... (rest of style.css) ... */
+
+.auth-container {
+    min-height: 80vh; /* Adjust as needed */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.auth-form-container {
+    max-width: 500px; /* Max width for login/signup forms */
+    width: 100%;
+    padding: 2rem;
+    background-color: var(--card-bg);
+    border-radius: 0.6rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    margin-top: 2rem; /* Space from top if not centered vertically perfectly */
+}
+
+.auth-form-container h2 {
+    color: var(--bs-primary); /* Ensure heading color matches theme */
+}
+
+/* Main app container might need some top margin if header is fixed or for spacing */
+.main-app-container {
+    /* display: none; /* Initially hidden - handled by JS */
+    padding-top: 50px; /* Example: if logout button area takes space */
+    position: relative; /* For positioning logout button */
+}
+
+.logout-button-container {
+    position: absolute;
+    top: 15px; /* Adjust as per your header/title height */
+    right: 20px;
+    z-index: 1050; /* Ensure it's above other elements */
+    display: flex; /* For aligning username and button */
+    align-items: center;
+}
+#username-display {
+    font-size: 0.9rem;
+    color: var(--bs-secondary); /* Muted color for username */
+}
+
+/* Ensure form labels are clearly visible */
+.auth-form-container .form-label {
+    color: var(--bs-body-color);
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+}
+
+/* Style for spinner within buttons */
+.btn .spinner-border {
+    /* Adjust size or position if needed */
+}
+
+/* Rule to hide button text when the button has the 'loading' class */
+.btn.loading span:not(.spinner-border) {
+    visibility: hidden;
+    width: 0; /* Collapse width to prevent impacting button size */
+    overflow: hidden;
+}
+
+/* Optional: Adjust button padding when loading to maintain size */
+.btn.loading {
+    /* Example: If your button text had 10px padding, give the spinner container similar effective padding */
+    /* This depends on the default button padding and spinner size */
+    /* You might need to inspect the rendered HTML to get this right */
+    padding-left: calc(0.5rem + 0.5rem); /* example based on btn-sm padding 0.25rem 0.5rem */
+    padding-right: calc(0.5rem + 0.5rem);
+}
+
+
+/* New styles for session popup */
+#sessions-popup {
+    display: none; /* Controlled by JS */
+    position: fixed;
+    top: 20%; /* Position from top */
+    left: 50%;
+    transform: translateX(-50%); /* Center horizontally */
+    background: var(--bs-tertiary-bg); /* Use a theme background */
+    border: 1px solid var(--bs-border-color);
+    padding: 24px 32px;
+    z-index: 2000; /* High z-index to overlay everything */
+    border-radius: 10px;
+    min-width: 300px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4); /* Add shadow */
+}
+#sessions-popup h5 {
+    color: var(--bs-primary); /* Theme primary color */
+}
+#sessions-list {
+    list-style: none;
+    padding: 0;
+    max-height: 300px; /* Limit height for scrolling */
+    overflow-y: auto;
+    margin-bottom: 1rem; /* Space before close button */
+}
+#sessions-list li {
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(var(--bs-secondary-rgb), 0.2); /* Subtle separator */
+    transition: background-color 0.2s ease;
+     color: var(--bs-body-color); /* Default text color */
+}
+#sessions-list li:last-child {
+    border-bottom: none;
+}
+#sessions-list li:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.1); /* Subtle hover effect */
+    color: var(--bs-info); /* Highlight color on hover */
+}
+
+/* Text styles for list items */
+#sessions-list li.text-muted {
+     color: var(--bs-secondary) !important;
+     cursor: default;
+     background-color: transparent !important;
+}
+#sessions-list li.text-muted:hover {
+    background-color: transparent !important;
+}
+
+/* Styles for Document Suggestions Popup */
+.document-suggestions-popup {
+    position: absolute;
+    bottom: 100%; /* Position above the input field */
+    left: 0;
+    right: 0;
+    background-color: var(--bs-tertiary-bg); /* Use a background similar to chat history */
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.4rem 0.4rem 0 0; /* Rounded top corners */
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.25); /* Shadow above */
+    z-index: 1000; /* Ensure it's above other elements but below modals */
+    max-height: 200px; /* Limit height */
+    overflow-y: auto; /* Enable scrolling */
+    padding: 0.5rem 0;
+    margin-bottom: -1px; /* Overlap border with input */
+    display: none; /* Hidden by default, controlled by JS */
+}
+
+.document-suggestions-popup ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.document-suggestion-item {
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+    color: var(--bs-body-color);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-size: 0.9rem;
+    white-space: nowrap; /* Prevent wrapping */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Add ellipsis for overflow */
+}
+
+.document-suggestion-item:hover,
+.document-suggestion-item.active-suggestion { /* Class added by JS for keyboard navigation */
+    background-color: rgba(var(--bs-primary-rgb), 0.15); /* Subtle highlight */
+    color: var(--bs-primary); /* Highlight text color */
+}
+
+/* Adjust input group to accommodate the popup */
+.chat-input-area .input-group {
+    position: relative; /* Ensure positioning context for the popup */
+}
+
+/* Styles for Thinking Messages Container */
+.thinking-messages-container {
+    position: absolute;
+    bottom: 0; /* Position at the bottom of chat history */
+    left: 0;
+    right: 0;
+    padding: 0.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Align messages to the left */
+    pointer-events: none; /* Allow clicks to pass through to chat history */
+    z-index: 5; /* Below actual chat messages but above input */
+    background-color: var(--chat-history-bg); /* Match chat history background */
+    border-radius: 0.4rem;
+}
+
+.thinking-message {
+    background-color: rgba(var(--bs-primary-rgb), 0.1); /* Subtle background */
+    color: var(--bs-primary); /* Primary color for text */
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.8rem;
+    margin-bottom: 0.5rem; /* Space between messages */
+    font-size: 0.9rem;
+    font-style: italic;
+    opacity: 0; /* Start invisible */
+    animation: fadeInOut 2.5s forwards; /* Animation for fade in/out */
+    max-width: 80%; /* Limit width */
+    word-wrap: break-word;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(10px); }
+    10% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-10px); }
+}

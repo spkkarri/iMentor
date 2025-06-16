@@ -1,0 +1,180 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root { /* Apply to html, body, AND your React root div */
+    @apply h-full overflow-hidden; /* Force full height and no scroll on these */
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth; /* This is fine, affects internal scrolls */
+  }
+
+  body {
+    @apply bg-background-light text-text-light transition-colors duration-300;
+    font-family: theme('fontFamily.sans');
+    /* overflow-hidden is now applied via the html, body, #root rule above */
+  }
+
+  html.dark body {
+    @apply bg-background-dark text-text-dark;
+  }
+  html.light body {
+    @apply bg-background-light text-text-light;
+  }
+
+  .custom-scrollbar {
+     @apply scrollbar-thin scrollbar-thumb-secondary dark:scrollbar-thumb-secondary-dark scrollbar-track-surface-light dark:scrollbar-track-gray-800 scrollbar-thumb-rounded-full scrollbar-track-rounded-full;
+  }
+
+  /* --- Enhanced Prose Styles --- */
+  .prose {
+    @apply max-w-none text-text-light dark:text-text-dark;
+  }
+  .prose, .prose-sm {
+    /* Headings */
+    h1 { @apply text-2xl sm:text-3xl font-extrabold mb-6 mt-2 text-text-light dark:text-text-dark; }
+    h2 { @apply text-xl sm:text-2xl font-bold mb-4 mt-8 border-b border-border-light dark:border-border-dark pb-2; }
+    h3 { @apply text-lg sm:text-xl font-semibold mb-3 mt-6; }
+    h4 { @apply text-base sm:text-lg font-semibold mb-2 mt-4; }
+
+    /* Paragraphs */
+    p { @apply mb-4 leading-relaxed; }
+
+    /* Links */
+    a { @apply text-primary dark:text-primary-light hover:underline font-medium; }
+    pre a, pre code a { @apply text-inherit no-underline hover:text-inherit; }
+
+    /* Lists */
+    ul, ol { @apply pl-5 mb-4 space-y-1; }
+    ul { @apply list-disc; }
+    ol { @apply list-decimal; }
+    li { @apply mb-1; }
+    ul ul, ol ol, ul ol, ol ul { @apply pl-5 mt-1 mb-1; }
+    li::marker { @apply text-text-muted-light dark:text-text-muted-dark; }
+
+    /* --- GFM Task List Checkboxes - Custom GREEN Styling --- */
+    li:has(> input[type="checkbox"]) {
+      @apply flex items-center;
+      list-style-type: none;
+      margin-left: -1.25rem; /* Adjust as needed for alignment */
+      padding-left: 0;
+    }
+
+    li > input[type="checkbox"] {
+      @apply opacity-0 w-0 h-0 absolute;
+    }
+
+    li:has(> input[type="checkbox"])::before {
+      content: "";
+      @apply inline-block w-4 h-4 border-2 rounded-sm mr-2 align-middle flex-shrink-0;
+      @apply bg-surface-light dark:bg-gray-700;
+      @apply border-border-light dark:border-border-dark;
+      transition: all 0.15s ease-in-out;
+    }
+
+    li:has(> input[type="checkbox"]:checked)::before {
+      @apply bg-green-500 dark:bg-green-600 border-green-500 dark:border-green-600;
+      background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+      background-size: 70% 70%;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    li:has(> input[type="checkbox"]:disabled:not(:checked))::before {
+      @apply opacity-60 cursor-not-allowed;
+      @apply bg-gray-100 dark:bg-gray-600 border-gray-300 dark:border-gray-500;
+    }
+
+    li:has(> input[type="checkbox"]:checked:disabled)::before {
+      @apply bg-green-500/70 dark:bg-green-600/70 border-green-500/70 dark:border-green-600/70;
+      opacity: 0.75;
+      cursor: not-allowed;
+    }
+
+
+    /* Blockquotes */
+    blockquote {
+      @apply border-l-4 border-primary dark:border-primary-light pl-4 py-2 my-4 italic text-text-muted-light dark:text-text-muted-dark bg-surface-light dark:bg-gray-800/30 rounded-r-md;
+    }
+    blockquote p { @apply mb-0; }
+
+    /* Horizontal Rules */
+    hr { @apply my-8 border-t border-border-light dark:border-border-dark; }
+
+    /* Tables */
+    table { @apply w-full my-6 text-sm border-collapse; }
+    thead { @apply border-b-2 border-border-light dark:border-border-dark; }
+    th {
+      @apply px-4 py-2.5 text-left font-semibold text-text-light dark:text-text-dark bg-gray-100 dark:bg-gray-700/50;
+      @apply border border-border-light dark:border-border-dark;
+    }
+    tbody tr { @apply border-b border-border-light dark:border-border-dark; }
+    tbody tr:last-child { @apply border-b-0; }
+    tbody tr:nth-child(even) { @apply bg-gray-50 dark:bg-gray-800/20; }
+    td { @apply px-4 py-2.5 text-left border-x border-border-light dark:border-border-dark; }
+    td code { @apply text-xs; }
+    td strong { @apply font-semibold; }
+
+    /* --- Code Styling --- */
+    code:not(pre code) {
+      @apply px-1.5 py-0.5 bg-primary/10 dark:bg-primary-dark/20 text-primary dark:text-primary-light rounded-md text-xs font-mono break-words;
+    }
+    code:not(pre code)::before, code:not(pre code)::after { content: ''; }
+
+    pre {
+      @apply bg-[#282c34] dark:bg-[#21252b] p-4 rounded-lg shadow-md overflow-x-auto custom-scrollbar my-5;
+    }
+    pre code {
+      @apply bg-transparent p-0 font-mono text-sm leading-relaxed;
+      color: #abb2bf;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    strong { @apply font-semibold text-text-light dark:text-text-dark; }
+  }
+}
+
+@layer components {
+  /* ... your existing btn, input-field, form-checkbox, card styles ... */
+  /* The li:has(> input[type="checkbox"]) from your paste was misplaced, it should be within .prose */
+
+  /* I will keep your existing .form-checkbox rules here as they might be used by other non-prose forms */
+  .btn {
+    @apply font-semibold py-2 px-4 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-opacity-75 transition-all duration-150 ease-in-out flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  html.dark .btn { @apply focus:ring-offset-background-dark; }
+  html:not(.dark) .btn { @apply focus:ring-offset-background-light; }
+
+  .btn-primary { @apply btn bg-primary text-white hover:bg-primary-dark focus:ring-primary; }
+  .btn-secondary { @apply btn bg-secondary text-white hover:bg-secondary-dark focus:ring-secondary; }
+  .btn-ghost { @apply btn text-text-muted-light dark:text-text-muted-dark hover:bg-gray-500 hover:bg-opacity-10 focus:ring-primary; }
+
+  .input-field {
+    @apply block w-full px-3 py-2 bg-surface-light dark:bg-gray-700 border border-border-light dark:border-border-dark rounded-md text-sm shadow-sm placeholder-text-muted-light dark:placeholder-text-muted-dark
+           focus:outline-none focus:border-primary dark:focus:border-primary-light focus:ring-1 focus:ring-primary dark:focus:ring-primary-light;
+  }
+  .form-input, .form-textarea, .form-select, .form-multiselect { @apply input-field; }
+
+  .form-checkbox, .form-radio {
+    @apply rounded shadow-sm border-border-light dark:border-border-dark text-primary focus:ring-primary dark:focus:ring-primary-light;
+    @apply bg-surface-light dark:bg-gray-600;
+  }
+  .form-checkbox:disabled, .form-radio:disabled {
+    @apply opacity-70 bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600;
+  }
+
+  .card-base {
+    @apply border rounded-panel shadow-panel;
+    @apply bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark;
+  }
+  .card-header-base {
+    @apply px-4 py-3 text-sm font-semibold border-b;
+    @apply text-text-light dark:text-text-dark border-border-light dark:border-border-dark;
+  }
+}

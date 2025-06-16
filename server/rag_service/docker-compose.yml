@@ -1,0 +1,65 @@
+
+version: '3.8' # Specifies the version of the Docker Compose file format
+
+services:
+  # Qdrant Service Definition
+  qdrant:
+    image: qdrant/qdrant:latest  # Uses the latest official Qdrant image
+    container_name: qdrant_service # A friendly name for the Qdrant container
+    ports:
+      - "6333:6333"  # Maps port 6333 on the host to 6333 in the container (gRPC)
+      - "6334:6334"  # Maps port 6334 on the host to 6334 in the container (HTTP REST API / Dashboard)
+    volumes:
+      - qdrant_data:/qdrant/storage # Mounts the named volume 'qdrant_data' to Qdrant's internal storage path
+    restart: unless-stopped # Restarts the container unless it was explicitly stopped
+
+  # Neo4j Service Definition
+  neo4j:
+    image: neo4j:5.17.0  # Uses a specific version of Neo4j for consistency (recommended)
+    container_name: neo4j_service   # A friendly name for the Neo4j container
+    ports:
+      - "7474:7474"  # Maps port 7474 on the host to 7474 in the container (Neo4j Browser - HTTP)
+      - "7687:7687"  # Maps port 7687 on the host to 7687 in the container (Bolt protocol)
+    volumes:
+      - neo4j_data:/data          # Mounts the named volume 'neo4j_data' to Neo4j's internal data path
+      - neo4j_logs:/logs          # Optional: Mounts the named volume 'neo4j_logs' for persistent logs
+    environment:
+      # IMPORTANT: Set a secure password for any non-trivial use.
+      # This password is used for the initial setup if the neo4j_data volume is empty.
+      # On subsequent starts with existing data, Neo4j uses the password stored in the database.
+      - NEO4J_AUTH=neo4j/password
+    restart: unless-stopped # Restarts the container unless it was explicitly stopped
+
+  # --- Optional: Your Flask Application Service (Uncomment and configure if needed) ---
+  # flask_app:
+  #   build:
+  #     context: ./server  # Path to the directory containing your Flask app's Dockerfile
+  #     dockerfile: Dockerfile # Name of your Flask app's Dockerfile
+  #   container_name: my_flask_app
+  #   ports:
+  #     - "5000:5000"  # Maps port 5000 on host to 5000 in container (adjust if your app uses a different port)
+  #   volumes:
+  #     # Mount your server code for development (allows live reloading if your Flask app supports it)
+  #     # For production, you'd typically copy the code into the image during the build.
+  #     - ./server:/app/server
+  #     # Example: If your app needs to access local assets directly
+  #     # - ./server/assets:/app/server/assets
+  #   environment:
+  #     - FLASK_ENV=development # Or 'production'
+  #     - QDRANT_HOST=qdrant    # Flask app will connect to Qdrant using its service name 'qdrant'
+  #     - QDRANT_PORT=6333
+  #     - NEO4J_URI=bolt://neo4j:7687 # Flask app connects to Neo4j using its service name 'neo4j'
+  #     - NEO4J_USER=neo4j
+  #     - NEO4J_PASSWORD=yourDevPasswordPleaseChange # Same password as used for Neo4j service
+  #     # Add any other environment variables your Flask app needs
+  #   depends_on: # Ensures Qdrant and Neo4j start before your Flask app attempts to connect
+  #     - qdrant
+  #     - neo4j
+  #   restart: unless-stopped
+# Docker Compose will create these volumes automatically if they don't already exist.
+volumes:
+  qdrant_data:  # Named volume for Qdrant's persistent data
+    # You can specify a driver or driver options here if needed, e.g., for cloud storage.
+    # For local development, the default 'local' driver is usually sufficient.
+  neo4j_data:   # Named volume for Neo4j's persistent graph data
+  neo4j_logs:   # Named volume for Neo4j's persistent logs (optional but good for debugging)

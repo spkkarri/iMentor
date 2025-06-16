@@ -1,0 +1,36 @@
+# server/rag_service/requirements.txt
+flask
+requests
+faiss-cpu # or faiss-gpu
+langchain
+langchain-huggingface
+pypdf
+PyPDF2
+python-docx
+python-dotenv
+ollama # Keep if using Ollama embeddings
+python-pptx
+uuid
+langchain-community
+pdfplumber
+fitz # PyMuPDF for PDF parsing
+pytesseract
+nltk
+spacy-layout
+pandas
+numpy
+typing
+pytesseract # OCR
+pillow
+qdrant-client
+neo4j
+sentence_transformers
+spacy
+opencv-python
+duckduckgo-search
+python-pptx
+python-docx
+reportlab
+google-generativeai
+gTTS
+

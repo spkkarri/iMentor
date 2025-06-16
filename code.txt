@@ -1,0 +1,3852 @@
+`backend/.env`
+
+```
+# Ollama Configuration
+# Ensure the Ollama server is running and accessible at this URL.
+OLLAMA_BASE_URL="http://127.0.0.1:11434/"
+
+# --- Choose your LLMs ---
+# Make sure the models specified here have been pulled using `ollama pull <model_name>`
+
+# Generation/Analysis Model (Used for chat responses, analysis tasks)
+# Recommended: deepseek-coder:6.7b-instruct (Good balance of coding/reasoning)
+# Alternative: deepseek-r1 (If provided)
+# Alternative: llama3:8b (Strong general model)
+# Alternative: mistral:7b (Good general model)
+#OLLAMA_MODEL=deepseek-r1
+# OLLAMA_MODEL=llama3:8b
+# OLLAMA_MODEL=llama3.2
+#OLLAMA_MODEL=mistral:7b-instruct
+
+OLLAMA_MODEL="qwen2.5:14b-instruct"
+# Embedding Model (Used for creating vector representations of text)
+# Recommended: mxbai-embed-large (Top performer on MTEB leaderboard)
+# Alternative: nomic-embed-text (Another good option)
+OLLAMA_EMBED_MODEL="mxbai-embed-large"
+# OLLAMA_EMBED_MODEL=nomic-embed-text
+
+# Optional: Ollama Request Timeout (seconds)
+# Increase if you get timeout errors during long embedding or generation tasks
+# OLLAMA_REQUEST_TIMEOUT=180
+
+# --- Application Configuration ---
+# Paths are relative to the 'backend' directory. Defaults are usually fine.
+# FAISS_FOLDER=faiss_store
+# UPLOAD_FOLDER=uploads
+# DATABASE_NAME=chat_history.db
+# DEFAULT_PDFS_FOLDER=default_pdfs
+
+# --- RAG Configuration ---
+# RAG_CHUNK_K=5               # Max unique chunks sent to LLM for synthesis
+# RAG_SEARCH_K_PER_QUERY=3    # Chunks retrieved per sub-query before deduplication
+# MULTI_QUERY_COUNT=3         # Number of sub-queries generated (0 to disable)
+
+# --- Analysis Configuration ---
+# ANALYSIS_MAX_CONTEXT_LENGTH=8000 # Max characters of document text sent for analysis
+
+# --- Logging Configuration ---
+# Level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# Set to DEBUG for detailed troubleshooting.
+LOGGING_LEVEL=INFO
+# LOGGING_LEVEL=DEBUG
+
+
+```
+
+`backend/ai_core.py`
+
+```python
+# --- START OF FILE ai_core.py ---
+
+# Notebook/backend/ai_core.py
+import os
+import logging
+import fitz  # PyMuPDF
+import re
+# Near the top of ai_core.py
+from langchain_community.vectorstores import FAISS
+from langchain_ollama import OllamaEmbeddings, ChatOllama
+# Removed incorrect OllamaLLM import if it was there from previous attempts
+from langchain.text_splitter import RecursiveCharacterTextSplitter # <<<--- ENSURE THIS IS PRESENT
+from langchain.docstore.document import Document
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate # Import PromptTemplate if needed directly here
+from config import (
+    OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_EMBED_MODEL, FAISS_FOLDER,
+    DEFAULT_PDFS_FOLDER, UPLOAD_FOLDER, RAG_CHUNK_K, MULTI_QUERY_COUNT,
+    ANALYSIS_MAX_CONTEXT_LENGTH, OLLAMA_REQUEST_TIMEOUT, RAG_SEARCH_K_PER_QUERY,
+    SUB_QUERY_PROMPT_TEMPLATE, SYNTHESIS_PROMPT_TEMPLATE, ANALYSIS_PROMPTS
+)
+from utils import parse_llm_response, escape_html # Added escape_html for potential use
+import pdfplumber
+
+logger = logging.getLogger(__name__)
+
+# --- Global State (managed within functions) ---
+document_texts_cache = {}
+vector_store = None
+embeddings: OllamaEmbeddings | None = None
+llm: ChatOllama | None = None
+
+# --- Initialization Functions ---
+
+# ai_core.py (only showing the modified function)
+def initialize_ai_components() -> tuple[OllamaEmbeddings | None, ChatOllama | None]:
+    """Initializes Ollama Embeddings and LLM instances globally.
+
+    Returns:
+        tuple[OllamaEmbeddings | None, ChatOllama | None]: The initialized embeddings and llm objects,
+                                                          or (None, None) if initialization fails.
+    """
+    global embeddings, llm
+    if embeddings and llm:
+        logger.info("AI components already initialized.")
+        return embeddings, llm
+
+    try:
+        # Use the new OllamaEmbeddings from langchain_ollama
+        logger.info(f"Initializing Ollama Embeddings: model={OLLAMA_EMBED_MODEL}, base_url={OLLAMA_BASE_URL}, timeout={OLLAMA_REQUEST_TIMEOUT}s")
+        embeddings = OllamaEmbeddings(
+            model=OLLAMA_EMBED_MODEL,
+            base_url=OLLAMA_BASE_URL,
+            #request_timeout=OLLAMA_REQUEST_TIMEOUT # Explicitly pass timeout
+        )
+        # Perform a quick test embedding
+        _ = embeddings.embed_query("Test embedding query")
+        logger.info("Ollama Embeddings initialized successfully.")
+
+        # Use the new ChatOllama from langchain_ollama
+        logger.info(f"Initializing Ollama LLM: model={OLLAMA_MODEL}, base_url={OLLAMA_BASE_URL}, timeout={OLLAMA_REQUEST_TIMEOUT}s")
+        llm = ChatOllama(
+            model=OLLAMA_MODEL,
+            base_url=OLLAMA_BASE_URL,
+            #request_timeout=OLLAMA_REQUEST_TIMEOUT # Explicitly pass timeout
+        )
+        # Perform a quick test invocation
+        _ = llm.invoke("Respond briefly with 'AI Check OK'")
+        logger.info("Ollama LLM initialized successfully.")
+
+        return embeddings, llm  # Return the objects
+    except ImportError as e:
+        logger.critical(f"Import error during AI initialization: {e}. Ensure correct langchain packages are installed.", exc_info=True)
+        embeddings = None
+        llm = None
+        return None, None
+    except Exception as e:
+        # Catch potential Pydantic validation error specifically if possible, or general Exception
+        logger.error(f"Failed to initialize AI components (check Ollama server status, model name '{OLLAMA_MODEL}' / '{OLLAMA_EMBED_MODEL}', base URL '{OLLAMA_BASE_URL}', timeout {OLLAMA_REQUEST_TIMEOUT}s): {e}", exc_info=True)
+        # Log the type of error for better debugging
+        logger.error(f"Error Type: {type(e).__name__}")
+        # If it's a Pydantic error, the message usually contains details
+        if "pydantic" in str(type(e)).lower():
+             logger.error(f"Pydantic Validation Error Details: {e}")
+        embeddings = None
+        llm = None
+        return None, None
+
+def load_vector_store() -> bool:
+    """Loads the FAISS index from disk into the global `vector_store`.
+
+    Requires `embeddings` to be initialized first.
+
+    Returns:
+        bool: True if the index was loaded successfully, False otherwise (or if not found).
+    """
+    global vector_store, embeddings
+    if vector_store:
+        logger.info("Vector store already loaded.")
+        return True
+    if not embeddings:
+        logger.error("Embeddings not initialized. Cannot load vector store.")
+        return False
+
+    faiss_index_path = os.path.join(FAISS_FOLDER, "index.faiss")
+    faiss_pkl_path = os.path.join(FAISS_FOLDER, "index.pkl")
+
+    if os.path.exists(faiss_index_path) and os.path.exists(faiss_pkl_path):
+        try:
+            logger.info(f"Loading FAISS index from folder: {FAISS_FOLDER}")
+            # Note: Loading requires the same embedding model used for saving.
+            # allow_dangerous_deserialization is required for FAISS/pickle
+            vector_store = FAISS.load_local(
+                folder_path=FAISS_FOLDER,
+                embeddings=embeddings, # Pass the initialized embeddings object
+                allow_dangerous_deserialization=True
+            )
+            index_size = getattr(getattr(vector_store, 'index', None), 'ntotal', 0)
+            if index_size > 0:
+                logger.info(f"FAISS index loaded successfully. Contains {index_size} vectors.")
+                return True
+            else:
+                logger.warning(f"FAISS index loaded from {FAISS_FOLDER}, but it appears to be empty.")
+                return True # Treat empty as loaded
+        except FileNotFoundError:
+            logger.warning(f"FAISS index files not found in {FAISS_FOLDER}, although directory exists. Proceeding without loaded index.")
+            vector_store = None
+            return False
+        except EOFError:
+            logger.error(f"EOFError loading FAISS index from {FAISS_FOLDER}. Index file might be corrupted or incomplete.", exc_info=True)
+            vector_store = None
+            return False
+        except Exception as e:
+            logger.error(f"Error loading FAISS index from {FAISS_FOLDER}: {e}", exc_info=True)
+            vector_store = None # Ensure it's None if loading failed
+            return False
+    else:
+        logger.warning(f"FAISS index files (index.faiss, index.pkl) not found at {FAISS_FOLDER}. Will be created on first upload or if default.py ran.")
+        vector_store = None
+        return False # Indicate index wasn't loaded
+
+
+def save_vector_store() -> bool:
+    """Saves the current global `vector_store` (FAISS index) to disk.
+
+    Returns:
+        bool: True if saving was successful, False otherwise (or if store is None).
+    """
+    global vector_store
+    if not vector_store:
+        logger.warning("Attempted to save vector store, but it's not loaded or initialized.")
+        return False
+    if not os.path.exists(FAISS_FOLDER):
+        try:
+            os.makedirs(FAISS_FOLDER)
+            logger.info(f"Created FAISS store directory: {FAISS_FOLDER}")
+        except OSError as e:
+            logger.error(f"Failed to create FAISS store directory {FAISS_FOLDER}: {e}", exc_info=True)
+            return False
+
+    try:
+        index_size = getattr(getattr(vector_store, 'index', None), 'ntotal', 0)
+        logger.info(f"Saving FAISS index ({index_size} vectors) to {FAISS_FOLDER}...")
+        vector_store.save_local(FAISS_FOLDER)
+        logger.info(f"FAISS index saved successfully.")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving FAISS index to {FAISS_FOLDER}: {e}", exc_info=True)
+        return False
+
+
+def load_all_document_texts():
+    """Loads text from all PDFs found in default and upload folders into the global cache.
+
+    Used by the analysis endpoint to avoid re-extraction.
+    """
+    global document_texts_cache
+    logger.info("Loading/refreshing document texts cache for analysis...")
+    document_texts_cache = {} # Reset cache before loading
+    loaded_count = 0
+    processed_files = set()
+
+    def _load_from_folder(folder_path):
+        nonlocal loaded_count
+        count = 0
+        if not os.path.exists(folder_path):
+            logger.warning(f"Document text folder not found: {folder_path}. Skipping.")
+            return count
+        try:
+            for filename in os.listdir(folder_path):
+                if filename.lower().endswith('.pdf') and not filename.startswith('~') and filename not in processed_files:
+                    file_path = os.path.join(folder_path, filename)
+                    # logger.debug(f"Extracting text from {filename} for cache...")
+                    text = extract_text_from_pdf(file_path)
+                    if text:
+                        document_texts_cache[filename] = text
+                        processed_files.add(filename)
+                        count += 1
+                    else:
+                        logger.warning(f"Could not extract text from {filename} in {folder_path} for cache.")
+            logger.info(f"Cached text for {count} PDFs from {folder_path}.")
+            loaded_count += count
+        except Exception as e:
+            logger.error(f"Error listing or processing files in {folder_path} for cache: {e}", exc_info=True)
+        return count
+
+    # Load defaults first, then uploads (uploads overwrite defaults if names collide in cache)
+    _load_from_folder(DEFAULT_PDFS_FOLDER)
+    _load_from_folder(UPLOAD_FOLDER)
+
+    logger.info(f"Finished loading texts cache. Total unique documents cached: {len(document_texts_cache)}")
+
+
+# --- PDF Processing Functions ---
+
+def extract_text_from_pdf(pdf_path: str) -> str | None:
+    """Extracts text from a single PDF file using pdfplumber.
+
+    Args:
+        pdf_path (str): The full path to the PDF file.
+
+    Returns:
+        str | None: The extracted text content, or None if an error occurred.
+    """
+    text = ""
+    if not os.path.exists(pdf_path):
+        logger.error(f"PDF file not found for extraction: {pdf_path}")
+        return None
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages):
+                try:
+                    page_text = page.extract_text() or ""
+                    # Basic cleaning: Replace multiple whitespace chars with single space, keep single newlines.
+                    page_text = re.sub(r'[ \t\f\v]+', ' ', page_text)
+                    page_text = re.sub(r'\n+', '\n', page_text)
+                    if page_text:
+                        text += page_text + "\n\n"
+                except Exception as page_err:
+                    logger.warning(f"Error processing page {page_num+1} of {os.path.basename(pdf_path)}: {page_err}")
+                    continue
+        cleaned_text = text.strip()
+        if cleaned_text:
+            logger.info(f"Successfully extracted text from {os.path.basename(pdf_path)} (approx {len(cleaned_text)} chars).")
+            return cleaned_text
+        else:
+            logger.warning(f"Extracted text was empty for {os.path.basename(pdf_path)}.")
+            return None
+    except Exception as e:
+        logger.error(f"Error extracting text from PDF {os.path.basename(pdf_path)}: {e}", exc_info=True)
+        return None
+
+def create_chunks_from_text(text: str, filename: str) -> list[Document]:
+    """Splits text into chunks using RecursiveCharacterTextSplitter and creates LangChain Documents.
+
+    Args:
+        text (str): The text content to chunk.
+        filename (str): The source filename for metadata.
+
+    Returns:
+        list[Document]: A list of LangChain Document objects representing the chunks.
+    """
+    if not text:
+        logger.warning(f"Cannot create chunks for '{filename}', input text is empty.")
+        return []
+
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,      # Target size of each chunk
+        chunk_overlap=150,    # Overlap between chunks
+        length_function=len,
+        add_start_index=True, # Include start index in metadata
+        separators=["\n\n", "\n", ". ", ", ", " ", ""], # Hierarchical separators
+    )
+
+    try:
+        # Use create_documents which handles metadata assignment more cleanly
+        documents = text_splitter.create_documents([text], metadatas=[{"source": filename}])
+        # Add explicit chunk_index for clarity (though start_index is also present)
+        for i, doc in enumerate(documents):
+            doc.metadata["chunk_index"] = i
+
+        logger.info(f"Created {len(documents)} LangChain Document chunks for '{filename}'.")
+        return documents
+
+    except Exception as e:
+        logger.error(f"Error creating chunks for '{filename}': {e}", exc_info=True)
+        return []
+
+def add_documents_to_vector_store(documents: list[Document]) -> bool:
+    """Adds LangChain Documents to the global FAISS index.
+    Creates the index if it doesn't exist. Saves the index afterwards.
+
+    Args:
+        documents (list[Document]): The list of documents to add.
+
+    Returns:
+        bool: True if documents were added and the index saved successfully, False otherwise.
+    """
+    global vector_store, embeddings
+    if not documents:
+        logger.warning("No documents provided to add to vector store.")
+        return True # Nothing to add, technically successful no-op.
+    if not embeddings:
+        logger.error("Embeddings not initialized. Cannot add documents to vector store.")
+        return False
+
+    try:
+        if vector_store:
+            logger.info(f"Adding {len(documents)} document chunks to existing FAISS index...")
+            vector_store.add_documents(documents)
+            index_size = getattr(getattr(vector_store, 'index', None), 'ntotal', 0)
+            logger.info(f"Addition complete. Index now contains {index_size} vectors.")
+        else:
+            logger.info(f"No FAISS index loaded. Creating new index from {len(documents)} document chunks...")
+            vector_store = FAISS.from_documents(documents, embeddings)
+            index_size = getattr(getattr(vector_store, 'index', None), 'ntotal', 0)
+            if vector_store and index_size > 0:
+                logger.info(f"New FAISS index created with {index_size} vectors.")
+            else:
+                logger.error("Failed to create new FAISS index or index is empty after creation.")
+                vector_store = None # Ensure it's None if creation failed
+                return False
+
+        # IMPORTANT: Persist the updated index
+        return save_vector_store()
+
+    except Exception as e:
+        logger.error(f"Error adding documents to FAISS index or saving: {e}", exc_info=True)
+        # Consider state: if vector_store existed before, it might be partially updated in memory.
+        # Saving failed, so on next load, it should revert unless error was in 'from_documents'.
+        return False
+
+# --- RAG and LLM Interaction ---
+
+# --- MODIFIED: Added logging ---
+def generate_sub_queries(query: str) -> list[str]:
+    """
+    Uses the LLM to generate sub-queries for RAG. Includes the original query.
+    Uses SUB_QUERY_PROMPT_TEMPLATE from config.
+    """
+    global llm
+    if not llm:
+        logger.error("LLM not initialized, cannot generate sub-queries. Using original query only.")
+        return [query]
+    if MULTI_QUERY_COUNT <= 0:
+        logger.debug("MULTI_QUERY_COUNT is <= 0, skipping sub-query generation.")
+        return [query]
+
+    # Use the prompt template from config
+    chain = LLMChain(llm=llm, prompt=SUB_QUERY_PROMPT_TEMPLATE)
+
+    try:
+        logger.info(f"Generating {MULTI_QUERY_COUNT} sub-queries for: '{query[:100]}...'")
+        # Log the prompt before sending (approx first 150 chars)
+        prompt_to_log = SUB_QUERY_PROMPT_TEMPLATE.format(query=query, num_queries=MULTI_QUERY_COUNT)
+        logger.debug(f"Sub-query Prompt (Start):\n{prompt_to_log[:150]}...") # DEBUG level might be better
+
+        response = chain.invoke({"query": query, "num_queries": MULTI_QUERY_COUNT})
+        # Response structure might vary; often {'text': 'query1\nquery2'}
+        raw_response_text = response.get('text', '') if isinstance(response, dict) else str(response)
+
+        # Log the raw response start
+        logger.debug(f"Sub-query Raw Response (Start):\n{raw_response_text[:150]}...") # DEBUG level
+
+        # No need to parse for <thinking> here as the prompt doesn't request it
+        sub_queries = [q.strip() for q in raw_response_text.strip().split('\n') if q.strip()]
+
+        if sub_queries:
+            logger.info(f"Generated {len(sub_queries)} sub-queries.")
+            # Ensure we don't exceed MULTI_QUERY_COUNT, and always include the original
+            final_queries = [query] + sub_queries[:MULTI_QUERY_COUNT]
+            # Deduplicate the final list just in case LLM generated the original query
+            final_queries = list(dict.fromkeys(final_queries))
+            logger.debug(f"Final search queries: {final_queries}")
+            return final_queries
+        else:
+            logger.warning("LLM did not generate any valid sub-queries. Falling back to original query only.")
+            return [query]
+
+    except Exception as e:
+        logger.error(f"Error generating sub-queries: {e}", exc_info=True)
+        return [query] # Fallback
+# --- END MODIFICATION ---
+
+def perform_rag_search(query: str) -> tuple[list[Document], str, dict[int, dict]]:
+    """
+    Performs RAG: generates sub-queries, searches vector store, deduplicates, formats context, creates citation map.
+    """
+    global vector_store
+    context_docs = []
+    formatted_context_text = "No relevant context was found in the available documents."
+    context_docs_map = {} # Use 1-based index for keys mapping to doc details
+
+    if not vector_store:
+        logger.warning("RAG search attempted but no vector store is loaded.")
+        return context_docs, formatted_context_text, context_docs_map
+    if not query or not query.strip():
+        logger.warning("RAG search attempted with empty query.")
+        return context_docs, formatted_context_text, context_docs_map
+
+    index_size = getattr(getattr(vector_store, 'index', None), 'ntotal', 0)
+    if index_size == 0:
+        logger.warning("RAG search attempted but the vector store index is empty.")
+        return context_docs, formatted_context_text, context_docs_map
+
+    try:
+        # 1. Generate Sub-Queries
+        search_queries = generate_sub_queries(query)
+
+        # 2. Perform Similarity Search for each query
+        all_retrieved_docs_with_scores = []
+        # Retrieve k docs per query before deduplication
+        k_per_query = max(RAG_SEARCH_K_PER_QUERY, 1) # Ensure at least 1
+        logger.debug(f"Retrieving top {k_per_query} chunks for each of {len(search_queries)} queries.")
+
+        for q_idx, q in enumerate(search_queries):
+            try:
+                # Use similarity_search_with_score to get scores for potential ranking/filtering later
+                retrieved = vector_store.similarity_search_with_score(q, k=k_per_query)
+                # Format: [(Document(page_content=..., metadata=...), score), ...]
+                all_retrieved_docs_with_scores.extend(retrieved)
+                logger.debug(f"Query {q_idx+1}/{len(search_queries)} ('{q[:50]}...') retrieved {len(retrieved)} chunks.")
+            except Exception as search_err:
+                logger.error(f"Error during similarity search for query '{q[:50]}...': {search_err}", exc_info=False) # Less verbose log
+
+        if not all_retrieved_docs_with_scores:
+            logger.info("No relevant chunks found in vector store for the query/sub-queries.")
+            return context_docs, formatted_context_text, context_docs_map
+
+        # 3. Deduplicate and Select Top Documents
+        # Key: (source_filename, chunk_index) Value: (Document, score)
+        unique_docs_dict = {}
+        for doc, score in all_retrieved_docs_with_scores:
+            source = doc.metadata.get('source', 'Unknown')
+            # Use chunk_index if available, otherwise maybe start_index or hash of content? Chunk_index preferred.
+            chunk_idx = doc.metadata.get('chunk_index', doc.metadata.get('start_index', -1))
+            doc_key = (source, chunk_idx)
+
+            # Consider content-based deduplication if metadata isn't reliable enough
+            # content_hash = hash(doc.page_content)
+            # doc_key = (source, content_hash)
+
+            if doc_key not in unique_docs_dict or score < unique_docs_dict[doc_key][1]: # Lower score (distance) is better
+                unique_docs_dict[doc_key] = (doc, score)
+
+        # Sort unique documents by score (ascending - best first)
+        sorted_unique_docs = sorted(unique_docs_dict.values(), key=lambda item: item[1])
+
+        # Select the final top RAG_CHUNK_K unique documents
+        final_context_docs_with_scores = sorted_unique_docs[:RAG_CHUNK_K]
+        context_docs = [doc for doc, score in final_context_docs_with_scores]
+
+        logger.info(f"Retrieved {len(all_retrieved_docs_with_scores)} chunks total across sub-queries. "
+                    f"Selected {len(context_docs)} unique chunks (target k={RAG_CHUNK_K}) for context.")
+
+        # 4. Format Context for LLM Prompt and Create Citation Map
+        formatted_context_parts = []
+        temp_map = {} # Use 1-based index for map keys, matching citations like [1], [2]
+        for i, doc in enumerate(context_docs):
+            citation_index = i + 1 # 1-based index for the prompt and map
+            source = doc.metadata.get('source', 'Unknown Source')
+            chunk_idx = doc.metadata.get('chunk_index', 'N/A')
+            content = doc.page_content
+
+            # Format for the LLM prompt
+            # Use 'Source' and 'Chunk Index' for clarity in the context block
+            context_str = f"[{citation_index}] Source: {source} | Chunk Index: {chunk_idx}\n{content}"
+            formatted_context_parts.append(context_str)
+
+            # Store data needed for frontend reference display, keyed by the citation number
+            temp_map[citation_index] = {
+                "source": source,
+                "chunk_index": chunk_idx, # Keep original chunk index if available
+                "content": content # Store full content for reference expansion/preview later
+            }
+
+        formatted_context_text = "\n\n---\n\n".join(formatted_context_parts) if formatted_context_parts else "No context chunks selected after processing."
+        context_docs_map = temp_map # Assign the populated map
+
+    except Exception as e:
+        logger.error(f"Error during RAG search process for query '{query[:50]}...': {e}", exc_info=True)
+        # Reset results on error
+        context_docs = []
+        formatted_context_text = "Error retrieving context due to an internal server error."
+        context_docs_map = {}
+
+    # Return the list of Document objects, the formatted text for the LLM, and the citation map
+    return context_docs, formatted_context_text, context_docs_map
+
+# --- MODIFIED: Added logging ---
+def synthesize_chat_response(query: str, context_text: str) -> tuple[str, str | None]:
+    """
+    Generates the final chat response using the LLM, query, and context.
+    Requests and parses thinking/reasoning content using SYNTHESIS_PROMPT_TEMPLATE.
+
+    Returns:
+        tuple[str, str | None]: (user_answer, thinking_content)
+    """
+    global llm
+    if not llm:
+        logger.error("LLM not initialized, cannot synthesize response.")
+        return "Error: The AI model is currently unavailable.", None
+
+    # Use the prompt template from config
+    # Ensure the prompt template is correctly formatted and expects 'query' and 'context'
+    try:
+        final_prompt = SYNTHESIS_PROMPT_TEMPLATE.format(query=query, context=context_text)
+        # Log the prompt before sending
+        logger.info(f"Sending synthesis prompt to LLM (model: {OLLAMA_MODEL})...")
+        logger.debug(f"Synthesis Prompt (Start):\n{final_prompt[:200]}...") # Log more chars if needed
+
+    except KeyError as e:
+        logger.error(f"Error formatting SYNTHESIS_PROMPT_TEMPLATE: Missing key {e}. Check config.py.")
+        return "Error: Internal prompt configuration issue.", None
+    except Exception as e:
+         logger.error(f"Error creating synthesis prompt: {e}", exc_info=True)
+         return "Error: Could not prepare the request for the AI model.", None
+
+    try:
+        # logger.info(f"Invoking LLM for chat synthesis (model: {OLLAMA_MODEL})...") # Already logged above
+        # Use .invoke() for ChatOllama which returns AIMessage, access content with .content
+        response_object = llm.invoke(final_prompt)
+        # Ensure response_object has 'content' attribute
+        full_llm_response = getattr(response_object, 'content', str(response_object))
+
+        # Log the raw response start
+        logger.info(f"LLM synthesis response received (length: {len(full_llm_response)}).")
+        logger.debug(f"Synthesis Raw Response (Start):\n{full_llm_response[:200]}...")
+
+        # Parse the response to separate thinking and answer using the utility function
+        user_answer, thinking_content = parse_llm_response(full_llm_response)
+
+        if thinking_content:
+            logger.info(f"Parsed thinking content (length: {len(thinking_content)}).")
+        else:
+            # This is expected if the LLM didn't include the tags or the prompt was adjusted
+            logger.debug("No <thinking> content found or parsed in the LLM response.")
+
+
+        if not user_answer and thinking_content:
+             logger.warning("Parsed user answer is empty after removing thinking block. The response might have only contained thinking.")
+             # Decide how to handle this - return thinking as answer, or a specific message?
+             # Let's return a message indicating this.
+             user_answer = "[AI response consisted only of reasoning. No final answer provided. See thinking process.]"
+        elif not user_answer and not thinking_content:
+             logger.error("LLM response parsing resulted in empty answer and no thinking content.")
+             user_answer = "[AI Response Processing Error: Empty result after parsing]"
+
+
+        # Basic check if the answer looks like an error message generated by the LLM itself
+        if user_answer.strip().startswith("Error:") or "sorry, I encountered an error" in user_answer.lower():
+            logger.warning(f"LLM synthesis seems to have resulted in an error message: '{user_answer[:100]}...'")
+
+        return user_answer.strip(), thinking_content # Return stripped answer and thinking
+
+    except Exception as e:
+        logger.error(f"LLM chat synthesis failed: {e}", exc_info=True)
+        error_message = f"Sorry, I encountered an error while generating the response ({type(e).__name__}). The AI model might be unavailable, timed out, or failed internally."
+        # Attempt to parse thinking even from error if possible? Unlikely to be useful.
+        return error_message, None
+# --- END MODIFICATION ---
+
+# --- MODIFIED: Added logging ---
+def generate_document_analysis(filename: str, analysis_type: str) -> tuple[str | None, str | None]:
+    """
+    Generates analysis (FAQ, Topics, Mindmap) for a specific document, optionally including thinking.
+    Uses ANALYSIS_PROMPTS from config. Retrieves text from cache or disk.
+
+    Returns:
+        tuple[str | None, str | None]: (analysis_content, thinking_content)
+                                    Returns (error_message, thinking_content) on failure.
+                                    Returns (None, None) if document text cannot be found/loaded.
+    """
+    global llm, document_texts_cache
+    logger.info(f"Starting analysis: type='{analysis_type}', file='{filename}'")
+
+    if not llm:
+        logger.error("LLM not initialized, cannot perform analysis.")
+        return "Error: AI model is not available for analysis.", None
+
+    # --- Step 1: Get Document Text ---
+    doc_text = document_texts_cache.get(filename)
+    if not doc_text:
+        logger.warning(f"Text for '{filename}' not in cache. Attempting load from disk...")
+        # Determine the potential path (check uploads first, then defaults)
+        potential_paths = [
+            os.path.join(UPLOAD_FOLDER, filename),
+            os.path.join(DEFAULT_PDFS_FOLDER, filename)
+        ]
+        load_path = next((p for p in potential_paths if os.path.exists(p)), None)
+
+        if load_path:
+            logger.debug(f"Found '{filename}' at: {load_path}")
+            doc_text = extract_text_from_pdf(load_path) # Extract fresh if not cached
+            if doc_text:
+                document_texts_cache[filename] = doc_text # Cache it now
+                logger.info(f"Loaded and cached text for '{filename}' from {load_path} for analysis.")
+            else:
+                logger.error(f"Failed to extract text from '{filename}' at {load_path} even though file exists.")
+                # Return specific error if extraction fails
+                return f"Error: Could not extract text content from '{filename}'. File might be corrupted or empty.", None
+        else:
+            logger.error(f"Document file '{filename}' not found in default or upload folders for analysis.")
+            # Return error indicating file not found
+            return f"Error: Document '{filename}' not found.", None
+
+    # If after all checks, doc_text is still None or empty, something went wrong
+    if not doc_text:
+        logger.error(f"Analysis failed: doc_text is unexpectedly empty for '{filename}' after cache/disk checks.")
+        return f"Error: Failed to retrieve text content for '{filename}'.", None
+
+
+    # --- Step 2: Prepare Text for LLM (Truncation) ---
+    original_length = len(doc_text)
+    if original_length > ANALYSIS_MAX_CONTEXT_LENGTH:
+        logger.warning(f"Document '{filename}' text too long ({original_length} chars), truncating to {ANALYSIS_MAX_CONTEXT_LENGTH} for '{analysis_type}' analysis.")
+        # Truncate from the end, keeping the beginning
+        doc_text_for_llm = doc_text[:ANALYSIS_MAX_CONTEXT_LENGTH]
+        # Add a clear truncation marker
+        doc_text_for_llm += "\n\n... [CONTENT TRUNCATED DUE TO LENGTH LIMIT]"
+    else:
+        doc_text_for_llm = doc_text
+        logger.debug(f"Using full document text ({original_length} chars) for analysis '{analysis_type}'.")
+
+    # --- Step 3: Get Analysis Prompt ---
+    prompt_template = ANALYSIS_PROMPTS.get(analysis_type)
+    if not prompt_template or not isinstance(prompt_template, PromptTemplate):
+        logger.error(f"Invalid or missing analysis prompt template for type: {analysis_type} in config.py")
+        return f"Error: Invalid analysis type '{analysis_type}' or misconfigured prompt.", None
+
+    try:
+        # Ensure the template expects 'doc_text_for_llm'
+        final_prompt = prompt_template.format(doc_text_for_llm=doc_text_for_llm)
+        # Log the prompt before sending
+        logger.info(f"Sending analysis prompt to LLM (type: {analysis_type}, file: {filename}, model: {OLLAMA_MODEL})...")
+        logger.debug(f"Analysis Prompt (Start):\n{final_prompt[:200]}...")
+
+    except KeyError as e:
+        logger.error(f"Error formatting ANALYSIS_PROMPTS[{analysis_type}]: Missing key {e}. Check config.py.")
+        return f"Error: Internal prompt configuration issue for {analysis_type}.", None
+    except Exception as e:
+        logger.error(f"Error creating analysis prompt for {analysis_type}: {e}", exc_info=True)
+        return f"Error: Could not prepare the request for the {analysis_type} analysis.", None
+
+
+    # --- Step 4: Call LLM and Parse Response ---
+    try:
+        # logger.info(f"Invoking LLM for '{analysis_type}' analysis of '{filename}' (model: {OLLAMA_MODEL})...") # Already logged above
+        # Use .invoke() for ChatOllama
+        response_object = llm.invoke(final_prompt)
+        full_analysis_response = getattr(response_object, 'content', str(response_object))
+
+        # Log the raw response start
+        logger.info(f"LLM analysis response received for '{filename}' ({analysis_type}). Length: {len(full_analysis_response)}")
+        logger.debug(f"Analysis Raw Response (Start):\n{full_analysis_response[:200]}...")
+
+        # Parse potential thinking and main content using the utility function
+        analysis_content, thinking_content = parse_llm_response(full_analysis_response)
+
+        if thinking_content:
+            logger.info(f"Parsed thinking content from analysis response for '{filename}'.")
+        # else: logger.debug(f"No thinking content found in analysis response for '{filename}'.") # Normal if not requested/provided
+
+        if not analysis_content and thinking_content:
+            logger.warning(f"Parsed analysis content is empty for '{filename}' ({analysis_type}). Response only contained thinking.")
+            analysis_content = "[Analysis consisted only of reasoning. No final output provided. See thinking process.]"
+        elif not analysis_content and not thinking_content:
+            logger.error(f"LLM analysis response parsing resulted in empty content and no thinking for '{filename}' ({analysis_type}).")
+            analysis_content = "[Analysis generation resulted in empty content after parsing.]"
+
+
+        # Optional: Basic format validation could be added here if needed (e.g., check for Q:/A: in FAQ)
+
+        logger.info(f"Analysis successful for '{filename}' ({analysis_type}).")
+        return analysis_content.strip(), thinking_content # Return success tuple
+
+    except Exception as e:
+        logger.error(f"LLM analysis invocation error for {filename} ({analysis_type}): {e}", exc_info=True)
+        # Try to return error message with thinking if parsing happened before error? Unlikely.
+        return f"Error generating analysis: AI model failed ({type(e).__name__}). Check logs for details.", None
+# --- END MODIFICATION ---
+
+# --- END OF FILE ai_core.py ---
+```
+
+`backend/app.py`
+
+```python
+# --- START OF FILE app.py ---
+
+import os
+import logging
+import json
+import uuid
+from flask import Flask, request, jsonify, render_template, send_from_directory, Response
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
+from waitress import serve
+from datetime import datetime, timezone # Correct import
+
+# --- Initialize Logging and Configuration First ---
+import config
+config.setup_logging() # Configure logging based on config
+logger = logging.getLogger(__name__) # Get logger for this module
+
+# --- Import Core Modules ---
+import database
+import ai_core
+import utils
+
+# --- Global Flask App Setup ---
+backend_dir = os.path.dirname(__file__)
+# Ensure paths to templates and static are absolute or correctly relative
+template_folder = os.path.join(backend_dir, 'templates')
+static_folder = os.path.join(backend_dir, 'static')
+
+if not os.path.exists(template_folder): logger.error(f"Template folder not found: {template_folder}")
+if not os.path.exists(static_folder): logger.error(f"Static folder not found: {static_folder}")
+
+app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+
+# --- Configure CORS ---
+# Allowing all origins for campus IP access as requested. REMEMBER THE SECURITY IMPLICATIONS.
+CORS(app, resources={r"/*": {"origins": "*"}})
+logger.info("CORS configured to allow all origins ('*'). This is suitable for development/campus LAN but insecure for public deployment.")
+
+# --- Configure Uploads ---
+app.config['UPLOAD_FOLDER'] = config.UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024 # 64MB limit
+logger.info(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
+logger.info(f"Max upload size: {app.config['MAX_CONTENT_LENGTH'] / (1024*1024)} MB")
+
+# Ensure upload directory exists
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    logger.info(f"Upload directory ensured: {app.config['UPLOAD_FOLDER']}")
+except OSError as e:
+    logger.error(f"Could not create upload directory {app.config['UPLOAD_FOLDER']}: {e}", exc_info=True)
+    # Decide if critical? App can run without uploads. Log and continue for now.
+
+# --- Application Initialization ---
+# Flags to track initialization status
+app_db_ready = False
+app_ai_ready = False
+app_vector_store_ready = False
+app_doc_cache_loaded = False # Flag for document text cache
+
+def initialize_app():
+    """Initializes database, AI components, loads index and document texts."""
+    global app_db_ready, app_ai_ready, app_vector_store_ready, app_doc_cache_loaded
+    # Prevent re-initialization if called multiple times
+    if hasattr(app, 'initialized') and app.initialized:
+        # logger.debug("Application already initialized.")
+        return
+
+    logger.info("--- Starting Application Initialization ---")
+    initialization_successful = True
+
+    # 1. Initialize Database
+    try:
+        database.init_db() # This now returns nothing, just logs errors/success
+        # Check connection after init attempt (optional, assumes init_db raises on critical failure)
+        # conn = database.get_db_connection()
+        # conn.close()
+        app_db_ready = True
+        logger.info("Database initialization successful.")
+    except Exception as e:
+        logger.critical(f"Database initialization failed: {e}. Chat history will be unavailable.", exc_info=True)
+        app_db_ready = False
+        initialization_successful = False # DB is critical
+
+    # 2. Initialize AI Components (Embeddings + LLM)
+    logger.info("Initializing AI components...")
+    embed_instance, llm_instance = ai_core.initialize_ai_components()
+    if not embed_instance or not llm_instance:
+         logger.warning("AI components (LLM/Embeddings) failed to initialize. Check Ollama connection and model names. Chat/Analysis/Upload features relying on AI will be unavailable.")
+         app_ai_ready = False
+         # Let initialization proceed, but AI features won't work
+         # initialization_successful = False # Only fail if AI is absolutely essential for startup
+    else:
+         app_ai_ready = True
+         # Set globals in ai_core if initialize_ai_components doesn't do it anymore
+         # ai_core.embeddings = embed_instance # Assuming initialize sets globals
+         # ai_core.llm = llm_instance
+         logger.info("AI components initialized successfully.")
+
+    # 3. Load FAISS Vector Store (requires embeddings)
+    if app_ai_ready:
+        logger.info("Loading FAISS vector store...")
+        if ai_core.load_vector_store():
+            app_vector_store_ready = True
+            index_size = getattr(getattr(ai_core.vector_store, 'index', None), 'ntotal', 0)
+            logger.info(f"FAISS vector store loaded successfully (or is empty). Index size: {index_size}")
+        else:
+            app_vector_store_ready = False
+            logger.warning("Failed to load existing FAISS vector store or it wasn't found. RAG will start with an empty index until uploads or default.py runs.")
+            # Not necessarily a failure for the app to start
+    else:
+         app_vector_store_ready = False
+         logger.warning("Skipping vector store loading because AI components failed to initialize.")
+
+    # 4. Load Document Texts into Cache (for analysis) - Best effort
+    logger.info("Loading document texts into cache...")
+    try:
+         ai_core.load_all_document_texts()
+         app_doc_cache_loaded = True
+         logger.info(f"Document text cache loading complete. Cached {len(ai_core.document_texts_cache)} documents.")
+    except Exception as e:
+         logger.error(f"Error loading document texts into cache: {e}. Analysis of uncached docs may require on-the-fly extraction.", exc_info=True)
+         app_doc_cache_loaded = False
+         # Not a critical failure
+
+    app.initialized = True # Set flag after first run
+    logger.info("--- Application Initialization Complete ---")
+    if not initialization_successful:
+         logger.critical("Initialization failed (Database Error). Application may not function correctly.")
+    elif not app_ai_ready:
+         logger.warning("Initialization complete, but AI components failed. Some features unavailable.")
+
+
+# Run initialization before the first request using Flask's mechanism
+@app.before_request
+def ensure_initialized():
+    # This ensures initialization runs once before the first request handles.
+    # The flag prevents it from running on every request.
+    if not hasattr(app, 'initialized') or not app.initialized:
+        initialize_app()
+
+
+# --- Flask Routes ---
+
+@app.route('/')
+def index():
+    """Serves the main HTML page."""
+    logger.debug("Serving index.html")
+    try:
+        # Pass backend status flags to the template if needed for UI elements
+        # status = get_status().get_json() # Get current status
+        return render_template('index.html')#, backend_status=status)
+    except Exception as e:
+         logger.error(f"Error rendering index.html: {e}", exc_info=True)
+         return "Error loading application interface. Check server logs.", 500
+
+# Static files (CSS, JS) are handled automatically by Flask if static_folder is set correctly
+
+@app.route('/favicon.ico')
+def favicon():
+    """Handles browser requests for favicon.ico to avoid 404s."""
+    # If you have a favicon.ico in your static folder:
+    # return send_from_directory(app.static_folder, 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    # If not, return 204 No Content:
+    # logger.debug("Favicon request received, returning 204.")
+    return Response(status=204)
+
+@app.route('/status', methods=['GET'])
+def get_status():
+     """Endpoint to check backend status and component readiness."""
+     # logger.debug("Status endpoint requested.") # Can be noisy
+     vector_store_count = -1 # Indicate not checked or error initially
+     if app_ai_ready and app_vector_store_ready: # Only check count if store should be ready
+        if ai_core.vector_store and hasattr(ai_core.vector_store, 'index') and ai_core.vector_store.index:
+            try:
+                vector_store_count = ai_core.vector_store.index.ntotal
+            except Exception as e:
+                logger.warning(f"Could not get vector store count: {e}")
+                vector_store_count = -2 # Indicate error getting count
+        else:
+             vector_store_count = 0 # Store loaded but might be empty
+
+     status_data = {
+         "status": "ok" if app_db_ready else "error", # Base status depends on DB
+         "database_initialized": app_db_ready,
+         "ai_components_loaded": app_ai_ready,
+         "vector_store_loaded": app_vector_store_ready,
+         "vector_store_entries": vector_store_count, # -1:NotChecked/AI down, -2:Error, 0+:Count
+         "doc_cache_loaded": app_doc_cache_loaded,
+         "cached_docs_count": len(ai_core.document_texts_cache) if app_doc_cache_loaded else 0,
+         "ollama_model": config.OLLAMA_MODEL,
+         "embedding_model": config.OLLAMA_EMBED_MODEL,
+         "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z') # Standard ISO UTC
+     }
+     # logger.debug(f"Returning status: {status_data}")
+     return jsonify(status_data)
+
+
+@app.route('/documents', methods=['GET'])
+def get_documents():
+    """Returns sorted lists of default and uploaded PDF filenames."""
+    # logger.debug("Documents list endpoint requested.")
+    default_files = []
+    uploaded_files = []
+    error_messages = []
+
+    def _list_pdfs(folder_path, folder_name_for_error):
+        files = []
+        if not os.path.exists(folder_path):
+            logger.warning(f"Document folder not found: {folder_path}")
+            error_messages.append(f"Folder not found: {folder_name_for_error}")
+            return files
+        try:
+            # List, filter for PDFs, ensure they are files, sort
+            files = sorted([
+                f for f in os.listdir(folder_path)
+                if os.path.isfile(os.path.join(folder_path, f)) and
+                   f.lower().endswith('.pdf') and
+                   not f.startswith('~') # Ignore temp files
+            ])
+        except OSError as e:
+            logger.error(f"Error listing files in {folder_path}: {e}", exc_info=True)
+            error_messages.append(f"Could not read folder: {folder_name_for_error}")
+        return files
+
+    default_files = _list_pdfs(config.DEFAULT_PDFS_FOLDER, "Default PDFs")
+    uploaded_files = _list_pdfs(config.UPLOAD_FOLDER, "Uploaded PDFs")
+
+    # Combine and deduplicate for the dropdown if needed, or return separately
+    # For separate lists as requested:
+    response_data = {
+        "default_files": default_files,
+        "uploaded_files": uploaded_files,
+        "errors": error_messages if error_messages else None
+    }
+    logger.debug(f"Returning document lists: {len(default_files)} default, {len(uploaded_files)} uploaded.")
+    return jsonify(response_data)
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Handles PDF uploads, processing, caching, and adding to FAISS."""
+    logger.info("File upload request received.")
+
+    # --- Check AI readiness (needed for embedding) ---
+    if not app_ai_ready or not ai_core.embeddings:
+         logger.error("Upload failed: AI Embeddings component not initialized.")
+         # 503 Service Unavailable is appropriate
+         return jsonify({"error": "Cannot process upload: AI processing components are not ready. Check server status."}), 503
+
+    # --- File Handling ---
+    if 'file' not in request.files:
+        logger.warning("Upload request missing 'file' part.")
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file = request.files['file']
+    if not file or not file.filename: # Check if filename is empty string
+        logger.warning("Upload request received with no selected file name.")
+        return jsonify({"error": "No file selected"}), 400
+
+    if not utils.allowed_file(file.filename):
+         logger.warning(f"Upload attempt with disallowed file type: {file.filename}")
+         return jsonify({"error": "Invalid file type. Only PDF files (.pdf) are allowed."}), 400
+
+    # Sanitize filename
+    filename = secure_filename(file.filename)
+    if not filename: # secure_filename might return empty if input is weird
+         logger.warning(f"Could not secure filename from: {file.filename}. Using generic name.")
+         filename = f"upload_{uuid.uuid4()}.pdf" # Fallback name
+
+
+    # Prevent overwriting existing files? Or allow? Allow for simplicity, user manages uploads.
+    # Consider adding a check if filename exists and maybe renaming or rejecting?
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    logger.debug(f"Attempting to save uploaded file to: {filepath}")
+
+    # --- Save and Process ---
+    try:
+        # Ensure upload dir exists (double check)
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        file.save(filepath)
+        logger.info(f"File '{filename}' saved successfully to {filepath}")
+
+        # 1. Extract text
+        logger.info(f"Processing uploaded file: {filename}...")
+        text = ai_core.extract_text_from_pdf(filepath)
+        if not text:
+            # Extraction failed, remove the saved file
+            try:
+                os.remove(filepath)
+                logger.info(f"Removed file {filepath} because text extraction failed.")
+            except OSError as rm_err:
+                logger.error(f"Error removing problematic file {filepath} after failed text extraction: {rm_err}")
+            logger.error(f"Could not extract text from uploaded file: {filename}. It might be empty, corrupted, or password-protected.")
+            # Return 400 Bad Request as the file is unusable
+            return jsonify({"error": f"Could not read text from '{filename}'. Please check if the PDF is valid and not password-protected."}), 400
+
+        # 2. Add extracted text to cache (overwrite if filename exists)
+        ai_core.document_texts_cache[filename] = text
+        logger.info(f"Text extracted ({len(text)} chars) and cached for {filename}.")
+
+        # 3. Create chunks/documents
+        logger.debug(f"Creating document chunks for {filename}...")
+        documents = ai_core.create_chunks_from_text(text, filename)
+        if not documents:
+             # Text extracted but chunking failed. Keep file & cache, but RAG won't work.
+             logger.error(f"Could not create document chunks for {filename}, although text was extracted. File kept and cached, but cannot add to knowledge base for chat.")
+             # Return 500 Internal Server Error as processing failed partially
+             return jsonify({"error": f"Could not process the structure of '{filename}' into searchable chunks. Analysis might work, but chat context cannot be added for this file."}), 500
+
+        # 4. Add to vector store (this handles index creation/saving internally)
+        logger.debug(f"Adding {len(documents)} chunks for {filename} to vector store...")
+        if not ai_core.add_documents_to_vector_store(documents):
+            logger.error(f"Failed to add document chunks for '{filename}' to the vector store or save the index. Check logs.")
+            # Keep file/cache, but report index failure.
+            return jsonify({"error": f"File '{filename}' processed, but failed to update the knowledge base index. Consult server logs."}), 500
+
+        # --- Success ---
+        vector_count = -1
+        if ai_core.vector_store and hasattr(ai_core.vector_store, 'index'):
+             vector_count = getattr(ai_core.vector_store.index, 'ntotal', 0)
+        logger.info(f"Successfully processed, cached, and indexed '{filename}'. New vector count: {vector_count}")
+        # Return success message, filename, and maybe new count
+        return jsonify({
+            "message": f"File '{filename}' uploaded and added to knowledge base successfully.",
+            "filename": filename,
+            "vector_count": vector_count
+        }), 200 # 200 OK for successful upload and processing
+
+    except Exception as e:
+        logger.error(f"Unexpected error processing upload for filename '{filename}': {e}", exc_info=True)
+        # Clean up potentially saved file if an error occurred mid-process
+        if 'filepath' in locals() and os.path.exists(filepath):
+             try:
+                 os.remove(filepath)
+                 logger.info(f"Cleaned up file {filepath} after upload processing error.")
+             except OSError as rm_err:
+                 logger.error(f"Error attempting to clean up file {filepath} after error: {rm_err}")
+        return jsonify({"error": f"An unexpected server error occurred while processing the file: {type(e).__name__}. Please check server logs."}), 500
+
+
+@app.route('/analyze', methods=['POST'])
+def analyze_document():
+    """Generates analysis (FAQ, Topics, Mindmap) for a selected document."""
+    # --- Check AI readiness ---
+    if not app_ai_ready or not ai_core.llm:
+         logger.error("Analysis request failed: LLM component not initialized.")
+         return jsonify({"error": "Analysis unavailable: AI model is not ready.", "thinking": None}), 503
+
+    # --- Request Parsing ---
+    data = request.get_json()
+    if not data:
+        logger.warning("Analysis request received without JSON body.")
+        return jsonify({"error": "Invalid request: JSON body required.", "thinking": None}), 400
+
+    filename = data.get('filename')
+    analysis_type = data.get('analysis_type')
+    logger.info(f"Analysis request received: type='{analysis_type}', file='{filename}'")
+
+    # Validate filename (basic check)
+    if not filename or not isinstance(filename, str) or not filename.strip() or '/' in filename or '\\' in filename:
+        logger.warning(f"Invalid filename received for analysis: {filename}")
+        return jsonify({"error": "Missing or invalid 'filename'.", "thinking": None}), 400
+    # Use the sanitized/validated filename
+    # No need to call secure_filename here, assume it came from the /documents list
+    filename = filename.strip()
+
+    allowed_types = list(config.ANALYSIS_PROMPTS.keys()) # Get allowed types from config
+    if not analysis_type or analysis_type not in allowed_types:
+        logger.warning(f"Invalid analysis_type received: {analysis_type}")
+        return jsonify({"error": f"Invalid 'analysis_type'. Must be one of: {', '.join(allowed_types)}", "thinking": None}), 400
+
+    # --- Perform Analysis using ai_core function ---
+    try:
+        # ai_core.generate_document_analysis handles text retrieval (cache/disk) and LLM call
+        # It now returns (analysis_content, thinking_content) or (error_message, thinking_content/None)
+        analysis_content, thinking_content = ai_core.generate_document_analysis(filename, analysis_type)
+
+        # Check the result from ai_core
+        if analysis_content is None:
+             # This implies a failure to get the document text (e.g., file not found)
+             # generate_document_analysis should have logged the specific error
+             # Return a 404 Not Found if the error message indicates that
+             error_msg = f"Analysis failed: Could not retrieve or process document '{filename}'."
+             status_code = 404 # Assume file not found or unreadable if content is None
+             logger.error(error_msg)
+             return jsonify({"error": error_msg, "thinking": thinking_content}), status_code
+
+        elif analysis_content.startswith("Error:"):
+            # The analysis function itself indicated an error (e.g., LLM failure, bad prompt)
+            error_message = analysis_content # Use the error message returned
+            status_code = 500 # Assume internal server error unless message suggests otherwise (e.g., 404)
+            if "not found" in error_message.lower():
+                 status_code = 404
+            elif "AI model failed" in error_message or "AI model is not available" in error_message:
+                 status_code = 503 # Service unavailable
+
+            logger.error(f"Analysis failed for '{filename}' ({analysis_type}): {error_message}")
+            # Return thinking content even if analysis failed, if it was generated
+            return jsonify({"error": error_message, "thinking": thinking_content}), status_code
+        else:
+            # Success - we have valid analysis content
+            logger.info(f"Analysis successful for '{filename}' ({analysis_type}). Content length: {len(analysis_content)}")
+            # Return both content and thinking
+            return jsonify({
+                "content": analysis_content,
+                "thinking": thinking_content # Include thinking content in success response
+            })
+
+    except Exception as e:
+        # Catch unexpected errors in the route handler itself
+        logger.error(f"Unexpected error in /analyze route for '{filename}' ({analysis_type}): {e}", exc_info=True)
+        return jsonify({"error": f"Unexpected server error during analysis: {type(e).__name__}. Check logs.", "thinking": None}), 500
+
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    """Handles chat interactions: RAG search, LLM synthesis, history saving."""
+    # logger.debug("Chat request received.") # Can be noisy
+
+    # --- Check prerequisites ---
+    if not app_db_ready:
+        logger.error("Chat request failed: Database not initialized.")
+        return jsonify({
+            "error": "Chat unavailable: Database connection failed.",
+            "answer": "Cannot process chat, the database is currently unavailable. Please try again later or contact support.",
+            "thinking": None, "references": [], "session_id": None
+        }), 503 # Service Unavailable
+
+    if not app_ai_ready or not ai_core.llm or not ai_core.embeddings:
+        logger.error("Chat request failed: AI components not initialized.")
+        return jsonify({
+            "error": "Chat unavailable: AI components not ready.",
+            "answer": "Cannot process chat, the AI components are not ready. Please ensure Ollama is running and models are available.",
+            "thinking": None, "references": [], "session_id": None
+        }), 503 # Service Unavailable
+
+    if not app_vector_store_ready and config.RAG_CHUNK_K > 0: # Only warn if RAG is expected/configured
+        logger.warning("Chat request proceeding, but vector store is not loaded/ready. RAG context will be empty or unavailable.")
+        # Allow chat to proceed using only LLM's general knowledge if RAG fails/is skipped
+
+    # --- Request Parsing ---
+    data = request.get_json()
+    if not data:
+        logger.warning("Chat request received without JSON body.")
+        return jsonify({"error": "Invalid request: JSON body required."}), 400
+
+    query = data.get('query')
+    session_id = data.get('session_id') # Get session ID from request
+
+    if not query or not isinstance(query, str) or not query.strip():
+        logger.warning("Chat request received with empty or invalid query.")
+        return jsonify({"error": "Query cannot be empty"}), 400
+    query = query.strip()
+
+    # --- Session Management ---
+    is_new_session = False
+    if session_id:
+        try:
+            # Validate UUID format
+            uuid.UUID(session_id, version=4)
+        except (ValueError, TypeError, AttributeError):
+            logger.warning(f"Received invalid session_id format: '{session_id}'. Generating a new session ID.")
+            session_id = str(uuid.uuid4()) # Generate new valid ID
+            is_new_session = True
+    else:
+        # No session ID provided, generate a new one
+        session_id = str(uuid.uuid4())
+        is_new_session = True
+        logger.info(f"New chat session started. ID: {session_id}")
+
+    # Log entry with session info
+    logger.info(f"Processing chat query (Session: {session_id}, New: {is_new_session}): '{query[:150]}...'")
+
+    # --- Log User Message ---
+    user_message_id = None
+    try:
+        # Pass None for references and thinking for user messages
+        user_message_id = database.save_message(session_id, 'user', query, None, None)
+        if not user_message_id:
+             # Log error but proceed with generating response if possible
+             logger.error(f"Failed to save user message to database for session {session_id}. Continuing with response generation.")
+    except Exception as db_err:
+         # If saving user message fails critically, maybe return error? Or proceed?
+         # Proceeding might lead to incomplete history. Let's log and proceed.
+         logger.error(f"Database error occurred while saving user message for session {session_id}: {db_err}", exc_info=True)
+         # Optionally return 500 here if saving user message is critical
+         # return jsonify({"error": "Database error saving your message.", "answer": "Failed to record your message due to a database issue.", "thinking": None, "references": [], "session_id": session_id}), 500
+
+
+    # --- RAG + Synthesis Pipeline ---
+    bot_answer = "Sorry, I encountered an issue processing your request." # Default error response
+    references = []
+    thinking_content = None # Initialize thinking content
+
+    try:
+        # 1. Perform RAG Search (if vector store ready and RAG enabled)
+        context_text = "No specific document context was retrieved or used for this response." # Default if RAG skipped/failed
+        context_docs_map = {} # Map for citation details {1: {'source':.., 'chunk_index':.., 'content':...}}
+        if app_vector_store_ready and config.RAG_CHUNK_K > 0:
+            logger.debug(f"Performing RAG search (session: {session_id})...")
+            # ai_core.perform_rag_search returns: context_docs, formatted_context_text, context_docs_map
+            context_docs, context_text, context_docs_map = ai_core.perform_rag_search(query)
+            if context_docs:
+                 logger.info(f"RAG search completed. Found {len(context_docs)} unique context chunks for session {session_id}.")
+            else:
+                 logger.info(f"RAG search completed but found no relevant chunks for session {session_id}.")
+                 context_text = "No relevant document sections found for your query." # More specific message
+        elif not app_vector_store_ready and config.RAG_CHUNK_K > 0:
+             logger.warning(f"Skipping RAG search for session {session_id}: Vector store not ready.")
+             context_text = "Knowledge base access is currently unavailable; providing general answer."
+        else: # RAG_CHUNK_K <= 0
+             logger.debug(f"Skipping RAG search for session {session_id}: RAG is disabled (RAG_CHUNK_K <= 0).")
+             context_text = "Document search is disabled; providing general answer."
+
+
+        # 2. Synthesize Response using LLM (ai_core function now returns answer, thinking)
+        logger.debug(f"Synthesizing chat response (session: {session_id})...")
+        bot_answer, thinking_content = ai_core.synthesize_chat_response(query, context_text)
+        # Log if synthesis itself failed (returned error message)
+        if bot_answer.startswith("Error:") or "encountered an error" in bot_answer:
+             logger.error(f"LLM Synthesis failed for session {session_id}. Response: {bot_answer}")
+
+
+        # 3. Extract References (only if RAG provided context and answer is not an error message)
+        # Check if context_docs_map has items and bot_answer doesn't indicate a primary error
+        if context_docs_map and not (bot_answer.startswith("Error:") or "[AI Response Processing Error:" in bot_answer or "encountered an error" in bot_answer.lower()):
+            logger.debug(f"Extracting references from bot answer (session: {session_id})...")
+            references = utils.extract_references(bot_answer, context_docs_map)
+            if references:
+                logger.info(f"Extracted {len(references)} unique references for session {session_id}.")
+            # else: logger.debug("No citation markers found in the bot answer.")
+        else:
+             logger.debug(f"Skipping reference extraction for session {session_id}: No context map provided or bot answer indicates an error.")
+
+
+        # --- Log Bot Response (including thinking and references) ---
+        bot_message_id = None
+        try:
+            # Save the final answer, parsed references (JSON), and thinking content
+            bot_message_id = database.save_message(
+                session_id, 'bot', bot_answer, references, thinking_content # Pass thinking here
+            )
+            if not bot_message_id:
+                 logger.error(f"Failed to save bot response to database for session {session_id}.")
+        except Exception as db_err:
+             # Log error but don't fail the user request if only DB saving fails
+             logger.error(f"Database error occurred while saving bot response for session {session_id}: {db_err}", exc_info=True)
+
+
+        # --- Return Response Payload ---
+        response_payload = {
+            "answer": bot_answer,
+            "session_id": session_id, # Return the (potentially new) session ID
+            "references": references, # Return the structured list of references
+            "thinking": thinking_content # Include the thinking content
+        }
+        # logger.debug(f"Returning chat response payload for session {session_id}: {response_payload}")
+        return jsonify(response_payload), 200 # OK
+
+    except Exception as e:
+        # Catch unexpected errors during the RAG/Synthesis pipeline
+        logger.error(f"Unexpected error during chat processing pipeline for session {session_id}: {e}", exc_info=True)
+        # Construct a user-friendly error message
+        error_message = f"Sorry, an unexpected server error occurred ({type(e).__name__}). Please try again or contact support if the issue persists."
+        # Attempt to log this severe error to the chat history as well
+        try:
+            # Include error details in thinking for debugging via history
+            error_thinking = f"Unexpected error in /chat route: {type(e).__name__}: {str(e)}"
+            database.save_message(session_id, 'bot', error_message, None, error_thinking)
+        except Exception as db_log_err:
+            logger.error(f"Failed even to save the error message to DB for session {session_id}: {db_log_err}")
+
+        # Return a 500 Internal Server Error response
+        return jsonify({
+            "error": "Unexpected server error.",
+            "answer": error_message,
+            "session_id": session_id, # Return session ID even on error
+            "thinking": f"Error in /chat: {type(e).__name__}", # Simplified error thinking
+            "references": []
+        }), 500
+
+
+@app.route('/history', methods=['GET'])
+def get_history():
+    """Retrieves chat history for a given session ID."""
+    session_id = request.args.get('session_id')
+    # logger.debug(f"History request for session: {session_id}")
+
+    # --- Prerequisite Checks ---
+    if not app_db_ready:
+         logger.error("History request failed: Database not initialized.")
+         return jsonify({"error": "History unavailable: Database connection failed."}), 503
+
+    # --- Validate Input ---
+    if not session_id:
+        logger.warning("History request missing 'session_id' parameter.")
+        return jsonify({"error": "Missing 'session_id' parameter"}), 400
+
+    try:
+        # Validate UUID format
+        uuid.UUID(session_id, version=4)
+    except (ValueError, TypeError, AttributeError):
+        logger.warning(f"History request with invalid session_id format: {session_id}")
+        return jsonify({"error": "Invalid session_id format."}), 400
+
+    # --- Retrieve from DB ---
+    try:
+        # get_messages_by_session should now return the formatted list including 'thinking' and 'references'
+        messages = database.get_messages_by_session(session_id)
+
+        if messages is None:
+            # This indicates a database error occurred during retrieval (already logged by database module)
+            return jsonify({"error": "Could not retrieve history due to a database error. Check server logs."}), 500
+        else:
+            # Returns potentially empty list [] if session exists but has no messages, or if session doesn't exist.
+            logger.info(f"Retrieved {len(messages)} messages for session {session_id}.")
+            # Return the list of message dicts
+            return jsonify(messages) # Returns [] if no messages found, which is correct.
+
+    except Exception as e:
+         # Catch unexpected errors in the route handler itself
+         logger.error(f"Unexpected error in /history route for session {session_id}: {e}", exc_info=True)
+         return jsonify({"error": f"Unexpected server error retrieving history: {type(e).__name__}. Check logs."}), 500
+
+
+# --- Main Execution ---
+if __name__ == '__main__':
+    # Ensure initialization runs when script is executed directly
+    # (e.g., `python app.py`), not just before first request via WSGI
+    if not hasattr(app, 'initialized') or not app.initialized:
+        initialize_app()
+
+    try:
+        # Read port from environment variable or default to 5000
+        port = int(os.getenv('FLASK_RUN_PORT', 5000))
+        if not (1024 <= port <= 65535):
+             logger.warning(f"Port {port} is outside the typical range (1024-65535). Using default 5000.")
+             port = 5000
+    except ValueError:
+        port = 5000
+        logger.warning(f"Invalid FLASK_RUN_PORT environment variable. Using default port {port}.")
+
+    # Listen on all network interfaces (0.0.0.0) to be accessible on the LAN
+    host = '0.0.0.0'
+
+    logger.info(f"--- Starting Waitress WSGI Server ---")
+    logger.info(f"Serving Flask app '{app.name}'")
+    logger.info(f"Configuration:")
+    logger.info(f"  - Host: {host}")
+    logger.info(f"  - Port: {port}")
+    logger.info(f"  - Ollama URL: {config.OLLAMA_BASE_URL}")
+    logger.info(f"  - LLM Model: {config.OLLAMA_MODEL}")
+    logger.info(f"  - Embedding Model: {config.OLLAMA_EMBED_MODEL}")
+    logger.info(f"Access URLs:")
+    logger.info(f"  - Local: http://127.0.0.1:{port} or http://localhost:{port}")
+    logger.info(f"  - Network: http://<YOUR_MACHINE_IP>:{port} (Find your IP using 'ip addr' or 'ifconfig')")
+
+    # Log the final status after initialization attempt
+    db_status = 'Ready' if app_db_ready else 'Failed/Unavailable'
+    ai_status = 'Ready' if app_ai_ready else 'Failed/Unavailable'
+    index_status = 'Loaded/Ready' if app_vector_store_ready else ('Not Found/Empty' if app_ai_ready else 'Not Loaded (AI Failed)')
+    cache_status = f"{len(ai_core.document_texts_cache)} docs" if app_doc_cache_loaded else "Failed/Empty"
+    logger.info(f"Component Status: DB={db_status} | AI={ai_status} | Index={index_status} | DocCache={cache_status}")
+    logger.info("Press Ctrl+C to stop the server.")
+
+    # Use Waitress for a production-grade WSGI server
+    serve(app, host=host, port=port, threads=8) # Adjust threads based on expected load/cores
+
+# --- END OF FILE app.py ---
+```
+
+`backend/config.py`
+
+```python
+import os
+from dotenv import load_dotenv
+import logging
+from langchain.prompts import PromptTemplate # Import PromptTemplate
+
+# Load environment variables from .env file in the same directory
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path=dotenv_path)
+
+# --- Environment Variables & Defaults ---
+
+# Ollama Configuration
+OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'deepseek-r1') # Default model for generation/analysis
+OLLAMA_EMBED_MODEL = os.getenv('OLLAMA_EMBED_MODEL', 'mxbai-embed-large') # Default model for embeddings
+# Optional: Increase Ollama request timeout (in seconds) if needed for long operations
+OLLAMA_REQUEST_TIMEOUT = int(os.getenv('OLLAMA_REQUEST_TIMEOUT', 180)) # Default 3 minutes
+
+# Application Configuration Paths (relative to backend directory)
+backend_dir = os.path.dirname(__file__)
+FAISS_FOLDER = os.path.join(backend_dir, os.getenv('FAISS_FOLDER', 'faiss_store'))
+UPLOAD_FOLDER = os.path.join(backend_dir, os.getenv('UPLOAD_FOLDER', 'uploads'))
+DATABASE_NAME = os.getenv('DATABASE_NAME', 'chat_history.db')
+DATABASE_PATH = os.path.join(backend_dir, DATABASE_NAME)
+DEFAULT_PDFS_FOLDER = os.path.join(backend_dir, os.getenv('DEFAULT_PDFS_FOLDER', 'default_pdfs'))
+
+# File Handling
+ALLOWED_EXTENSIONS = {'pdf'}
+
+# RAG Configuration
+RAG_CHUNK_K = int(os.getenv('RAG_CHUNK_K', 5)) # Number of unique chunks to finally send to LLM
+RAG_SEARCH_K_PER_QUERY = int(os.getenv('RAG_SEARCH_K_PER_QUERY', 3)) # Number of chunks to retrieve per sub-query before deduplication
+MULTI_QUERY_COUNT = int(os.getenv('MULTI_QUERY_COUNT', 3)) # Number of sub-questions (0 to disable)
+
+# Analysis Configuration
+ANALYSIS_MAX_CONTEXT_LENGTH = int(os.getenv('ANALYSIS_MAX_CONTEXT_LENGTH', 8000)) # Max chars for analysis context
+
+# Logging Configuration
+LOGGING_LEVEL_NAME = os.getenv('LOGGING_LEVEL', 'INFO').upper()
+LOGGING_LEVEL = getattr(logging, LOGGING_LEVEL_NAME, logging.INFO)
+LOGGING_FORMAT = '%(asctime)s - %(levelname)s - [%(name)s:%(lineno)d] - %(message)s'
+
+
+# --- Prompt Templates ---
+
+# Sub-Query Generation Prompt (Thinking optional here, focus on direct output)
+SUB_QUERY_PROMPT_TEMPLATE = PromptTemplate(
+    input_variables=["query", "num_queries"],
+    template="""You are an AI assistant skilled at decomposing user questions into effective search queries for a vector database containing chunks of engineering documents.
+Given the user's query, generate {num_queries} distinct search queries targeting different specific aspects, keywords, or concepts within the original query.
+Focus on creating queries that are likely to retrieve relevant text chunks individually.
+Output ONLY the generated search queries, each on a new line. Do not include numbering, labels, explanations, or any other text.
+
+User Query: "{query}"
+
+Generated Search Queries:"""
+)
+
+
+
+# RAG Synthesis Prompt (Mandatory Thinking)
+SYNTHESIS_PROMPT_TEMPLATE = PromptTemplate(
+    input_variables=["query", "context"],
+    template="""You are an Faculty for engineering students who has inde[th klnowledge in all engineering subjects and am Expert for an academic audience, ranging from undergraduates to PhD scholars. . Your goal is to answer the user's query based on the provided context document chunks, augmented with your general knowledge when necessary. You have to Provide detailed, technical, and well-structured responses suitable for this audience. Use precise terminology, include relevant concepts, algorithms, and applications, and organize your response with sections or bullet points where appropriate.
+                
+
+**TASK:** Respond to the user's query using the provided context and your general knowledge.
+
+**USER QUERY:**
+"{query}"
+
+**PROVIDED CONTEXT:**
+--- START CONTEXT ---
+{context}
+--- END CONTEXT ---
+
+**INSTRUCTIONS:**
+
+**STEP 1: THINKING PROCESS (MANDATORY):**
+*   **CRITICAL:** Before writing the final answer, first articulate your step-by-step reasoning process for how you will arrive at the answer. Explain how you will use the context and potentially supplement it with general knowledge.
+*   Use a step-by-step Chain of Thought (CoT) approach to arrive at a logical and accurate answer, and include your reasoning in a <think> tag.Enclose this entire reasoning process   *exclusively* within `<thinking>` and `</thinking>` tags.
+*   Example: `<thinking>The user asks about X. Context [1] defines X. Context [3] gives an example Z. Context [2] seems less relevant. The context doesn't cover aspect Y, so I will synthesize information from [1] and [3] and then add general knowledge about Y, clearly indicating it's external information.</thinking>`
+*   **DO NOT** put any text before `<thinking>` or after `</thinking>` except for the final answer.
+
+**STEP 2: FINAL ANSWER (After the `</thinking>` tag):**
+*   Provide a comprehensive and helpful answer to the user query.
+*   **Prioritize Context:** Base your answer **primarily** on information within the `PROVIDED CONTEXT`.
+*   **Cite Sources:** When using information *directly* from a context chunk, **you MUST cite** its number like [1], [2], [1][3]. Cite all relevant sources for each piece of information derived from the context.
+*   **Insufficient Context:** If the context does not contain information needed for a full answer, explicitly state what is missing (e.g., "The provided documents don't detail the specific algorithm used...").
+*   **Integrate General Knowledge:** *Seamlessly integrate* your general knowledge to fill gaps, provide background, or offer broader explanations **after** utilizing the context. Clearly signal when you are using general knowledge (e.g., "Generally speaking...", "From external knowledge...", "While the documents focus on X, it's also important to know Y...").
+*   **Be a Tutor:** Explain concepts clearly. Be helpful, accurate, and conversational. Use Markdown formatting (lists, bolding, code blocks) for readability.
+*   **Accuracy:** Do not invent information not present in the context or verifiable general knowledge. If unsure, state that.
+
+**BEGIN RESPONSE (Start *immediately* with the `<thinking>` tag):**
+<thinking>"""
+)
+
+# Analysis Prompts (Thinking Recommended)
+_ANALYSIS_THINKING_PREFIX = """**STEP 1: THINKING PROCESS (Recommended):**
+*   Before generating the analysis, briefly outline your plan in `<thinking>` tags. Example: `<thinking>Analyzing for FAQs. Will scan for key questions and answers presented in the text.</thinking>`
+*   If you include thinking, place the final analysis *after* the `</thinking>` tag.
+
+**STEP 2: ANALYSIS OUTPUT:**
+*   Generate the requested analysis based **strictly** on the text provided below.
+*   Follow the specific OUTPUT FORMAT instructions carefully.
+
+--- START DOCUMENT TEXT ---
+{doc_text_for_llm}
+--- END DOCUMENT TEXT ---
+"""
+
+ANALYSIS_PROMPTS = {
+    "faq": PromptTemplate(
+        input_variables=["doc_text_for_llm"],
+        template=_ANALYSIS_THINKING_PREFIX + """
+**TASK:** Generate 5-7 Frequently Asked Questions (FAQs) with concise answers based ONLY on the text.
+
+**OUTPUT FORMAT (Strict):**
+*   Start directly with the first FAQ (after thinking, if used). Do **NOT** include preamble.
+*   Format each FAQ as:
+    Q: [Question derived ONLY from the text]
+    A: [Answer derived ONLY from the text, concise]
+*   If the text doesn't support an answer, don't invent one. Use Markdown for formatting if appropriate (e.g., lists within an answer).
+
+**BEGIN OUTPUT (Start with 'Q:' or `<thinking>`):**
+"""
+    ),
+    "topics": PromptTemplate(
+        input_variables=["doc_text_for_llm"],
+        template=_ANALYSIS_THINKING_PREFIX + """
+**TASK:** Identify the 5-8 most important topics discussed. Provide a 1-2 sentence explanation per topic based ONLY on the text.
+
+**OUTPUT FORMAT (Strict):**
+*   Start directly with the first topic (after thinking, if used). Do **NOT** include preamble.
+*   Format as a Markdown bulleted list:
+    *   **Topic Name:** Brief explanation derived ONLY from the text content (1-2 sentences max).
+
+**BEGIN OUTPUT (Start with '*   **' or `<thinking>`):**
+"""
+    ),
+    "mindmap": PromptTemplate(
+        input_variables=["doc_text_for_llm"],
+        template=_ANALYSIS_THINKING_PREFIX + """
+**TASK:** Generate a mind map outline in Markdown list format representing key concepts and hierarchy ONLY from the text.
+
+**OUTPUT FORMAT (Strict):**
+*   Start directly with the main topic as the top-level item (using '-') (after thinking, if used). Do **NOT** include preamble.
+*   Use nested Markdown lists ('-' or '*') with indentation (2 or 4 spaces) for hierarchy.
+*   Focus **strictly** on concepts and relationships mentioned in the text. Be concise.
+
+**BEGIN OUTPUT (Start with e.g., '- Main Topic' or `<thinking>`):**
+"""
+    )
+}
+
+
+# --- Logging Setup ---
+def setup_logging():
+    """Configures application-wide logging."""
+    logging.basicConfig(level=LOGGING_LEVEL, format=LOGGING_FORMAT)
+    # Suppress excessive logging from noisy libraries if necessary
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("faiss.loader").setLevel(logging.WARNING) # FAISS can be verbose
+    # Add more loggers to suppress as needed
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"Logging configured with level {LOGGING_LEVEL_NAME}")
+    logger.debug(f"OLLAMA_BASE_URL={OLLAMA_BASE_URL}")
+    logger.debug(f"OLLAMA_MODEL={OLLAMA_MODEL}")
+    logger.debug(f"OLLAMA_EMBED_MODEL={OLLAMA_EMBED_MODEL}")
+    logger.debug(f"FAISS_FOLDER={FAISS_FOLDER}")
+    logger.debug(f"UPLOAD_FOLDER={UPLOAD_FOLDER}")
+    logger.debug(f"DATABASE_PATH={DATABASE_PATH}")
+    logger.debug(f"RAG_CHUNK_K={RAG_CHUNK_K}, RAG_SEARCH_K_PER_QUERY={RAG_SEARCH_K_PER_QUERY}, MULTI_QUERY_COUNT={MULTI_QUERY_COUNT}")
+    logger.debug(f"ANALYSIS_MAX_CONTEXT_LENGTH={ANALYSIS_MAX_CONTEXT_LENGTH}")
+
+```
+
+`backend/database.py`
+
+```python
+# --- START OF FILE database.py ---
+
+import sqlite3
+import logging
+import json
+import uuid
+from datetime import datetime, timezone
+from config import DATABASE_PATH
+
+logger = logging.getLogger(__name__)
+
+def get_db_connection():
+    """Establishes a connection to the SQLite database with WAL mode and timeout."""
+    conn = None # Initialize conn to None
+    try:
+        # check_same_thread=False is needed for Flask's multi-threaded request handling
+        # timeout is in seconds
+        conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False, timeout=10)
+        conn.row_factory = sqlite3.Row # Return rows as dictionary-like objects
+        # Enable Write-Ahead Logging for better concurrency
+        conn.execute("PRAGMA journal_mode=WAL;")
+        # Set busy timeout (milliseconds) to wait if DB is locked
+        conn.execute("PRAGMA busy_timeout = 8000;") # 8 seconds
+        conn.execute("PRAGMA foreign_keys = ON;") # Enforce foreign key constraints
+        logger.debug(f"Database connection established to {DATABASE_PATH} (WAL mode)")
+        return conn
+    except sqlite3.Error as e:
+        logger.error(f"Database connection error to {DATABASE_PATH}: {e}", exc_info=True)
+        if conn:
+            conn.close() # Ensure connection is closed on error during establishment
+        raise # Re-raise the error
+
+def init_db():
+    """Initializes the database schema if tables don't exist."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        logger.info(f"Initializing database schema in '{DATABASE_PATH}'...")
+
+        # Get existing columns to handle potential schema migrations gracefully
+        cursor.execute("PRAGMA table_info(messages)")
+        existing_columns = {row['name'] for row in cursor.fetchall()}
+        logger.debug(f"Existing columns in 'messages' table: {existing_columns}")
+
+        # Create messages table if it doesn't exist
+        # Use TEXT for timestamp, store as ISO8601 UTC string
+        # Ensure PRIMARY KEY constraint is correctly defined
+        # Ensure CHECK constraint uses correct quotes
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS messages (
+                message_id TEXT PRIMARY KEY NOT NULL,
+                session_id TEXT NOT NULL,
+                sender TEXT NOT NULL CHECK(sender IN ('user', 'bot')),
+                message_text TEXT NOT NULL,
+                timestamp TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'NOW')), -- Store as UTC ISO8601 text
+                references_json TEXT, -- JSON string for references
+                cot_reasoning TEXT    -- Store <thinking> content here
+            )
+        ''')
+        logger.info("Table 'messages' checked/created.")
+
+        # Add columns if they don't exist (simple migration)
+        if 'references_json' not in existing_columns:
+            cursor.execute("ALTER TABLE messages ADD COLUMN references_json TEXT")
+            logger.info("Added 'references_json' column to messages table.")
+        if 'cot_reasoning' not in existing_columns:
+            cursor.execute("ALTER TABLE messages ADD COLUMN cot_reasoning TEXT") # Stores <thinking> content
+            logger.info("Added 'cot_reasoning' column to messages table.")
+        # Add timestamp column if migrating from an older schema without it
+        if 'timestamp' not in existing_columns:
+             # Add with default for new rows, existing rows will be NULL initially
+             # Make sure it's NOT NULL with a DEFAULT
+             cursor.execute("ALTER TABLE messages ADD COLUMN timestamp TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'NOW'))")
+             logger.info("Added 'timestamp' column to messages table.")
+
+
+        # Index on session_id and timestamp for efficient history retrieval
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_session_timestamp ON messages (session_id, timestamp);")
+        logger.info("Index 'idx_session_timestamp' checked/created.")
+
+        conn.commit()
+        logger.info(f"Database '{DATABASE_PATH}' schema initialization/update complete.")
+
+    except sqlite3.Error as e:
+        logger.error(f"Database schema initialization/update error: {e}", exc_info=True)
+        if conn:
+            conn.rollback()
+        # Do not raise here if the app should try to continue without DB
+        # raise # Re-raise critical error if DB is mandatory
+    finally:
+        if conn:
+            conn.close()
+            logger.debug("Database connection closed after init/update.")
+
+def save_message(session_id: str, sender: str, message_text: str, references: list | dict | None = None, cot_reasoning: str | None = None) -> str | None:
+    """Saves a chat message to the database.
+
+    Args:
+        session_id (str): The session identifier.
+        sender (str): 'user' or 'bot'.
+        message_text (str): The content of the message.
+        references (list | dict | None): Structured reference list/dict for bot messages.
+                                         Stored as JSON string.
+        cot_reasoning (str | None): The thinking/reasoning content (<thinking> block).
+
+    Returns:
+        The generated message_id if successful, otherwise None.
+    """
+    if not session_id or not sender or message_text is None: # Basic validation
+        logger.error(f"Attempted to save message with invalid arguments: session={session_id}, sender={sender}")
+        return None
+
+    message_id = str(uuid.uuid4())
+    # Ensure references are stored as JSON string, handle None or empty list/dict
+    references_json = None
+    if references:
+        try:
+            references_json = json.dumps(references)
+        except TypeError as e:
+            logger.error(f"Could not serialize references to JSON for session {session_id}: {e}. Storing as null.")
+            references_json = None # Fallback to null
+
+    # Timestamp is handled by DEFAULT in SQL for consistency
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Timestamp column uses DEFAULT defined in CREATE TABLE
+        cursor.execute(
+            """
+            INSERT INTO messages
+            (message_id, session_id, sender, message_text, references_json, cot_reasoning)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (message_id, session_id, sender, message_text, references_json, cot_reasoning) # Pass cot_reasoning here
+        )
+        conn.commit()
+        logger.info(f"Saved message '{message_id}' for session {session_id} (Sender: {sender})")
+        return message_id
+    except sqlite3.IntegrityError as e:
+        # More specific error logging
+        if "PRIMARY KEY" in str(e):
+            logger.error(f"Database integrity error (Duplicate message_id? {message_id}) saving message for session {session_id}: {e}", exc_info=False)
+        elif "CHECK constraint" in str(e):
+             logger.error(f"Database integrity error (Invalid sender '{sender}'?) saving message for session {session_id}: {e}", exc_info=False)
+        else:
+            logger.error(f"Database integrity error saving message for session {session_id}: {e}", exc_info=True)
+        if conn: conn.rollback()
+        return None
+    except sqlite3.Error as e:
+        logger.error(f"Database error saving message for session {session_id}: {e}", exc_info=True)
+        if conn: conn.rollback()
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def get_messages_by_session(session_id: str) -> list[dict] | None:
+    """Retrieves all messages for a given session ID, ordered by timestamp.
+
+    Args:
+        session_id (str): The session identifier.
+
+    Returns:
+        A list of message dictionaries, or None if a database error occurs.
+        Returns an empty list if the session exists but has no messages.
+        Each dictionary includes 'thinking' (from cot_reasoning) and parsed 'references'.
+    """
+    messages = []
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Select all relevant columns, including cot_reasoning
+        cursor.execute(
+            """
+            SELECT message_id, session_id, sender, message_text, references_json, cot_reasoning, timestamp
+            FROM messages
+            WHERE session_id = ?
+            ORDER BY timestamp ASC -- Use the stored ISO8601 timestamp string
+            """,
+            (session_id,)
+        )
+        messages_raw = cursor.fetchall()
+        logger.debug(f"Fetched {len(messages_raw)} raw messages for session {session_id}")
+
+        for row in messages_raw:
+            message_data = dict(row) # Convert Row object to dict
+
+            # Safely parse JSON references
+            parsed_refs = [] # Default to empty list
+            try:
+                ref_json = message_data.pop('references_json', None) # Remove raw JSON field
+                if ref_json:
+                    # Parse the JSON
+                    parsed_data = json.loads(ref_json)
+                    # Ensure the final result is a list of dicts if possible
+                    if isinstance(parsed_data, list):
+                         parsed_refs = parsed_data
+                    elif isinstance(parsed_data, dict):
+                         # If it was stored as dict {ref_num: data}, convert to list [data]
+                         parsed_refs = list(parsed_data.values())
+                    else:
+                         logger.warning(f"Parsed references JSON for msg {message_data['message_id']} was unexpected type: {type(parsed_data)}. Storing empty list.")
+
+            except json.JSONDecodeError as json_err:
+                 logger.warning(f"Could not parse references_json for message {message_data['message_id']} in session {session_id}: {json_err}")
+            except Exception as e:
+                logger.error(f"Unexpected error processing references for message {message_data['message_id']}: {e}", exc_info=True)
+
+            message_data['references'] = parsed_refs # Assign the processed list
+
+            # Rename cot_reasoning to thinking for frontend consistency
+            # Use get() with default None in case the column didn't exist in older rows
+            message_data['thinking'] = message_data.pop('cot_reasoning', None)
+
+            # Ensure timestamp is returned as ISO 8601 string (already stored correctly)
+            # Validate or provide default if missing/null (shouldn't happen with schema)
+            if 'timestamp' not in message_data or not message_data['timestamp']:
+                 logger.warning(f"Missing or empty timestamp for message {message_data['message_id']}. Setting to epoch.")
+                 # Provide a valid ISO string as default
+                 message_data['timestamp'] = datetime.fromtimestamp(0, timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
+            messages.append(message_data)
+
+        # logger.info(f"Retrieved and processed {len(messages)} messages for session {session_id}")
+        return messages
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching history for session {session_id}: {e}", exc_info=True)
+        return None # Indicate database error
+    except Exception as e:
+         logger.error(f"Unexpected error processing history for session {session_id}: {e}", exc_info=True)
+         return None
+    finally:
+        if conn:
+            conn.close()
+
+# --- END OF FILE database.py ---
+```
+
+`backend/default.py`
+
+```python
+import os
+import logging
+import sys
+import requests
+from config import (
+    DEFAULT_PDFS_FOLDER, FAISS_FOLDER, setup_logging,
+    OLLAMA_BASE_URL
+)
+# Import necessary functions and global variables
+from ai_core import (
+    initialize_ai_components, load_vector_store, extract_text_from_pdf,
+    create_chunks_from_text, add_documents_to_vector_store, save_vector_store,
+    vector_store, embeddings, llm  # Import globals for consistency
+)
+
+# Setup logging for this script
+setup_logging()
+logger = logging.getLogger(__name__)
+
+def check_ollama_connection(base_url: str, timeout: int = 5) -> bool:
+    """
+    Performs a basic check to see if the Ollama server is reachable.
+
+    Args:
+        base_url (str): The base URL of the Ollama server.
+        timeout (int): Connection timeout in seconds.
+
+    Returns:
+        bool: True if the server responds successfully, False otherwise.
+    """
+    check_url = base_url.rstrip('/') + "/api/tags"  # Use a known API endpoint
+    logger.info(f"Checking Ollama connection at {check_url} (timeout: {timeout}s)...")
+    try:
+        response = requests.get(check_url, timeout=timeout)
+        response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
+        response.json()  # Ensure it’s valid JSON
+        logger.info(f"Ollama server responded successfully (Status: {response.status_code}).")
+        return True
+    except requests.exceptions.Timeout:
+        logger.error(f"Ollama connection timed out after {timeout} seconds connecting to {check_url}.")
+        return False
+    except requests.exceptions.ConnectionError:
+        logger.error(f"Ollama connection refused at {check_url}. Is the Ollama server running and accessible?")
+        return False
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ollama connection failed for {check_url}: {e}")
+        return False
+    except ValueError:  # Handles JSONDecodeError if response isn’t valid JSON
+        logger.error(f"Ollama server at {check_url} did not return valid JSON. Unexpected response.")
+        return False
+
+def get_existing_sources_from_index(vs):
+    """
+    Attempts to retrieve the set of source filenames currently in the FAISS index metadata.
+    Handles potential errors if the docstore structure changes or is large.
+    """
+    if not vs or not hasattr(vs, 'docstore') or not hasattr(vs.docstore, '_dict'):
+        logger.warning("Vector store or docstore not found/structured as expected. Cannot determine existing sources.")
+        return set()
+    try:
+        sources = set()
+        for doc_id, doc in getattr(vs.docstore, '_dict', {}).items():
+            if hasattr(doc, 'metadata') and isinstance(doc.metadata, dict):
+                source = doc.metadata.get('source')
+                if source:
+                    sources.add(source)
+        logger.info(f"Found {len(sources)} unique sources in the existing index metadata.")
+        return sources
+    except Exception as e:
+        logger.error(f"Error retrieving existing sources from FAISS docstore: {e}. Treating all default PDFs as new.", exc_info=True)
+        return set()
+
+def build_initial_faiss_index():
+    """
+    Processes PDFs in DEFAULT_PDFS_FOLDER, creates/updates the FAISS index, and saves it.
+    Checks existing index metadata and Ollama connection first.
+    """
+    logger.info("--- Starting Initial FAISS Index Build/Update from Default PDFs ---")
+
+    # 1. Ensure required directories exist
+    if not os.path.exists(DEFAULT_PDFS_FOLDER):
+        logger.error(f"Default PDFs directory not found: {DEFAULT_PDFS_FOLDER}. Please create it and add PDF files.")
+        return False
+
+    logger.info(f"Default PDFs folder: {DEFAULT_PDFS_FOLDER}")
+    logger.info(f"FAISS store folder: {FAISS_FOLDER}")
+
+    # Pre-check Ollama Connection
+    logger.info("Performing pre-check for Ollama server accessibility...")
+    if not check_ollama_connection(OLLAMA_BASE_URL):
+        logger.critical(f"Ollama server is not reachable at {OLLAMA_BASE_URL}. Please ensure it's running and accessible.")
+        logger.critical("Cannot proceed with index build without Ollama.")
+        return False
+    logger.info("Ollama connection pre-check successful.")
+
+    # 2. Initialize AI Embeddings & LLM
+    logger.info("Initializing AI components (Embeddings required)...")
+    embeddings_new, llm_new = initialize_ai_components()  # Capture returned objects
+
+    # Assign to globals explicitly (since other functions in ai_core rely on them)
+    global embeddings, llm
+    embeddings = embeddings_new
+    llm = llm_new
+
+    # Debugging logs to verify state
+    logger.debug(f"Returned embeddings: {type(embeddings_new)}, llm: {type(llm_new)}")
+    logger.debug(f"Global embeddings is None? {embeddings is None}, llm is None? {llm is None}")
+
+    # Check initialization success
+    if embeddings is None or llm is None:
+        logger.critical("Failed to initialize AI Embeddings/LLM components. Cannot build/update index. Check Ollama connection/model details and logs.")
+        logger.critical(f"Failure check: embeddings is None={embeddings is None}, llm is None={llm is None}")
+        return False
+    logger.info("AI Embeddings and LLM components initialized successfully.")
+
+    # 3. Load existing index if present
+    logger.info("Attempting to load existing FAISS index...")
+    index_loaded = load_vector_store()  # Uses global embeddings internally
+    if index_loaded and vector_store:
+        index_size = getattr(getattr(vector_store, 'index', None), 'ntotal', 0)
+        logger.info(f"Existing FAISS index loaded. Contains {index_size} vectors.")
+        existing_filenames = get_existing_sources_from_index(vector_store)
+    else:
+        logger.info("No existing FAISS index found or loaded. A new index will be created.")
+        existing_filenames = set()
+        vector_store = None  # Ensure vector_store is None if load failed
+
+    # 4. Find PDF files in the default folder
+    try:
+        all_files = os.listdir(DEFAULT_PDFS_FOLDER)
+        pdf_files = sorted([f for f in all_files if f.lower().endswith('.pdf') and not f.startswith('~')])
+        logger.info(f"Found {len(pdf_files)} PDF(s) in {DEFAULT_PDFS_FOLDER}: {pdf_files if pdf_files else 'None'}")
+    except OSError as e:
+        logger.error(f"Error listing files in {DEFAULT_PDFS_FOLDER}: {e}", exc_info=True)
+        return False
+
+    # 5. Identify *new* PDFs to process
+    new_pdfs_to_process = [f for f in pdf_files if f not in existing_filenames]
+
+    if not new_pdfs_to_process:
+        if pdf_files:
+            logger.info("All PDFs in the default folder seem to be present in the existing index (by filename). No new files to add.")
+        else:
+            logger.info(f"No PDFs found in {DEFAULT_PDFS_FOLDER}.")
+        return True
+
+    logger.info(f"Found {len(new_pdfs_to_process)} new PDF(s) to process: {new_pdfs_to_process}")
+
+    # 6. Process each *new* PDF
+    all_new_documents = []
+    processing_errors = 0
+    for filename in new_pdfs_to_process:
+        pdf_path = os.path.join(DEFAULT_PDFS_FOLDER, filename)
+        logger.info(f"Processing '{filename}'...")
+        text = extract_text_from_pdf(pdf_path)
+        if text:
+            logger.debug(f"Extracted text from '{filename}'. Creating chunks...")
+            documents = create_chunks_from_text(text, filename)
+            if documents:
+                all_new_documents.extend(documents)
+                logger.info(f"Successfully created {len(documents)} chunks for '{filename}'.")
+            else:
+                logger.warning(f"Could not create document chunks for '{filename}', although text was extracted. Skipping file.")
+                processing_errors += 1
+        else:
+            logger.warning(f"Could not extract text from '{filename}'. Skipping this file.")
+            processing_errors += 1
+
+    # 7. Add new documents to FAISS Index and Save
+    if not all_new_documents:
+        if processing_errors > 0:
+            logger.error("No new document chunks were generated due to processing errors. Index not updated.")
+            return False
+        else:
+            logger.warning("No new valid document chunks were generated. Index not updated.")
+            return True
+
+    logger.info(f"Attempting to add {len(all_new_documents)} new document chunks to the FAISS index...")
+    success = add_documents_to_vector_store(all_new_documents)
+
+    if success:
+        final_count = getattr(getattr(vector_store, 'index', None), 'ntotal', 'N/A')
+        logger.info(f"Successfully added new documents and saved index. Final vector count: {final_count}")
+        return True
+    else:
+        logger.error("Failed to add new documents to the FAISS index or save it.")
+        return False
+
+if __name__ == "__main__":
+    logger.info("Running default PDF processing script...")
+    # Uncomment to enable DEBUG logging for more detail
+    # logging.getLogger().setLevel(logging.DEBUG)
+    try:
+        if build_initial_faiss_index():
+            logger.info("--- Default index build/update process completed successfully. ---")
+            sys.exit(0)  # Exit with success code
+        else:
+            logger.error("--- Default index build/update process failed. See logs above for details. ---")
+            sys.exit(1)  # Exit with error code
+    except Exception as e:
+        logger.critical(f"--- An unexpected critical error occurred during the default script: {e} ---", exc_info=True)
+        sys.exit(2)  # Different error code for unexpected failure
+```
+
+`backend/Ollama_unittest.py`
+
+```python
+import sys
+from langchain_ollama import OllamaEmbeddings, ChatOllama
+
+# Configuration (adjust these if your setup differs)
+OLLAMA_BASE_URL = "http://localhost:11434"
+EMBEDDINGS_MODEL = "mxbai-embed-large"
+LLM_MODEL = "deepseek-r1"
+
+def check_embeddings():
+    """Tests if the embeddings model is served by Ollama."""
+    print(f"\nTesting embeddings model: {EMBEDDINGS_MODEL}")
+    try:
+        embeddings = OllamaEmbeddings(
+            model=EMBEDDINGS_MODEL,
+            base_url=OLLAMA_BASE_URL
+        )
+        test_text = "This is a test sentence."
+        embedding = embeddings.embed_query(test_text)
+        print(f"Embeddings test successful!")
+        print(f"Embedding length: {len(embedding)}")
+        print(f"First 5 values: {embedding[:5]}")
+        return True
+    except Exception as e:
+        print(f"Embeddings test failed: {e}")
+        return False
+
+def check_llm():
+    """Tests if the LLM model is served by Ollama."""
+    print(f"\nTesting LLM model: {LLM_MODEL}")
+    try:
+        llm = ChatOllama(
+            model=LLM_MODEL,
+            base_url=OLLAMA_BASE_URL
+        )
+        response = llm.invoke("Say 'Hello, world!'")
+        print(f"LLM test successful!")
+        print(f"Response: {response}")
+        return True
+    except Exception as e:
+        print(f"LLM test failed: {e}")
+        return False
+
+def main():
+    print("Checking Ollama server connectivity and model availability...")
+    
+    # Run tests
+    embeddings_ok = check_embeddings()
+    llm_ok = check_llm()
+
+    # Summary
+    print("\nSummary:")
+    if embeddings_ok and llm_ok:
+        print("All tests passed! Ollama is serving both embeddings and LLM models correctly.")
+        sys.exit(0)
+    else:
+        print("One or more tests failed. Check the Ollama server and model availability.")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+```
+
+`backend/requirements.txt`
+
+```
+# Core Framework and Server
+flask
+flask-cors
+waitress
+
+# Configuration & Utilities
+python-dotenv
+uuid # Standard library, but good to note if needed elsewhere
+
+# AI & Machine Learning - Langchain Ecosystem
+langchain
+langchain-community
+langchain-ollama
+
+# AI & Machine Learning - Core Libraries
+ollama
+
+# Vector Store - Choose ONE of the following faiss packages:
+
+# Option 1: GPU Accelerated (Requires NVIDIA GPU, CUDA Toolkit, CuDNN)
+# Ensure your environment meets the requirements before installing.
+# Installation might require specific commands depending on your CUDA version.
+# Check the official FAISS GitHub page for instructions.
+#faiss-gpu
+
+# Option 2: CPU only (Use if no compatible GPU or CUDA setup)
+faiss-cpu
+
+# PDF Processing
+pymupdf # Used in ai_core.py for PDF text extraction
+
+# Tokenizer (Often required by Langchain text splitters/models)
+tiktoken
+
+# HTTP Requests (Common dependencies, good to specify versions)
+requests
+httpx
+
+# Optional: For Markdown rendering on frontend (via CDN)
+# No Python package needed, but noted here.
+
+# Optional: For potential Markdown sanitization on frontend (via CDN)
+# No Python package needed, but noted here.
+
+```
+
+`backend/static/script.js`
+
+```javascript
+// script.js - Frontend Logic for Local AI Tutor
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM ready.");
+
+    // --- Configuration ---
+    const API_BASE_URL = window.location.origin;
+    const STATUS_CHECK_INTERVAL = 10000; // Check backend status every 10 seconds
+    const ERROR_MESSAGE_DURATION = 8000; // Auto-hide error messages (ms)
+    const MAX_CHAT_HISTORY_MESSAGES = 100; // Limit displayed messages (optional)
+
+    // --- DOM Elements ---
+    const uploadInput = document.getElementById('pdf-upload');
+    const uploadButton = document.getElementById('upload-button');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadSpinner = uploadButton?.querySelector('.spinner-border');
+
+    const analysisFileSelect = document.getElementById('analysis-file-select');
+    const analysisButtons = document.querySelectorAll('.analysis-btn');
+    const analysisOutputContainer = document.getElementById('analysis-output-container');
+    const analysisOutput = document.getElementById('analysis-output');
+    const analysisOutputTitle = document.getElementById('analysis-output-title');
+    const analysisStatus = document.getElementById('analysis-status');
+    // --- MODIFIED: Get references to new reasoning elements ---
+    const analysisReasoningContainer = document.getElementById('analysis-reasoning-container');
+    const analysisReasoningOutput = document.getElementById('analysis-reasoning-output');
+    // --- END MODIFICATION ---
+
+    const mindmapContainer = document.getElementById('mindmap-container');
+    const mindmapSvg = document.getElementById('mindmap-svg');
+
+    const chatHistory = document.getElementById('chat-history');
+    const chatInput = document.getElementById('chat-input');
+    const sendButton = document.getElementById('send-button');
+    const sendSpinner = sendButton?.querySelector('.spinner-border');
+    const voiceInputButton = document.getElementById('voice-input-button');
+    const chatStatus = document.getElementById('chat-status'); // Element reference for chat status text
+
+    const statusMessage = document.getElementById('status-message');
+    const statusMessageButton = statusMessage?.querySelector('.btn-close'); // Get close button inside
+    const connectionStatus = document.getElementById('connection-status');
+    const sessionIdDisplay = document.getElementById('session-id-display');
+
+    // --- State ---
+    let sessionId = localStorage.getItem('aiTutorSessionId') || null;
+    let currentMarkmapInstance = null;
+    let currentMarkmapToolbar = null;
+    let allFiles = { default: [], uploaded: [] };
+    let backendStatus = { // Detailed status object
+        db: false,
+        ai: false,
+        vectorStore: false,
+        vectorCount: 0,
+        error: null
+    };
+    let isListening = false;
+    let statusCheckTimer = null;
+    let statusMessageTimerId = null; // Timer for auto-hiding status messages
+
+    // --- Web Speech API ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+
+    if (SpeechRecognition) {
+        try {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false; // Stop after first utterance
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                chatInput.value = transcript;
+                stopListeningUI();
+                // Automatically send after successful recognition
+                 handleSendMessage();
+            };
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error, event.message);
+                setChatStatus(`Speech error: ${event.error}`, 'warning'); // Use the new function
+                stopListeningUI();
+            };
+            recognition.onend = () => {
+                // Only update UI if it was actively listening and didn't stop due to result/error already
+                if (isListening) stopListeningUI();
+            };
+            // Initial state is disabled, enable later based on backend status
+        } catch (e) {
+             console.error("Error initializing SpeechRecognition:", e);
+             recognition = null;
+             if (voiceInputButton) voiceInputButton.title = "Voice input failed to initialize";
+        }
+    } else {
+        console.warn("Speech Recognition not supported by this browser.");
+        if (voiceInputButton) voiceInputButton.title = "Voice input not supported by browser";
+    }
+
+
+    // --- Initialization ---
+    function initializeApp() {
+        console.log("Initializing App...");
+        showInitialLoading();
+        setupEventListeners();
+        checkBackendStatus(true); // Initial check, forces UI update
+        // Start periodic checks
+        if (statusCheckTimer) clearInterval(statusCheckTimer);
+        statusCheckTimer = setInterval(() => checkBackendStatus(false), STATUS_CHECK_INTERVAL);
+    }
+
+    function showInitialLoading() {
+        clearChatHistory();
+        addMessageToChat('bot', "Connecting to AI Tutor backend...", [], null, 'loading-msg');
+        setConnectionStatus('Initializing...', 'secondary');
+        updateControlStates(); // Disable controls initially
+    }
+
+    function onBackendReady() {
+         console.log("Backend is ready.");
+         loadAndPopulateDocuments(); // Load file lists
+
+         if (sessionId) {
+             console.log("Existing session ID found:", sessionId);
+             setSessionIdDisplay(sessionId);
+             loadChatHistory(sessionId);
+         } else {
+             console.log("No session ID found. Will generate on first message.");
+             clearChatHistory(); // Ensure chat is clear
+             addMessageToChat('bot', "Welcome! Ask questions about the documents, or upload your own using the controls.");
+             setSessionIdDisplay(null);
+         }
+         // Enable controls now backend is confirmed ready
+         updateControlStates();
+    }
+
+     function onBackendUnavailable(errorMsg = "Backend connection failed.") {
+         console.error("Backend is unavailable:", errorMsg);
+         clearChatHistory();
+         addMessageToChat('bot', `Error: ${errorMsg} Please check the server logs and ensure Ollama is running. Features will be limited.`);
+         updateControlStates(); // Ensure controls are disabled
+     }
+
+    // Updates button/input enabled states based on backend status
+    function updateControlStates() {
+        const isDbReady = backendStatus.db;
+        const isAiReady = backendStatus.ai;
+        // Upload needs AI for processing
+        const canUpload = isAiReady;
+        // Analysis selection needs files (implies DB ok), execution needs AI
+        const canSelectAnalysis = isDbReady && (allFiles.default.length > 0 || allFiles.uploaded.length > 0);
+        const canExecuteAnalysis = isAiReady && analysisFileSelect && analysisFileSelect.value;
+        // Chat needs AI
+        const canChat = isAiReady;
+
+        // Chat Input
+        disableChatInput(!canChat);
+
+        // Upload Button
+        if (uploadButton) uploadButton.disabled = !(canUpload && uploadInput?.files?.length > 0);
+
+        // Analysis Select & Buttons
+        if (analysisFileSelect) analysisFileSelect.disabled = !canSelectAnalysis;
+        disableAnalysisButtons(!canExecuteAnalysis);
+
+        // Voice Button
+        if (voiceInputButton) {
+            voiceInputButton.disabled = !(canChat && recognition); // Enable only if chat & voice API ready
+            voiceInputButton.title = (canChat && recognition) ? "Start Voice Input" : (recognition ? "Chat disabled" : "Voice input not supported/initialized");
+        }
+
+        // Update status texts using the correct functions
+        setChatStatus(canChat ? "Ready" : (isDbReady ? "AI Offline" : "Backend Offline"), canChat ? 'muted' : 'warning'); // <<< CORRECTED: Uses setChatStatus
+        if (uploadStatus) setElementStatus(uploadStatus, canUpload ? "Select a PDF to upload." : (isDbReady ? "AI Offline" : "Backend Offline"), canUpload ? 'muted' : 'warning');
+        if (analysisStatus) {
+             if (!canSelectAnalysis) setElementStatus(analysisStatus, "Backend Offline or No Docs", 'warning');
+             else if (!analysisFileSelect?.value) setElementStatus(analysisStatus, "Select document & analysis type.", 'muted');
+             else if (!isAiReady) setElementStatus(analysisStatus, "AI Offline", 'warning');
+             else setElementStatus(analysisStatus, `Ready to analyze ${escapeHtml(analysisFileSelect.value)}.`, 'muted');
+        }
+    }
+
+    function setupEventListeners() {
+        if (uploadButton) uploadButton.addEventListener('click', handleUpload);
+        analysisButtons.forEach(button => button?.addEventListener('click', () => handleAnalysis(button.dataset.analysisType)));
+        if (sendButton) sendButton.addEventListener('click', handleSendMessage);
+        if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendButton?.disabled) handleSendMessage(); } });
+        if (recognition && voiceInputButton) voiceInputButton.addEventListener('click', toggleListening);
+        if (analysisFileSelect) analysisFileSelect.addEventListener('change', handleAnalysisFileSelection); // Keep this listener
+        if (uploadInput) uploadInput.addEventListener('change', handleFileInputChange);
+        if (statusMessageButton) statusMessageButton.addEventListener('click', () => clearTimeout(statusMessageTimerId)); // Clear timer on manual close
+
+        console.log("Event listeners setup.");
+    }
+
+    // --- Backend Status Check ---
+    async function checkBackendStatus(isInitialCheck = false) {
+        if (!connectionStatus) return;
+
+        const previousStatus = { ...backendStatus }; // Shallow copy
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/status?t=${Date.now()}`); // Prevent caching
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error || `Status check failed: ${response.status}`);
+
+            // Update state
+            backendStatus.db = data.database_initialized;
+            backendStatus.ai = data.ai_components_loaded;
+            backendStatus.vectorStore = data.vector_store_loaded;
+            backendStatus.vectorCount = data.vector_store_entries || 0;
+            backendStatus.error = null; // Clear previous error on success
+
+            // Update UI only on initial check or if status *changed*
+            const statusChanged = JSON.stringify(backendStatus) !== JSON.stringify(previousStatus);
+
+            if (isInitialCheck || statusChanged) {
+                console.log("Status changed or initial check:", data);
+                updateConnectionStatusUI(); // Update badge and potentially show/hide messages
+
+                if (isInitialCheck) {
+                    if (backendStatus.db) onBackendReady(); // DB is minimum requirement to start
+                    else onBackendUnavailable("Database initialization failed.");
+                } else {
+                    // If status recovered, hide persistent error messages
+                    if ((backendStatus.db && !previousStatus.db) || (backendStatus.ai && !previousStatus.ai)) {
+                         hideStatusMessage();
+                    }
+                    // If AI came back online, refresh docs in case they loaded while AI was down
+                    if (backendStatus.ai && !previousStatus.ai) {
+                        loadAndPopulateDocuments();
+                    }
+                }
+                updateControlStates(); // Refresh controls based on new status
+            }
+
+        } catch (error) {
+            console.error("Backend connection check failed:", error);
+            const errorMsg = `Backend connection error: ${error.message || 'Unknown reason'}.`;
+            // Only update state/UI if status changed to offline or on initial check
+            if (backendStatus.db || backendStatus.ai || isInitialCheck) {
+                 backendStatus.db = false;
+                 backendStatus.ai = false;
+                 backendStatus.vectorStore = false;
+                 backendStatus.vectorCount = 0;
+                 backendStatus.error = errorMsg;
+
+                 updateConnectionStatusUI(); // Show error state
+
+                 if (isInitialCheck) onBackendUnavailable(errorMsg);
+                 updateControlStates(); // Disable controls
+            }
+        }
+    }
+
+    // --- UI Update Helpers ---
+
+    function updateConnectionStatusUI() {
+         if (!connectionStatus) return;
+         let statusText = 'Unknown';
+         let statusType = 'secondary';
+         let persistentMessage = null;
+         let messageType = 'danger';
+
+         if (backendStatus.ai) { // AI ready implies DB ok
+             const vectorText = backendStatus.vectorStore ? `(${backendStatus.vectorCount} vectors)` : '(Index Error)';
+             statusText = `Ready ${vectorText}`;
+             statusType = 'success';
+             if (!backendStatus.vectorStore) { // AI ok, but index failed to load
+                 persistentMessage = "AI Ready, but Vector Store failed to load. RAG context unavailable.";
+                 messageType = 'warning';
+             }
+         } else if (backendStatus.db) { // DB ok, but AI failed
+             statusText = 'AI Offline';
+             statusType = 'warning';
+             persistentMessage = "Backend running, but AI components failed. Chat/Analysis/Upload unavailable.";
+             messageType = 'warning';
+         } else { // DB failed (critical)
+             statusText = 'Backend Offline';
+             statusType = 'danger';
+             persistentMessage = backendStatus.error || "Cannot connect to backend or database failed. Check server.";
+             messageType = 'danger';
+         }
+
+         setConnectionStatus(statusText, statusType);
+         if(persistentMessage) {
+             showStatusMessage(persistentMessage, messageType, 0); // Show persistent message (duration 0)
+         } else {
+             // If status recovered, ensure persistent message is hidden
+             // Check if the current message is persistent (no timerId) and not hidden
+             if (statusMessage?.style.display !== 'none' && !statusMessageTimerId) {
+                  hideStatusMessage();
+             }
+         }
+    }
+
+    function setConnectionStatus(text, type = 'info') {
+         if (!connectionStatus) return;
+         connectionStatus.textContent = text;
+         connectionStatus.className = `badge bg-${type}`; // Base classes
+    }
+
+    function showStatusMessage(message, type = 'info', duration = ERROR_MESSAGE_DURATION) {
+        if (!statusMessage) return;
+        // Sanitize message before inserting? Basic escape for now.
+        statusMessage.childNodes[0].nodeValue = message; // Set text node content directly
+        statusMessage.className = `alert alert-${type} alert-dismissible fade show ms-3`; // Reset classes
+        statusMessage.style.display = 'block';
+
+        // Clear existing timer
+        if (statusMessageTimerId) clearTimeout(statusMessageTimerId);
+        statusMessageTimerId = null; // Reset timer ID
+
+        if (duration > 0) {
+            statusMessageTimerId = setTimeout(() => {
+                const bsAlert = bootstrap.Alert.getInstance(statusMessage);
+                if (bsAlert) bsAlert.close();
+                else statusMessage.style.display = 'none'; // Fallback hide
+                statusMessageTimerId = null; // Clear timer ID after execution
+            }, duration);
+        }
+        // If duration is 0 or less, it persists (timerId remains null)
+    }
+
+    function hideStatusMessage() {
+        if (!statusMessage) return;
+        const bsAlert = bootstrap.Alert.getInstance(statusMessage);
+        if (bsAlert) bsAlert.close();
+        else statusMessage.style.display = 'none';
+        if (statusMessageTimerId) clearTimeout(statusMessageTimerId);
+        statusMessageTimerId = null;
+    }
+
+    function setChatStatus(message, type = 'muted') {
+        if (!chatStatus) return; // Check if the element exists
+        chatStatus.textContent = message;
+        // Keep the base classes and add the type class
+        chatStatus.className = `mb-1 small text-center text-${type}`;
+    }
+
+    function setElementStatus(element, message, type = 'muted') {
+        if (!element) return;
+        element.textContent = message;
+        element.className = `small text-${type}`; // Keep small, set text color class
+    }
+
+    function setSessionIdDisplay(sid) {
+        if (sessionIdDisplay) {
+            sessionIdDisplay.textContent = sid ? `Session: ${sid.substring(0, 8)}...` : '';
+        }
+    }
+
+    function clearChatHistory() {
+        if (chatHistory) chatHistory.innerHTML = '';
+    }
+
+    // Basic HTML escaping
+     function escapeHtml(unsafe) {
+         if (typeof unsafe !== 'string') {
+             if (unsafe === null || typeof unsafe === 'undefined') return '';
+             try { unsafe = String(unsafe); } catch (e) { return ''; }
+         }
+         return unsafe
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;") // Use proper HTML entity
+              .replace(/'/g, "&#39;");
+      }
+
+    function addMessageToChat(sender, text, references = [], thinking = null, messageId = null) {
+        if (!chatHistory) return;
+
+        // Optional: Limit number of messages displayed
+        while (chatHistory.children.length >= MAX_CHAT_HISTORY_MESSAGES) {
+            chatHistory.removeChild(chatHistory.firstChild);
+        }
+
+        const messageWrapper = document.createElement('div');
+        messageWrapper.classList.add('message-wrapper', `${sender}-wrapper`);
+        if(messageId) messageWrapper.dataset.messageId = messageId;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
+
+        // Render Markdown for bot messages, escape user messages
+        if (sender === 'bot' && text) {
+            try {
+                if (typeof marked === 'undefined') {
+                    console.warn("marked.js not loaded. Displaying raw text.");
+                    const pre = document.createElement('pre');
+                    pre.textContent = text;
+                    messageDiv.appendChild(pre); // Wrap in pre for basic formatting
+                } else {
+                    marked.setOptions({ breaks: true, gfm: true, sanitize: false }); // sanitize: false - BE CAREFUL
+                    // --- SECURITY WARNING ---
+                    // Setting sanitize: false is dangerous if the LLM can be prompted
+                    // to produce malicious HTML/JS. For a truly secure application,
+                    // use a sanitizer like DOMPurify after marked.parse().
+                    // Example:
+                    // const unsafeHtml = marked.parse(text);
+                    // const safeHtml = (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(unsafeHtml) : unsafeHtml;
+                    // messageDiv.innerHTML = safeHtml;
+                    // For this local setup, we accept the risk for better rendering.
+                    messageDiv.innerHTML = marked.parse(text);
+                }
+            } catch (e) {
+                console.error("Error rendering Markdown:", e);
+                const pre = document.createElement('pre');
+                pre.textContent = text; // Fallback to preformatted text
+                messageDiv.appendChild(pre);
+            }
+        } else if (text) {
+            messageDiv.textContent = text; // User message - escape handled by textContent
+        } else {
+            messageDiv.textContent = `[${sender === 'bot' ? 'Empty Bot Response' : 'Empty User Message'}]`;
+        }
+
+        messageWrapper.appendChild(messageDiv);
+
+        // Display Thinking/Reasoning (CoT) - Create dynamically
+        if (sender === 'bot' && thinking) {
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.classList.add('message-thinking');
+            thinkingDiv.innerHTML = `
+                <details>
+                    <summary class="text-info small fw-bold">Show Reasoning</summary>
+                    <pre><code>${escapeHtml(thinking)}</code></pre>
+                </details>`;
+            messageWrapper.appendChild(thinkingDiv);
+        }
+
+        // Display References - Create dynamically
+        if (sender === 'bot' && references && references.length > 0) {
+            const referencesDiv = document.createElement('div');
+            referencesDiv.classList.add('message-references');
+            let refHtml = '<strong class="small text-warning">References:</strong><ul class="list-unstyled mb-0 small">';
+            references.forEach(ref => {
+                // Check if ref is valid object with expected properties
+                if (ref && typeof ref === 'object') {
+                    const source = escapeHtml(ref.source || 'Unknown Source');
+                    const preview = escapeHtml(ref.content_preview || 'No preview available');
+                    const number = escapeHtml(ref.number || '?');
+                    refHtml += `<li class="ref-item">[${number}] <span class="ref-source" title="Preview: ${preview}">${source}</span></li>`;
+                } else {
+                    console.warn("Invalid reference item found:", ref);
+                }
+            });
+            refHtml += '</ul>';
+            referencesDiv.innerHTML = refHtml;
+            messageWrapper.appendChild(referencesDiv);
+        }
+
+        chatHistory.appendChild(messageWrapper);
+        // Scroll to bottom smoothly
+        chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' });
+    }
+
+    function updateAnalysisDropdown() {
+        if (!analysisFileSelect) return;
+        const previouslySelected = analysisFileSelect.value;
+        analysisFileSelect.innerHTML = ''; // Clear
+
+        const createOption = (filename, isUploaded = false) => {
+            const option = document.createElement('option');
+            option.value = filename; // Use filename as value
+            option.textContent = filename;
+            option.classList.add('file-option');
+            if (isUploaded) option.classList.add('uploaded');
+            return option;
+        };
+
+        const hasFiles = allFiles.default.length > 0 || allFiles.uploaded.length > 0;
+
+        // Add placeholder
+        const placeholder = document.createElement('option');
+        placeholder.textContent = hasFiles ? "Select a document..." : "No documents available";
+        placeholder.disabled = true;
+        placeholder.selected = !previouslySelected || !hasFiles; // Select placeholder if nothing was selected before OR no files
+        placeholder.value = "";
+        analysisFileSelect.appendChild(placeholder);
+
+        if (!hasFiles) {
+            analysisFileSelect.disabled = true;
+            disableAnalysisButtons(true);
+            return; // Nothing more to add
+        }
+
+        // Add Optgroups and Options
+        if (allFiles.default.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = "Default Documents";
+            allFiles.default.forEach(f => optgroup.appendChild(createOption(f, false)));
+            analysisFileSelect.appendChild(optgroup);
+        }
+        if (allFiles.uploaded.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = "Uploaded Documents";
+            allFiles.uploaded.forEach(f => optgroup.appendChild(createOption(f, true)));
+            analysisFileSelect.appendChild(optgroup);
+        }
+
+        analysisFileSelect.disabled = !backendStatus.db; // Enable select if DB ready
+
+        // Restore selection if possible and the option still exists
+        const previousOptionExists = Array.from(analysisFileSelect.options).some(opt => opt.value === previouslySelected);
+        if (previouslySelected && previousOptionExists) {
+            analysisFileSelect.value = previouslySelected;
+        } else {
+            // If previous selection gone or wasn't set, reset to placeholder
+             analysisFileSelect.value = "";
+        }
+
+        // Enable/disable buttons based on current selection and AI status
+        handleAnalysisFileSelection();
+    }
+
+    function handleAnalysisFileSelection() {
+        const fileSelected = analysisFileSelect && analysisFileSelect.value;
+        const shouldEnable = fileSelected && backendStatus.ai;
+        disableAnalysisButtons(!shouldEnable);
+         if (!fileSelected) {
+             setElementStatus(analysisStatus, "Select document & analysis type.", 'muted');
+         } else if (!backendStatus.ai) {
+             setElementStatus(analysisStatus, "AI components offline.", 'warning');
+         } else {
+             setElementStatus(analysisStatus, `Ready to analyze ${escapeHtml(analysisFileSelect.value)}.`, 'muted');
+         }
+         // Hide previous results when selection changes
+         if (analysisOutputContainer) analysisOutputContainer.style.display = 'none';
+         if (mindmapContainer) mindmapContainer.style.display = 'none';
+         if (analysisReasoningContainer) analysisReasoningContainer.style.display = 'none';
+    }
+
+     function handleFileInputChange() {
+         const canUpload = backendStatus.ai;
+         if (uploadButton) uploadButton.disabled = !(uploadInput.files.length > 0 && canUpload);
+         if (uploadInput.files.length > 0) {
+              setElementStatus(uploadStatus, `Selected: ${escapeHtml(uploadInput.files[0].name)}`, 'muted');
+         } else {
+              setElementStatus(uploadStatus, canUpload ? 'No file selected.' : 'AI Offline', canUpload ? 'muted' : 'warning');
+         }
+     }
+
+    function disableAnalysisButtons(disabled = true) {
+        analysisButtons.forEach(button => button && (button.disabled = disabled));
+    }
+
+    function disableChatInput(disabled = true) {
+        if (chatInput) chatInput.disabled = disabled;
+        if (sendButton) sendButton.disabled = disabled;
+        // Disable voice based on chat state AND recognition availability
+        if (voiceInputButton) voiceInputButton.disabled = disabled || !recognition;
+    }
+
+    function showSpinner(spinnerElement, show = true) {
+         if (spinnerElement) spinnerElement.style.display = show ? 'inline-block' : 'none';
+    }
+
+    // --- API Calls ---
+
+    async function loadAndPopulateDocuments() {
+        if (!API_BASE_URL || !analysisFileSelect) return;
+        console.log("Loading document list...");
+        analysisFileSelect.disabled = true;
+        analysisFileSelect.innerHTML = '<option selected disabled value="">Loading...</option>';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/documents?t=${Date.now()}`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            if(data.errors) {
+                 console.warn("Errors loading document lists:", data.errors);
+                 showStatusMessage(`Warning: Could not load some document lists: ${data.errors.join(', ')}`, 'warning');
+            }
+            allFiles.default = data.default_files || [];
+            allFiles.uploaded = data.uploaded_files || [];
+            console.log(`Loaded ${allFiles.default.length} default, ${allFiles.uploaded.length} uploaded docs.`);
+            updateAnalysisDropdown(); // This now handles enabling/disabling based on files found
+
+        } catch (error) {
+            console.error("Error loading document list:", error);
+            showStatusMessage("Could not load the list of available documents.", 'warning');
+            analysisFileSelect.innerHTML = '<option selected disabled value="">Error loading</option>';
+            disableAnalysisButtons(true);
+        } finally {
+            // Update controls based on whether files were loaded and AI status
+            updateControlStates();
+        }
+    }
+
+    async function handleUpload() {
+        if (!uploadInput || !uploadStatus || !uploadButton || !uploadSpinner || !API_BASE_URL || !backendStatus.ai) return;
+        const file = uploadInput.files[0];
+        if (!file) { setElementStatus(uploadStatus, "Select a PDF first.", 'warning'); return; }
+        if (!file.name.toLowerCase().endsWith(".pdf")) { setElementStatus(uploadStatus, "Invalid file: PDF only.", 'warning'); return; }
+
+        setElementStatus(uploadStatus, `Uploading ${escapeHtml(file.name)}...`);
+        uploadButton.disabled = true;
+        showSpinner(uploadSpinner, true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/upload`, { method: 'POST', body: formData });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || `Upload failed: ${response.status}`);
+
+            // Success
+            const successMsg = result.message || `Processed ${escapeHtml(result.filename)}.`;
+            setElementStatus(uploadStatus, successMsg, 'success');
+            showStatusMessage(`File '${escapeHtml(result.filename)}' added. KB: ${result.vector_count >= 0 ? result.vector_count : 'N/A'} vectors.`, 'success');
+            await loadAndPopulateDocuments(); // Refresh dropdown
+            uploadInput.value = ''; // Clear file input on success
+            handleFileInputChange(); // Update button state after clearing input
+
+        } catch (error) {
+            console.error("Upload error:", error);
+            const errorMsg = error.message || "Unknown upload error.";
+            setElementStatus(uploadStatus, `Error: ${errorMsg}`, 'danger');
+            showStatusMessage(`Upload Error: ${errorMsg}`, 'danger');
+             // Keep file selected in input for retry? Or clear? Current behavior keeps it.
+             uploadButton.disabled = !backendStatus.ai; // Re-enable if AI still ok
+        } finally {
+             showSpinner(uploadSpinner, false);
+             // Reset status after a delay?
+             // setTimeout(() => handleFileInputChange(), 5000);
+        }
+    }
+
+    // --- MODIFIED: handleAnalysis function ---
+    async function handleAnalysis(analysisType) {
+        // Ensure all required elements exist, including new reasoning ones
+        if (!analysisFileSelect || !analysisStatus || !analysisOutputContainer || !analysisOutput || !mindmapContainer || !mindmapSvg || !analysisReasoningContainer || !analysisReasoningOutput || !backendStatus.ai) {
+             console.error("Analysis prerequisites missing or AI offline.");
+             return;
+        }
+        const filename = analysisFileSelect.value;
+        if (!filename) { setElementStatus(analysisStatus, "Select a document.", 'warning'); return; }
+
+        console.log(`Starting analysis: Type=${analysisType}, File=${filename}`);
+        setElementStatus(analysisStatus, `Generating ${analysisType} for ${escapeHtml(filename)}...`);
+        disableAnalysisButtons(true); // Disable buttons during analysis
+
+        // Hide previous results and clear outputs
+        analysisOutputContainer.style.display = 'none';
+        mindmapContainer.style.display = 'none';
+        analysisOutput.innerHTML = '';
+        analysisReasoningOutput.textContent = ''; // Clear previous reasoning
+        analysisReasoningContainer.style.display = 'none'; // Hide reasoning container
+
+        // Check if DOM elements exist (for debugging)
+        console.log("DOM Elements Check:", {
+            analysisOutput, analysisReasoningOutput, analysisOutputContainer, analysisReasoningContainer, mindmapContainer, mindmapSvg
+        });
+
+        // Markmap Cleanup
+        if (currentMarkmapToolbar?.el?.parentNode) currentMarkmapToolbar.el.parentNode.removeChild(currentMarkmapToolbar.el);
+        if (currentMarkmapInstance && typeof currentMarkmapInstance.destroy === 'function') currentMarkmapInstance.destroy();
+        else if(mindmapSvg) mindmapSvg.innerHTML = ''; // Manual clear fallback
+        currentMarkmapInstance = null; currentMarkmapToolbar = null;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename, analysis_type: analysisType }),
+            });
+
+            console.log("Analysis Response Status:", response.status); // Log status
+
+            const result = await response.json();
+            console.log("Analysis Result Received (Parsed JSON):", result); // Log the parsed result
+
+            if (!response.ok) throw new Error(result.error || `Analysis failed: ${response.status}`);
+
+            // --- Success ---
+            setElementStatus(analysisStatus, `Analysis complete for ${escapeHtml(filename)}.`, 'success');
+
+            // Display Reasoning (if provided)
+            console.log("Checking for thinking content:", result.thinking);
+            if (result.thinking) {
+                console.log("Analysis reasoning received. Assigning to DOM.");
+                analysisReasoningOutput.textContent = result.thinking; // Use textContent for pre tag
+                analysisReasoningContainer.style.display = 'block'; // Show reasoning container
+                console.log("Reasoning container display set to block.");
+            } else {
+                 analysisReasoningContainer.style.display = 'none'; // Ensure hidden if no reasoning
+                 console.log("No thinking content found or container hidden.");
+            }
+
+            // Display Main Content
+            analysisOutputContainer.style.display = 'block'; // Show the main output container
+            console.log("Analysis output container display set to block.");
+            if (analysisOutputTitle) analysisOutputTitle.textContent = `${analysisType.charAt(0).toUpperCase() + analysisType.slice(1)} Analysis:`;
+
+            const analysisContent = result.content || "[No content generated]";
+            console.log("Analysis Main Content:", analysisContent); // Log the content itself
+
+            // Render based on type
+            mindmapContainer.style.display = 'none'; // Hide mindmap by default
+            analysisOutput.innerHTML = ''; // Clear previous content
+
+            if (analysisType === 'faq' || analysisType === 'topics') {
+                if (typeof marked !== 'undefined') {
+                    console.log("Rendering analysis content with marked.js...");
+                    marked.setOptions({ breaks: true, gfm: true, sanitize: false }); // sanitize: false - BE CAREFUL
+                    // See warning in addMessageToChat about sanitization
+                    analysisOutput.innerHTML = marked.parse(analysisContent); // Use innerHTML for Markdown
+                    console.log("Assigned marked content to analysisOutput.innerHTML");
+                } else {
+                    console.warn("marked.js not found. Using textContent.");
+                    analysisOutput.textContent = analysisContent; // Fallback
+                }
+            }
+            else if (analysisType === 'mindmap') {
+                console.log("Processing mindmap analysis...");
+                // Display raw markdown source in the main output area (optional, can be hidden)
+                // Use escapeHtml ONLY for displaying the raw source safely
+                analysisOutput.innerHTML = `<pre class="mindmap-markdown-source"><code>${escapeHtml(analysisContent)}</code></pre>`; // Show source safely
+                console.log("Displayed raw mindmap source.");
+                mindmapContainer.style.display = 'block'; // Show the SVG container
+                console.log("Mindmap container display set to block.");
+                try {
+                    if (typeof window.markmap !== 'object' || !window.markmap.Markmap || !window.markmap.Toolbar || !window.d3 || !window.markmap.Transformer) {
+                         throw new Error("Markmap library, D3, or Transformer not loaded.");
+                    }
+                    const { Markmap, Toolbar, Transformer } = window.markmap; // Get Transformer too
+
+                     // Transform markdown to markmap data structure
+                     const transformer = new Transformer();
+                     // Handle potential errors during transformation
+                     let root, features;
+                     try {
+                         console.log("Attempting to transform Markmap markdown...");
+                         const transformed = transformer.transform(analysisContent); // Pass the raw analysisContent
+                         root = transformed.root;
+                         features = transformed.features;
+                         if (!root) throw new Error("Transformation resulted in empty root node.");
+                         console.log("Markmap transformation successful.");
+                     } catch (transformError) {
+                         console.error("Markmap transformation error:", transformError);
+                         throw new Error(`Mindmap Markdown invalid: ${transformError.message}`);
+                     }
+
+                     mindmapSvg.innerHTML = ''; // Clear SVG before rendering
+                     console.log("Attempting to create Markmap instance...");
+                     currentMarkmapInstance = Markmap.create(mindmapSvg, null, root); // Pass root data
+                     console.log("Markmap instance created.");
+
+                     // Toolbar needs the Markmap *instance*
+                     console.log("Attempting to create Markmap Toolbar...");
+                     currentMarkmapToolbar = Toolbar.create(currentMarkmapInstance);
+                     if (currentMarkmapToolbar?.el) {
+                         mindmapContainer.insertBefore(currentMarkmapToolbar.el, mindmapSvg);
+                         console.log("Markmap Toolbar created and inserted.");
+                     } else {
+                         console.warn("Failed to create Markmap Toolbar.");
+                     }
+
+                } catch (e) {
+                     console.error("Error rendering Mind Map:", e);
+                     setElementStatus(analysisStatus, "Analysis complete, Mind Map render failed.", 'warning');
+                     mindmapContainer.style.display = 'none';
+                     // Show error in main output area
+                     analysisOutput.innerHTML = `<div class="text-danger">Error rendering Mind Map: ${escapeHtml(e.message)}</div><pre><code>${escapeHtml(analysisContent)}</code></pre>`;
+                     showStatusMessage(`Mind Map Error: ${e.message}`, 'warning');
+                }
+            } else { // Default: plain text (shouldn't happen with current types)
+                console.log("Rendering analysis content as plain text.");
+                analysisOutput.textContent = analysisContent;
+            }
+
+        } catch (error) {
+            console.error("Analysis error in JS:", error); // Log JS errors
+            const errorMsg = error.message || "Unknown analysis error.";
+            setElementStatus(analysisStatus, `Error: ${errorMsg}`, 'danger');
+            showStatusMessage(`Analysis Error: ${errorMsg}`, 'danger');
+            analysisOutputContainer.style.display = 'none'; // Hide output containers on error
+            mindmapContainer.style.display = 'none';
+            analysisReasoningContainer.style.display = 'none'; // Hide reasoning on error too
+        } finally {
+            // --- MODIFIED: Only re-enable buttons, don't call handleAnalysisFileSelection() ---
+            const fileSelected = analysisFileSelect && analysisFileSelect.value;
+            const shouldEnable = fileSelected && backendStatus.ai;
+            disableAnalysisButtons(!shouldEnable); // Re-enable buttons if file still selected and AI is ready
+            console.log("Analysis process finished. Buttons re-enabled based on state:", shouldEnable);
+            // --- END MODIFICATION ---
+        }
+    }
+    // --- END MODIFIED handleAnalysis function ---
+
+
+    async function handleSendMessage() {
+        if (!chatInput || !sendButton || !sendSpinner || !API_BASE_URL || !backendStatus.ai) return;
+        const query = chatInput.value.trim();
+        if (!query) return;
+
+        addMessageToChat('user', query);
+        chatInput.value = '';
+        setChatStatus('AI Tutor is thinking...'); // Use the new function
+        disableChatInput(true);
+        showSpinner(sendSpinner, true);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query, session_id: sessionId }),
+            });
+            const result = await response.json(); // Always try to parse JSON
+
+            if (!response.ok) {
+                 const errorDetail = result.error || `Request failed: ${response.status}`;
+                 // Use answer field if provided by backend error, fallback to detail
+                 const displayError = result.answer || `Sorry, error: ${errorDetail}`;
+                 // Pass thinking and references even on error if backend provides them
+                 addMessageToChat('bot', displayError, result.references || [], result.thinking || null);
+                 throw new Error(errorDetail);
+            }
+
+            // Success
+            if (result.session_id && sessionId !== result.session_id) {
+                sessionId = result.session_id;
+                localStorage.setItem('aiTutorSessionId', sessionId);
+                setSessionIdDisplay(sessionId);
+                console.log("Session ID updated:", sessionId);
+            }
+            // Pass all relevant fields to addMessageToChat
+            addMessageToChat('bot', result.answer, result.references || [], result.thinking || null);
+            setChatStatus('Ready'); // Use the new function
+
+        } catch (error) {
+            console.error("Chat error:", error);
+            const errorMsg = error.message || "Unknown network/server error.";
+             // Avoid adding a duplicate error message if already added by !response.ok block
+             const lastBotMessage = chatHistory?.querySelector('.bot-wrapper:last-child .bot-message');
+             if (!lastBotMessage || !lastBotMessage.textContent?.includes("Sorry, error:")) {
+                  addMessageToChat('bot', `Sorry, could not get response: ${errorMsg}`);
+             }
+            setChatStatus(`Error: ${errorMsg.substring(0, 50)}...`, 'danger'); // Use the new function
+        } finally {
+            disableChatInput(!backendStatus.ai); // Re-enable based on AI status
+            showSpinner(sendSpinner, false);
+            if(backendStatus.ai && chatInput) chatInput.focus();
+        }
+    }
+
+    async function loadChatHistory(sid) {
+        if (!sid || !chatHistory || !API_BASE_URL || !backendStatus.db) {
+             addMessageToChat('bot', 'Cannot load history: Missing session ID or database unavailable.');
+             return;
+        }
+
+        setChatStatus('Loading history...'); // Use the new function
+        disableChatInput(true);
+        clearChatHistory();
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/history?session_id=${sid}&t=${Date.now()}`);
+             if (!response.ok) {
+                 if (response.status === 404 || response.status === 400) {
+                     console.warn(`History not found or invalid session ID (${sid}, Status: ${response.status}). Clearing local session.`);
+                     localStorage.removeItem('aiTutorSessionId');
+                     sessionId = null;
+                     setSessionIdDisplay(null);
+                     addMessageToChat('bot', "Couldn't load previous session. Starting fresh.");
+                 } else {
+                     const result = await response.json().catch(() => ({}));
+                     throw new Error(result.error || `Failed to load history: ${response.status}`);
+                 }
+                 return; // Exit after handling non-ok response
+             }
+
+             const history = await response.json();
+             if (history.length > 0) {
+                 // Pass all fields from the history object
+                 history.forEach(msg => addMessageToChat(
+                     msg.sender,
+                     msg.message_text,
+                     msg.references || [], // Ensure references is an array
+                     msg.thinking || null, // Pass thinking content
+                     msg.message_id
+                 ));
+                 console.log(`Loaded ${history.length} messages for session ${sid}`);
+                 addMessageToChat('bot', "--- Previous chat restored ---");
+             } else {
+                  addMessageToChat('bot', "Welcome back! Continue your chat.");
+             }
+             // Scroll after a short delay to allow rendering
+             setTimeout(() => chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'auto' }), 100);
+
+        } catch (error) {
+            console.error("Error loading chat history:", error);
+             clearChatHistory();
+             addMessageToChat('bot', `Error loading history: ${error.message}. Starting new chat.`);
+             localStorage.removeItem('aiTutorSessionId');
+             sessionId = null;
+             setSessionIdDisplay(null);
+        } finally {
+            setChatStatus(backendStatus.ai ? 'Ready' : 'AI Offline', backendStatus.ai ? 'muted' : 'warning'); // Use the new function
+            disableChatInput(!backendStatus.ai); // Re-enable based on AI status
+        }
+    }
+
+    // --- Voice Input ---
+    function toggleListening() {
+        if (!recognition || !voiceInputButton || voiceInputButton.disabled) return;
+        if (isListening) {
+            recognition.stop();
+            console.log("Speech recognition stopped manually.");
+            // stopListeningUI() will be called by 'onend' event
+        } else {
+            try {
+                recognition.start();
+                startListeningUI();
+                console.log("Speech recognition started.");
+            } catch (error) {
+                console.error("Error starting speech recognition:", error);
+                setChatStatus("Voice input error. Check mic?", 'warning'); // Use the new function
+                stopListeningUI(); // Reset UI if start fails
+            }
+        }
+    }
+
+    function startListeningUI() {
+        isListening = true;
+        if (voiceInputButton) {
+            voiceInputButton.classList.add('listening', 'btn-danger');
+            voiceInputButton.classList.remove('btn-outline-secondary');
+            voiceInputButton.title = "Stop Listening";
+            voiceInputButton.innerHTML = '🛑'; // Stop icon
+        }
+        setChatStatus('Listening...'); // Use the new function
+    }
+
+    function stopListeningUI() {
+        isListening = false;
+        if (voiceInputButton) {
+            voiceInputButton.classList.remove('listening', 'btn-danger');
+            voiceInputButton.classList.add('btn-outline-secondary');
+            voiceInputButton.title = "Start Voice Input";
+            voiceInputButton.innerHTML = '🎤'; // Mic icon
+        }
+        // Reset status only if it was 'Listening...'
+        if (chatStatus && chatStatus.textContent === 'Listening...') {
+             setChatStatus(backendStatus.ai ? 'Ready' : 'AI Offline', backendStatus.ai ? 'muted' : 'warning'); // Use the new function
+        }
+    }
+
+    // --- Start ---
+    initializeApp();
+
+}); // End DOMContentLoaded
+```
+
+`backend/static/style.css`
+
+```css
+/* style.css - Enhanced Dark Theme and Custom Styles */
+
+:root {
+    /* Base Colors */
+    --bs-body-bg: #1a1d2e; /* Slightly deeper blue */
+    --bs-body-color: #e0e0e0; /* Lighter grey text */
+    --bs-border-color: #3b3f5c; /* Muted border */
+    --bs-dark: #2c2f44; /* Slightly lighter dark shade for contrasts */
+    --bs-secondary: #7a839e; /* Muted secondary text/elements */
+    --bs-tertiary-bg: #23263a; /* Background for some elements like chat history */
+
+    /* Accent Colors */
+    --bs-primary: #8a7ff0; /* Vibrant Purple */
+    --bs-info: #2cb67d;    /* Teal/Green for positive feedback/links */
+    --bs-success: #4caf50;  /* Standard Green */
+    --bs-warning: #ffc107;  /* Standard Yellow */
+    --bs-danger: #f44336;   /* Standard Red */
+    --bs-light: #f8f9fa;
+
+    /* Links */
+    --link-color: var(--bs-info);
+    --link-hover-color: #61e4a9;
+
+     /* Custom variables */
+    --card-bg: #282b3f;
+    --card-header-bg: rgba(var(--bs-primary-rgb), 0.1);
+    --input-bg: #353950;
+    --input-focus-bg: #404560;
+    --chat-history-bg: var(--bs-tertiary-bg);
+    --code-bg: #161825; /* Darker code background */
+    --code-text-color: #b0c4de;
+    --thinking-bg: rgba(0, 0, 0, 0.2); /* Background for thinking block */
+    --thinking-border: var(--bs-secondary); /* Border for thinking block */
+    --thinking-text-color: #b0b8c4; /* Text color for thinking block */
+    --reference-source-color: var(--bs-warning);
+    --message-user-bg: linear-gradient(135deg, #6a11cb 0%, #8a7ff0 100%); /* Purple gradient */
+    --message-bot-bg: #383c55; /* Slightly distinct bot message background */
+    --uploaded-indicator-color: #2cb67d;
+}
+
+/* Apply base theme */
+[data-bs-theme="dark"] {
+    --bs-body-bg: var(--bs-body-bg);
+    --bs-body-color: var(--bs-body-color);
+    --bs-border-color: var(--bs-border-color);
+    --bs-link-color: var(--link-color);
+    --bs-link-hover-color: var(--link-hover-color);
+    --bs-secondary-color: var(--bs-secondary);
+    --bs-tertiary-bg: var(--bs-tertiary-bg);
+}
+
+body {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    overscroll-behavior-y: none;
+    line-height: 1.6; /* Improve overall readability */
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--bs-primary);
+    font-weight: 500;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bs-dark); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background-color: var(--bs-secondary); border-radius: 4px; border: 2px solid var(--bs-dark); }
+::-webkit-scrollbar-thumb:hover { background-color: #8a95b0; }
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--bs-secondary) var(--bs-dark); }
+
+/* --- Cards --- */
+.card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.6rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); /* Slightly deeper shadow */
+}
+.card-header {
+    background-color: var(--card-header-bg);
+    color: var(--bs-light);
+    border-bottom: 1px solid var(--bs-border-color);
+    font-weight: 500;
+    padding: 0.6rem 1rem; /* Adjusted padding */
+}
+.control-card .card-body { padding: 0.8rem; } /* Less padding in control cards */
+.chat-card {
+    height: calc(100vh - 120px); /* Adjust height based on header/footer/margins */
+    min-height: 450px; /* Ensure minimum reasonable height */
+}
+
+/* --- Forms --- */
+.form-control, .form-select {
+    background-color: var(--input-bg);
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+.form-control:focus, .form-select:focus {
+    background-color: var(--input-focus-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+    outline: none;
+}
+.form-control::placeholder { color: #888e99; opacity: 0.8; }
+.form-control:disabled, .form-select:disabled { background-color: var(--bs-dark); opacity: 0.6; }
+.form-select { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23dcdcdc' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e"); }
+.form-control-sm, .form-select-sm, .btn-sm { font-size: 0.875rem; padding: 0.25rem 0.5rem; border-radius: 0.3rem; }
+.input-group-sm > .btn { padding: 0.25rem 0.5rem; }
+
+/* File dropdown indicator */
+.file-option.uploaded::before {
+    content: ''; display: inline-block; width: 8px; height: 8px;
+    background-color: var(--uploaded-indicator-color); border-radius: 50%;
+    margin-right: 8px; vertical-align: middle;
+}
+select optgroup { font-style: italic; font-weight: bold; color: var(--bs-info); }
+
+/* --- Buttons --- */
+.btn { transition: all 0.2s ease-in-out; font-weight: 500; border-radius: 0.4rem; }
+.btn:focus { box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25); }
+.btn .spinner-border { margin-right: 5px; vertical-align: text-bottom; }
+.btn-primary { background-color: var(--bs-primary); border-color: var(--bs-primary); color: #fff;}
+.btn-primary:hover { background-color: #7a6ff0; border-color: #7a6ff0; filter: brightness(1.1); transform: translateY(-1px);}
+.btn-info { background-color: var(--bs-info); border-color: var(--bs-info); color: #fff; }
+.btn-info:hover { background-color: #25a26f; border-color: #25a26f; filter: brightness(1.1); transform: translateY(-1px); color: #fff;}
+.btn-success { background-color: var(--bs-success); border-color: var(--bs-success); color: #fff;}
+.btn-success:hover { background-color: #43a047; border-color: #43a047; filter: brightness(1.1); transform: translateY(-1px);}
+.btn-outline-secondary { border-color: var(--bs-secondary); color: var(--bs-secondary); }
+.btn-outline-secondary:hover { background-color: var(--bs-secondary); color: var(--bs-light); }
+.btn-danger { background-color: var(--bs-danger); border-color: var(--bs-danger); color: #fff;}
+.btn-danger:hover { background-color: #e53935; border-color: #e53935; filter: brightness(1.1); transform: translateY(-1px);}
+
+/* --- Chat Area --- */
+#chat-history {
+    background-color: var(--chat-history-bg);
+    border-color: var(--bs-border-color) !important;
+    padding: 0.75rem; /* Reduced padding */
+}
+.message-wrapper { margin-bottom: 1rem; display: flex; flex-direction: column; }
+.user-wrapper { align-items: flex-end; }
+.bot-wrapper { align-items: flex-start; }
+.message {
+    padding: 0.6rem 1rem; /* Adjusted padding */
+    border-radius: 1.1rem;
+    max-width: 85%; /* Slightly wider max */
+    word-wrap: break-word;
+    line-height: 1.5;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    position: relative;
+}
+.user-message { background: var(--message-user-bg); color: white; border-bottom-right-radius: 0.4rem; }
+.bot-message { background-color: var(--message-bot-bg); color: var(--bs-body-color); border-bottom-left-radius: 0.4rem; }
+
+/* Markdown in bot messages */
+.bot-message *:first-child { margin-top: 0; } /* Remove top margin from first element */
+.bot-message *:last-child { margin-bottom: 0; } /* Remove bottom margin from last element */
+.bot-message strong, .bot-message b { color: var(--bs-info); font-weight: 600; }
+.bot-message a { color: var(--link-color); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.bot-message a:hover { color: var(--link-hover-color); }
+.bot-message code { /* Inline */
+    background-color: rgba(255, 255, 255, 0.1); padding: 0.15em 0.4em; border-radius: 4px;
+    font-family: Consolas, 'Courier New', monospace; font-size: 0.88em; color: var(--code-text-color);
+    word-break: break-all;
+}
+.bot-message pre { /* Code blocks */
+    background-color: var(--code-bg); border: 1px solid var(--bs-border-color);
+    padding: 0.8rem; border-radius: 5px; overflow-x: auto; margin: 0.7rem 0;
+    font-size: 0.88em; scrollbar-width: thin; scrollbar-color: var(--bs-secondary) var(--bs-dark);
+}
+.bot-message pre code { background: transparent; padding: 0; border: none; color: var(--code-text-color); font-family: Consolas, 'Courier New', monospace; }
+.bot-message ul, .bot-message ol { padding-left: 1.8rem; margin: 0.5rem 0; }
+.bot-message li { margin-bottom: 0.3rem; }
+.bot-message blockquote {
+    border-left: 3px solid var(--bs-secondary);
+    padding-left: 1rem;
+    margin: 0.7rem 0;
+    color: var(--bs-secondary);
+    font-style: italic;
+}
+
+/* Thinking & References Metadata */
+.message-thinking, .message-references {
+    font-size: 0.8em; margin-top: 0.5rem; padding: 0.5rem 0.8rem; border-radius: 6px;
+    max-width: 85%; color: var(--thinking-text-color); border-left: 3px solid;
+}
+/* Specific styles for Thinking block */
+.message-thinking {
+    background-color: var(--thinking-bg);
+    border-color: var(--thinking-border);
+}
+.message-thinking details { line-height: 1.3; }
+.message-thinking details summary {
+    cursor: pointer; color: var(--bs-info); font-weight: 500;
+    outline: none; padding: 2px 0; transition: color 0.2s;
+    display: inline-block; /* Prevent summary taking full width */
+}
+.message-thinking details summary:hover { color: var(--link-hover-color); }
+.message-thinking details[open] summary { margin-bottom: 0.4rem; }
+.message-thinking pre {
+    margin: 0.4rem 0 0 0; background-color: rgba(0,0,0,0.25); color: var(--thinking-text-color);
+    padding: 0.6rem; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;
+    border: 1px solid var(--bs-border-color); font-size: 0.95em;
+    max-height: 150px; /* Limit height and make scrollable */
+    overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--bs-secondary) var(--bs-dark);
+}
+.message-thinking code { font-family: Consolas, 'Courier New', monospace; }
+
+/* Specific styles for References block */
+.message-references { background-color: rgba(var(--bs-warning-rgb), 0.05); border-color: var(--bs-warning); }
+.message-references ul { list-style: none; padding-left: 0; margin-bottom: 0; }
+.message-references li.ref-item { margin-bottom: 0.25rem; line-height: 1.4; }
+.message-references .ref-source { font-weight: 600; color: var(--reference-source-color); cursor: help; }
+.message-references .ref-source:hover { text-decoration: underline; }
+
+/* --- Analysis Area --- */
+.analysis-content {
+    white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto;
+    background-color: var(--chat-history-bg); border: 1px solid var(--bs-border-color);
+    padding: 0.8rem; border-radius: 5px; line-height: 1.5; margin-bottom: 1rem;
+    scrollbar-width: thin; scrollbar-color: var(--bs-secondary) var(--bs-dark);
+    font-size: 0.9rem;
+}
+/* Markdown styles within analysis (similar to chat) */
+.analysis-content strong, .analysis-content b { color: var(--bs-info); }
+.analysis-content ul, .analysis-content ol { padding-left: 1.5rem; margin-bottom: 0.5rem; }
+.analysis-content li { margin-bottom: 0.25rem; }
+.analysis-content code { /* Inline */
+    background-color: rgba(255, 255, 255, 0.1); padding: 0.15em 0.4em; border-radius: 4px;
+    font-family: Consolas, 'Courier New', monospace; font-size: 0.9em; color: var(--code-text-color);
+}
+.analysis-content pre { /* Blocks */
+    background-color: var(--code-bg); border: 1px solid var(--bs-border-color); padding: 0.8rem;
+    border-radius: 5px; overflow-x: auto; margin: 0.7rem 0; font-size: 0.9em;
+}
+.analysis-content pre code { background: transparent; padding: 0; border: none; color: var(--code-text-color); }
+.analysis-content pre.mindmap-markdown-source { max-height: 100px; overflow-y: auto; font-size: 0.8em;} /* Smaller preview for mindmap source */
+
+
+/* Mindmap */
+#mindmap-container { position: relative; }
+.mindmap-svg-view {
+    width: 100%; height: 350px; border: 1px solid var(--bs-border-color);
+    background-color: var(--card-bg); border-radius: 5px; display: block;
+}
+/* Markmap Toolbar */
+.markmap-toolbar {
+    background-color: rgba(var(--card-bg-rgb), 0.9); border: 1px solid var(--bs-border-color);
+    border-radius: 4px; padding: 3px 5px; margin-bottom: 5px; display: inline-flex; gap: 5px;
+    position: absolute; /* Position toolbar over the map */
+    top: 5px; left: 5px; z-index: 10;
+}
+.markmap-toolbar-item button { background: none; border: none; color: var(--bs-body-color); padding: 3px 5px; border-radius: 3px; cursor: pointer; transition: background-color 0.2s; font-size: 0.8rem; }
+.markmap-toolbar-item button:hover { background-color: rgba(var(--bs-secondary-rgb), 0.3); }
+.markmap-toolbar-item button:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Markmap SVG elements */
+.markmap-node text { fill: var(--bs-body-color); font-size: 0.85rem; }
+.markmap-node circle { fill: var(--card-bg); stroke: var(--bs-primary); stroke-width: 1.5px; }
+.markmap-link { stroke: var(--bs-secondary); stroke-width: 1px; }
+
+/* === MODIFIED: Added Analysis Reasoning Widget Styles === */
+.reasoning-widget {
+    border: 1px solid var(--thinking-border); /* Use thinking border color */
+    border-radius: 5px;
+    background-color: var(--thinking-bg); /* Use thinking background */
+    padding: 0.5rem 0.8rem;
+    /* margin-bottom: 1rem; */ /* Added via mb-2 class in HTML */
+}
+.reasoning-widget h6 {
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    color: var(--bs-secondary); /* Muted heading */
+}
+.analysis-reasoning-content {
+    max-height: 100px; /* Limit height */
+    overflow-y: auto;
+    white-space: pre-wrap; /* Wrap text */
+    word-wrap: break-word;
+    font-size: 0.75em; /* Smaller font for reasoning */
+    line-height: 1.4;
+    color: var(--thinking-text-color); /* Use thinking text color */
+    background-color: var(--code-bg) !important; /* Use code bg for contrast */
+    border: 1px solid var(--bs-border-color) !important; /* Consistent border */
+    scrollbar-width: thin; /* Consistent scrollbar */
+    scrollbar-color: var(--bs-secondary) var(--bs-dark);
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+/* === END MODIFICATION === */
+
+
+/* --- Status Area --- */
+.status-area { min-height: 40px; /* Prevent layout shift */ }
+#connection-status { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+#status-message { font-size: 0.85rem; }
+#status-message .btn-close { filter: invert(1) grayscale(100%) brightness(200%); font-size: 0.7rem; }
+
+/* Input Area Status */
+#upload-status, #analysis-status, #chat-status {
+    min-height: 1.2em; transition: color 0.2s ease-in-out; padding-top: 2px;
+}
+.text-muted { color: #888e99 !important; }
+.text-success { color: var(--bs-success) !important; }
+.text-warning { color: var(--bs-warning) !important; }
+.text-danger { color: var(--bs-danger) !important; }
+
+/* --- Voice Button --- */
+#voice-input-button { padding: 0.25rem 0.6rem; /* Adjust padding for icon */ }
+#voice-input-button.listening {
+    color: white !important;
+    animation: pulse 1.5s infinite ease-in-out;
+    border-color: var(--bs-danger); /* Use border color from danger button */
+    background-color: var(--bs-danger); /* Use background color from danger button */
+}
+#voice-input-button:disabled { opacity: 0.5; cursor: not-allowed; animation: none; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(var(--bs-danger-rgb), 0.6); }
+  70% { box-shadow: 0 0 0 7px rgba(var(--bs-danger-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--bs-danger-rgb), 0); }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 767.98px) {
+    .col-md-4, .col-md-8 { width: 100%; }
+    .card { margin-bottom: 1rem; }
+    .chat-card { height: 65vh; min-height: 350px; }
+    .message { max-width: 92%; }
+    .message-thinking, .message-references { max-width: 92%; }
+    h1 { font-size: 1.6rem; }
+    .status-area { flex-wrap: wrap; }
+    #status-message { width: 100%; margin-left: 0 !important; margin-top: 0.5rem; }
+}
+```
+
+`backend/templates/index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local AI Engineering Tutor</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Markmap styles (Toolbar) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/markmap-toolbar@0.15.4/dist/style.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Favicon (Optional - place favicon.ico in static folder) -->
+    <!-- <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}"> -->
+</head>
+<body>
+    <div class="container-fluid mt-3 mb-3">
+        <h1 class="text-center mb-4 text-primary">Local AI Engineering Tutor</h1>
+
+        <!-- Status Area -->
+        <div class="status-area d-flex justify-content-between align-items-center mb-3 px-2">
+             <span id="connection-status" class="badge bg-secondary">Initializing...</span>
+             <div id="status-message" class="alert alert-dismissible fade show ms-3" role="alert" style="display: none; margin-bottom: 0; padding: 0.5rem 1rem; padding-right: 2.5rem;">
+                 <!-- Status messages appear here -->
+                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.6rem 0.8rem;"></button>
+             </div>
+        </div>
+
+
+        <div class="row g-3">
+            <!-- Left Column: Controls -->
+            <div class="col-md-4">
+                <!-- Upload Section -->
+                <div class="card mb-3 bg-dark-subtle border-secondary shadow-sm control-card">
+                    <div class="card-header">Upload PDF</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="pdf-upload" class="form-label small">Select PDF Document:</label>
+                            <input class="form-control form-control-sm" type="file" id="pdf-upload" accept=".pdf">
+                        </div>
+                        <button id="upload-button" class="btn btn-primary btn-sm w-100" disabled>
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                            Upload & Add to Knowledge Base
+                        </button>
+                        <div id="upload-status" class="mt-2 small text-muted">Select a PDF to upload.</div>
+                    </div>
+                </div>
+
+                <!-- Analysis Section -->
+                <div class="card mb-3 bg-dark-subtle border-secondary shadow-sm control-card">
+                    <div class="card-header">Document Analysis</div>
+                    <div class="card-body" id="analysis-section">
+                        <div class="mb-3">
+                            <label for="analysis-file-select" class="form-label small">Select Document:</label>
+                            <select class="form-select form-select-sm" id="analysis-file-select" disabled>
+                                <option selected disabled value="">Loading documents...</option>
+                                <!-- Options populated by JS -->
+                            </select>
+                        </div>
+                        <div class="btn-group w-100 mb-2 btn-group-sm" role="group" aria-label="Analysis types">
+                            <button id="analyze-faq" class="btn btn-info analysis-btn" disabled data-analysis-type="faq">Gen FAQ</button>
+                            <button id="analyze-topics" class="btn btn-info analysis-btn" disabled data-analysis-type="topics">Topics</button>
+                            <button id="analyze-mindmap" class="btn btn-info analysis-btn" disabled data-analysis-type="mindmap">Mind Map</button>
+                        </div>
+                        <div id="analysis-status" class="mt-1 small text-muted mb-2">Select a document and analysis type.</div>
+
+                        <!-- === MODIFIED: Added Analysis Reasoning Output Widget === -->
+                        <div id="analysis-reasoning-container" class="reasoning-widget mb-2" style="display: none;">
+                            <h6 class="text-muted small mb-1 fw-bold">AI Reasoning:</h6>
+                            <pre id="analysis-reasoning-output" class="analysis-reasoning-content bg-black p-2 rounded border border-secondary small"></pre>
+                        </div>
+                        <!-- === END MODIFICATION === -->
+
+                        <!-- Main Analysis Output Area -->
+                        <div id="analysis-output-container" class="mt-2" style="display: none;">
+                             <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h5 id="analysis-output-title" class="text-light mb-0 small fw-bold">Analysis Result:</h5>
+                                <!-- Add copy button later if needed -->
+                             </div>
+                            <!-- Div for text/markdown output -->
+                            <div id="analysis-output" class="text-light bg-black p-2 rounded border border-secondary analysis-content"></div>
+                            <!-- Mindmap SVG and Toolbar Container -->
+                            <div id="mindmap-container" class="mt-2" style="display: none;">
+                                <!-- Toolbar will be inserted here -->
+                                <svg id="mindmap-svg" class="mindmap-svg-view"></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Chat -->
+            <div class="col-md-8">
+                <div class="card bg-dark-subtle border-secondary shadow-sm chat-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        Chat Tutor
+                        <small id="session-id-display" class="text-muted small"></small> <!-- Session ID -->
+                    </div>
+                    <div class="card-body d-flex flex-column overflow-hidden p-2">
+                        <!-- Chat History -->
+                        <div id="chat-history" class="flex-grow-1 overflow-auto mb-2 p-2 border border-secondary rounded bg-dark">
+                             <!-- Initial message added by JS -->
+                             <!-- Message Structure (Dynamically created by JS):
+                             <div class="message-wrapper [user|bot]-wrapper" data-message-id="...">
+                                 <div class="message [user|bot]-message"> ... (rendered markdown/escaped text) ... </div>
+                                 <div class="message-thinking" style="display: [none|block]">
+                                     <details>
+                                         <summary>Show Reasoning</summary>
+                                         <pre><code> ... (escaped thinking text) ... </code></pre>
+                                     </details>
+                                 </div>
+                                 <div class="message-references" style="display: [none|block]"> ... (references list) ... </div>
+                             </div>
+                             -->
+                        </div>
+
+                        <!-- Chat Input Area -->
+                        <div class="mt-auto chat-input-area">
+                            <div id="chat-status" class="mb-1 small text-muted text-center">Initializing...</div>
+                            <div class="input-group input-group-sm">
+                                <input type="text" id="chat-input" class="form-control" placeholder="Ask a question..." aria-label="Chat input" disabled>
+                                <button id="voice-input-button" class="btn btn-outline-secondary" type="button" title="Start Voice Input" disabled>🎤</button>
+                                <button id="send-button" class="btn btn-success" type="button" disabled>
+                                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                                     Send
+                                </button>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- Markmap Libraries (Pin versions) -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.15.4/dist/browser.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.15.4/dist/browser.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-toolbar@0.15.4/dist/index.js"></script>
+    <!-- Marked.js for Markdown Rendering (Pin version) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+    <!-- DOMPurify (Recommended for Sanitizing Marked Output in production) -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script> -->
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+```
+
+`backend/utils.py`
+
+```python
+# --- START OF FILE utils.py ---
+
+import re
+import logging
+import json
+import os
+from config import ALLOWED_EXTENSIONS
+
+logger = logging.getLogger(__name__)
+
+def allowed_file(filename):
+    """Checks if the uploaded file extension is allowed."""
+    if not filename:
+        return False
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def parse_llm_response(full_response: str | None) -> tuple[str, str | None]:
+    """
+    Separates thinking content (within <thinking>...</thinking>) from the user-facing answer.
+    Handles potential variations in tagging and whitespace, case-insensitivity.
+    Also handles nested tags or attributes within the thinking tag itself.
+
+    Args:
+        full_response (str | None): The complete response string from the LLM.
+
+    Returns:
+        tuple[str, str | None]: A tuple containing:
+            - user_answer (str): The response intended for the user, with thinking tags removed.
+            - thinking_content (str | None): The extracted content from within the thinking tags,
+                                             or None if tags are not found or input is None.
+    """
+    if full_response is None:
+        # logger.debug("Received None input in parse_llm_response.")
+        return "", None
+    if not isinstance(full_response, str):
+        logger.warning(f"Received non-string input in parse_llm_response: {type(full_response)}. Attempting conversion.")
+        try:
+            full_response = str(full_response)
+        except Exception as e:
+            logger.error(f"Could not convert input to string in parse_llm_response: {e}")
+            return "", None
+
+    thinking_content = None
+    user_answer = full_response # Default to the full response if parsing fails
+
+    # Regex explanation:
+    # \s*                         : Matches optional leading whitespace
+    # <(?i:thinking)\b[^>]*>     : Matches opening tag <thinking...> case-insensitively, allowing attributes like <thinking plan="step1">. \b ensures "thinking" is a whole word.
+    # (.*?)                     : Captures the content inside (non-greedy) - Group 1
+    # </(?i:thinking)>          : Matches the corresponding closing tag </thinking> case-insensitively
+    # \s*                         : Matches optional trailing whitespace
+    # re.DOTALL                 : Makes '.' match newline characters
+    # Use non-capturing group (?:...) for the tags themselves if needed, but capture group 1 is for content.
+    pattern = re.compile(r"\s*<(?i:thinking)\b[^>]*>(.*?)</(?i:thinking)>\s*", re.DOTALL)
+
+    # Find the first match
+    thinking_match = pattern.search(full_response)
+
+    if thinking_match:
+        # Group 1 contains the content between the tags
+        thinking_content = thinking_match.group(1).strip()
+        # logger.debug(f"Extracted thinking content (length: {len(thinking_content)}).")
+
+        # Remove the entire matched block (including tags and surrounding whitespace)
+        # Replace only the first occurrence to avoid issues if multiple unexpected tags exist
+        user_answer = pattern.sub('', full_response, count=1).strip()
+        # logger.debug("Removed thinking block from user answer.")
+
+        # Check if the user_answer is now empty, meaning the thinking block was the only content
+        if not user_answer and thinking_content is not None:
+            logger.warning("LLM response consisted *only* of the <thinking> block. User answer is empty.")
+            # Keep user_answer as "" or set a specific message? Let's keep it empty for now, handled in caller.
+
+    else:
+        # logger.debug("No <thinking> tags found in LLM response.")
+        user_answer = full_response.strip() # Ensure stripping even if no tags found
+
+    return user_answer, thinking_content
+
+
+def extract_references(answer_text: str, context_docs_map: dict[int, dict]) -> list[dict]:
+    """
+    Finds citation markers like [N] in the answer text and maps them back
+    to unique source document details using the provided context_docs_map.
+
+    Args:
+        answer_text (str): The LLM-generated answer.
+        context_docs_map (dict[int, dict]): Maps citation index (int, 1-based) to metadata
+                                           e.g., {1: {'source': 'doc.pdf', 'chunk_index': 5, 'content': '...'}}.
+
+    Returns:
+        list[dict]: A list of unique reference dictionaries, sorted by source name.
+                    Each dict: {'number': N, 'source': 'filename.pdf', 'content_preview': '...'}
+    """
+    references = []
+    # Use source filename as key to ensure uniqueness per *file*, store first citation number found
+    seen_sources: dict[str, dict] = {} # { 'filename.pdf': {'number': N, 'source': '...', 'content_preview': '...'} }
+
+    if not isinstance(answer_text, str) or not isinstance(context_docs_map, dict):
+         logger.warning(f"Invalid input types for extract_references: answer={type(answer_text)}, map={type(context_docs_map)}.")
+         return []
+    if not context_docs_map:
+        # logger.debug("No context map provided to extract_references.")
+        return []
+
+    # Find all occurrences of [N] where N is one or more digits
+    try:
+        # Use set to get unique citation numbers mentioned in the text
+        # Handle various citation patterns like [1], [1, 2], [1][2] by finding individual numbers
+        cited_indices = set(int(i) for i in re.findall(r'\[(\d+)\]', answer_text))
+    except ValueError:
+         logger.warning(f"Found non-integer content within citation markers '[]' in answer text. Ignoring them.")
+         # Attempt to find only valid integer ones
+         cited_indices = set()
+         try:
+             cited_indices = set(int(i) for i in re.findall(r'\[(\d+)\]', answer_text))
+         except ValueError: # Still failing? Give up.
+             logger.error("Could not parse any valid integer citation markers like [N].")
+             return []
+
+
+    if not cited_indices:
+        # logger.debug("No valid citation markers [N] found in the answer text.")
+        return references
+
+    logger.debug(f"Found unique citation indices mentioned in answer: {sorted(list(cited_indices))}")
+
+    # Iterate through the unique indices found in the text, sorted for deterministic 'first number' selection
+    for index in sorted(list(cited_indices)):
+        if index not in context_docs_map:
+            logger.warning(f"Citation index [{index}] found in answer, but not in provided context map (keys: {list(context_docs_map.keys())}). LLM might be hallucinating or referencing incorrectly.")
+            continue
+
+        doc_info = context_docs_map[index]
+        source_id = doc_info.get('source') # Expecting filename string
+
+        if not source_id or not isinstance(source_id, str):
+             logger.warning(f"Context for citation index [{index}] is missing 'source' metadata or it's not a string ({source_id}). Skipping.")
+             continue
+
+        # Only add the reference if this *source file* hasn't been added yet
+        if source_id not in seen_sources:
+            content = doc_info.get('content', '')
+            # Create a concise preview (e.g., first 150 chars), clean newlines for display
+            preview = content[:150].strip() + ("..." if len(content) > 150 else "")
+            preview = preview.replace('\n', ' ').replace('\r', '').strip() # Remove newlines from preview
+
+            seen_sources[source_id] = {
+                "number": index, # Store the *first* citation number encountered for this source
+                "source": source_id,
+                "content_preview": preview # Store the generated preview
+                # Optionally include 'chunk_index': doc_info.get('chunk_index', 'N/A') if needed by frontend
+            }
+            logger.debug(f"Added reference for source '{source_id}' based on first mention [{index}].")
+        # else: # Source already seen, do not add duplicate file reference
+            # logger.debug(f"Skipping duplicate reference source: '{source_id}' (already added based on index {seen_sources[source_id]['number']}, current mention index {index})")
+
+    # Convert the seen_sources dict values back to a list
+    references = list(seen_sources.values())
+
+    # Sort references alphabetically by source filename for consistent display
+    references.sort(key=lambda x: x.get('source', '').lower())
+
+    logger.info(f"Extracted {len(references)} unique source references from answer.")
+    return references
+
+def escape_html(unsafe_str: str | None) -> str:
+    """Basic HTML escaping for displaying text safely in HTML templates/JS."""
+    if unsafe_str is None:
+        return ""
+    # Ensure input is a string before attempting replace
+    if not isinstance(unsafe_str, str):
+        try:
+            unsafe_str = str(unsafe_str)
+        except Exception:
+            logger.warning(f"Could not convert value of type {type(unsafe_str)} to string for HTML escaping.")
+            return ""
+
+    # Perform replacements
+    return unsafe_str.replace('&', '&') \
+                     .replace('<', '<') \
+                     .replace('>', '>') \
+                     .replace('"', '&quot;"') \
+                     .replace("'",  '&#39;') # Use HTML entity for single quote for better compatibility
+
+# --- END OF FILE utils.py ---
+
+```
+
+`code.txt`
+
+```
+
+```
+
+`o.txt`
+
+```
+
+```
+
+`pu.py`
+
+```python
+import fitz  # PyMuPDF
+
+def extract_text_from_pdf(pdf_path):
+    try:
+        with fitz.open(pdf_path) as doc:
+            text = ""
+            for page in doc:
+                text += page.get_text()
+            return text
+    except RuntimeError as e:
+        if "password" in str(e).lower():
+            print("The PDF is password-protected.")
+        else:
+            print(f"RuntimeError: {e}")
+        return ""
+
+extract_text_from_pdf("V23 CAI & AIM Syllabus Book.pdf")
+# Uncomment the lines below to check the version of PyMuPDF
+
+# import fitz
+# print(fitz.__file__)
+# print(fitz.__version__)
+```
+

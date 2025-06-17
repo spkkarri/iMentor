@@ -14,19 +14,18 @@ load_dotenv(dotenv_path=dotenv_path)
 
 # Ollama Configuration
 # Define multiple Ollama base URLs for load balancing
-# OLLAMA_BASE_URLS = [
-#     'https://c678-61-0-228-101.ngrok-free.app/'
-    #'http://172.180.9.187:11434',
-    #'http://172.180.9.187:11435',
-    #'http://172.180.9.187:11436',
-    #'http://172.180.9.187:11437'
-# ]
 OLLAMA_BASE_URLS = [
-    'http://localhost:11434',
-    'http://localhost:11434',
-    'http://localhost:11434',
-    'http://localhost:11434'
+    'http://172.180.9.187:11434',
+    'http://172.180.9.187:11435',
+    'http://172.180.9.187:11436',
+    'http://172.180.9.187:11437'
 ]
+# OLLAMA_BASE_URLS = [
+#     'http://localhost:11434',
+#     'http://localhost:11434',
+#     'http://localhost:11434',
+#     'http://localhost:11434'
+# ]
 
 #OLLAMA_BASE_URLS = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'mistral:7b-instruct')

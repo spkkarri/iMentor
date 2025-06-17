@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register - ChatBot App</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: #181818;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .card {
+      border-radius: 20px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      background-color: #fff;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    .nav-link.active {
+      color: #7F00FF !important;
+      border-bottom: 2px solid #7F00FF;
+    }
+    .form-control {
+      border-radius: 12px;
+      transition: .2s ease-in-out;
+    }
+    .btn-primary {
+      background-color: #7F00FF;
+      border: none;
+      border-radius: 12px;
+    }
+    .form-text {
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card text-center">
+    <div class="mb-3">
+      <img src="https://img.icons8.com/ios-filled/50/chat.png" alt="Chat Icon"/>
+      <h4 class="mt-2">ChatBot App</h4>
+      <p class="text-muted">Create your account to get started</p>
+    </div>
+
+    <ul class="nav nav-tabs justify-content-center mb-3">
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('register') }}">Register</a>
+      </li>
+    </ul>
+
+    <form method="POST">
+      <div class="form-group mb-3 text-start">
+        <label for="username">Username</label>
+        <input type="text" name="username" class="form-control" placeholder="Choose a username" required>
+      </div>
+      <div class="form-group mb-3 text-start">
+        <label for="email">Email</label>
+        <input type="email" name="email" class="form-control" placeholder="Enter your email" required>
+      </div>
+      <div class="form-group mb-2 text-start">
+        <label for="password">Password</label>
+        <input type="password" name="password" class="form-control" placeholder="Create a password" required>
+        <small class="form-text text-muted">* This is a demo field (not a real password field)</small>
+      </div>
+      <div class="form-group mb-3 text-start">
+        <label for="confirm_password">Confirm Password</label>
+        <input type="password" class="form-control" placeholder="Confirm your password" required>
+        <small class="form-text text-muted">* This is a demo field (not a real password field)</small>
+      </div>
+      <div class="form-check mb-3 text-start">
+        <input type="checkbox" class="form-check-input" id="terms" required>
+        <label class="form-check-label" for="terms">I agree to the <a href="#" class="text-decoration-none">Terms and Conditions</a></label>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Create Account</button>
+    </form>
+  </div>
+</body>
+</html>

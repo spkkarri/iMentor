@@ -1,65 +1,25 @@
-# Core Framework and Server
-flask
-flask-cors
-waitress
-
-
-
-# Authentication & Hashing
-flask-bcrypt
-PyJWT # For JWT handling
-
-# Configuration & Utilities
-python-dotenv
-uuid # Standard library, but good to note if needed elsewhere
-
-# AI & Machine Learning - Langchain Ecosystem
-langchain
-langchain-community
-langchain-ollama
-
-# AI & Machine Learning - Core Libraries
-ollama
-# Database
-pymongo
-dnspython # Add this for mongodb+srv URIs
-# Vector Store - Choose ONE of the following faiss packages:
-
-# Option 1: GPU Accelerated (Requires NVIDIA GPU, CUDA Toolkit, CuDNN)
-# Ensure your environment meets the requirements before installing.
-# Installation might require specific commands depending on your CUDA version.
-# Check the official FAISS GitHub page for instructions.
-#faiss-gpu
-
-# Option 2: CPU only (Use if no compatible GPU or CUDA setup)
-faiss-cpu
-
-# PDF Processing
-pymupdf # Used in ai_core.py for PDF text extraction
-pdfplumber # Explicitly add if not already pulled by PyMuPDF/other
-#camelot-py[cv] # For table extraction
-
-# PDF/Document Processing & OCR
-marker-pdf # Main PDF to Markdown converter
-pymupdf # Dependency for marker, also used in fallback
-pdfplumber # Fallback text extraction
-python-docx # For .docx files
-python-pptx # For .pptx files
-Pillow      # For image handling (OCR)
-pytesseract # For OCR on images (requires Tesseract engine installed separately)
-chardet     # For detecting text encoding
-
-# Tokenizer (Often required by Langchain text splitters/models)
-tiktoken
-
-# HTTP Requests (Common dependencies, good to specify versions)
-requests
-httpx
-
-# Data Manipulation (often a dependency, good to have)
-pandas
-# Optional: For Markdown rendering on frontend (via CDN)
-# No Python package needed, but noted here.
-
-# Optional: For potential Markdown sanitization on frontend (via CDN)
-# No Python package needed, but noted here.
+albumentations==2.0.8
+Flask==3.1.1
+Flask_Bcrypt==1.0.1
+flask_cors==5.0.1
+gTTS==2.5.4
+langchain==0.3.25
+langchain_community==0.3.25
+langchain_core==0.3.65
+langchain_ollama==0.3.3
+nougat==0.3.3
+numpy==2.3.0
+ollama==0.5.1
+pdfplumber==0.11.5
+Pillow==11.2.1
+pydantic==2.11.7
+PyJWT==2.10.1
+PyJWT==2.10.1
+pymongo==4.13.2
+python-dotenv==1.1.0
+Requests==2.32.4
+timm==1.0.15
+torch==2.6.0
+transformers==4.50.1
+waitress==3.0.2
+Werkzeug==3.1.3

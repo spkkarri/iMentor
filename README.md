@@ -179,17 +179,62 @@ npm run dev
 
 ## Features
 
-- 🔐 **User Authentication** (JWT-based)
-- 📁 **Document Upload & Parsing**
-- 🔍 **RAG-enabled Chat** with document context
-- 📊 **Knowledge Graph Critical Thinking**
-- 📚 **FAQ, Topic, Mindmap Generators**
-- 🎧 **Podcast Generator (gTTS + FFmpeg)**
-- 🌐 **Web Search Agent (DuckDuckGo API)**
-- 🔄 **Multi-LLM Support (Gemini + Ollama)**
-- 📝 **Chat History and Reload**
-- 🎤 **Speech-to-Text** + 🗣️ **Text-to-Speech**
-- 🌙 **Light/Dark Mode Toggle**
+*   **User Authentication**: Secure signup and login for regular users.
+*   **Admin Portal**: Dedicated login and dashboard for administrators to manage shared documents and view their analysis.
+*   **Interactive Chat Interface**: Real-time chat with an AI tutor.
+*   **Multi-LLM Support**:
+    *   Integration with Google Gemini models.
+    *   Integration with local Ollama models.
+    *   Users can switch between configured LLM providers.
+*   **Retrieval Augmented Generation (RAG)**:
+    *   Users can upload their documents.
+    *   Advanced file parsing
+    *   The AI can use content from these documents to provide contextual answers.
+    *   Option to toggle RAG functionality for chat.
+*   **Knowledge Graph (KG) Enhanced Critical Thinking**:
+    *   AI can leverage knowledge graphs derived from documents for more in-depth responses.
+    *   Toggle for enabling/disabling KG-based critical thinking.
+*   **Document Management**:
+    *   **User Documents**: Upload, list, and delete personal documents for RAG and analysis.
+    *   **Default Documents**: Admins can upload, manage, and view automated analysis (FAQ, Topics, Mindmap) of shared documents. These can be selected as "Subjects" for focused chat by regular users.
+*   **Advanced Analysis Tools**:
+    *   **FAQ Generator**: Automatically creates Frequently Asked Questions from a selected document.
+    *   **Key Topics Extractor**: Identifies and summarizes key topics within a document.
+    *   **Mind Map Creator**: Generates a Mermaid.js mind map from document content.
+*   **Chat History**: View and reload past chat sessions.
+*   **Customizable System Prompts**:
+    Users can define or select preset system prompts to guide the AI's behavior.
+    *   Friendly Tutor
+    *   Concept Explorer
+    *   Knowledge Check
+    *   Custom Prompt (Editable)
+*   **Subject Focus for Chat**: Users can select an admin-uploaded document (as a "Subject") to focus the RAG chat context.
+*   **Agentic Frameworks**:
+    *   **Web Search Agent**:  
+        We implemented a web search agentic framework that empowers the chatbot to fetch real-time information from the internet using **DuckDuckGo**. The agent dynamically decides how to respond based on the user's query:
+        * If the question is factual or answerable by the LLMs (Gemini or Ollama), it directly fetches a response using the model.
+        * If the question requires up-to-date or external information, the query is routed through a web search agent that retrieves relevant content from DuckDuckGo and integrates it into the final answer.
+   *   **Podcast Generator**:  
+        We implemented a podcast generation agentic framework that transforms documents into spoken audio using **gTTS (Google Text-to-Speech)**. This feature allows users to listen to the contents of any uploaded document as a podcast:
+        * The system first extracts and processes the full text content from the uploaded file (PDFs, DOCX, or text).
+        * Using gTTS, the text is converted into natural-sounding speech and saved as an MP3 file.
+        * FFmpeg is used to ensure the audio is properly encoded and compatible for playback or download.
+        * The generated podcast file is then made available for streaming or download through the chat interface.
+
+*   **Others**:
+    *   Speech-to-Text for user input.
+    *   Text-to-Speech for AI messages.
+    *   Light/Dark theme toggle.
+    *   Responsive UI design.
+
+## Contributors
+
+This project is a collaborative effort. The contributors are listed below and their individual contributions are available in the video explanation.
+1.  Pavan Teja B 
+2.  Livingston D
+3.  Murali Krishna B
+4.  Mahaboob Subhani SK
+5.  Anusha P
 
 ---
 

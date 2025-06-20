@@ -6,6 +6,11 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: 'class',
+  safelist: [
+    'prose',
+    'prose-sm',
+    'dark:prose-invert',
+  ],
   theme: {
     extend: {
       colors: {

@@ -51,9 +51,9 @@ const MindmapViewer = forwardRef(({ mermaidCode }, ref) => {
             
             // --- THIS IS THE FIX ---
             // New, more robust regex to find the diagram code.
-            // It looks for a code block that CONTAINS 'graph', 'mindmap', etc.
+            // It looks for a code block that CONTAINS a known diagram type (e.g., 'graph', 'mindmap').
             // It is no longer anchored to the start (^) of the string, so it can find the
-            // block even if there's leading garbage from the LLM.
+            // block even if there's leading garbage or extra backticks from the LLM.
             const fenceRegex = /```(?:mermaid)?\s*([\s\S]*?(?:graph|mindmap|flowchart|sequenceDiagram)[\s\S]*?)\s*```/i;
             const match = codeToRender.match(fenceRegex);
 

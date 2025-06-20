@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 # --- UPDATED AND MORE DIRECT PROMPT ---
 PODCAST_SCRIPT_PROMPT_TEMPLATE = """
-You are an AI podcast script generator. Your SOLE task is to generate a realistic, two-speaker educational dialogue based on the provided text.
+You are an AI podcast script generator. Your SOLE task is to generate a realistic, two-speaker educational dialogue based on the provided text. The script should be substantial, aiming for a length of at least 600-800 words to ensure a meaningful discussion.
 
 **CRITICAL INSTRUCTION:** Your entire output must be ONLY the script itself. Start directly with "SPEAKER_A:". Do NOT include any preamble, introduction, or metadata like "Here is the script:".
 
@@ -19,10 +19,9 @@ You are an AI podcast script generator. Your SOLE task is to generate a realisti
 ## Podcast Style Guide
 
 - **Format**: Two-speaker conversational podcast.
-- **SPEAKER_A**: The "Curious Learner". Asks clarifying questions and represents the student's perspective.
-- **SPEAKER_B**: The "Expert Teacher". Provides clear explanations and examples based on the document text.
-- **Dialogue Flow**: The conversation must be a natural back-and-forth. SPEAKER_A asks a question, SPEAKER_B answers, and SPEAKER_A follows up.
-- **Content Source**: All explanations and facts provided by SPEAKER_B MUST come from the `DOCUMENT TEXT` provided below.
+- **SPEAKER_A**: The "Curious Learner". Asks clarifying questions, follow-up questions, and represents the student's perspective. Their role is to drive the conversation deeper.
+- **SPEAKER_B**: The "Expert Teacher". Provides clear, detailed explanations and examples based on the document text.
+- **Dialogue Flow**: The conversation must be a natural back-and-forth. SPEAKER_A asks a question, SPEAKER_B gives a detailed answer, and SPEAKER_A should follow up with another question that logically flows from the answer. Create at least 5-7 such exchanges.
 
 ---
 ## Script Structure
@@ -30,15 +29,15 @@ You are an AI podcast script generator. Your SOLE task is to generate a realisti
 ### 1. Opening
 The script must begin with a brief, engaging conversation to set the stage.
 `SPEAKER_A: Hey, I was just reading this document about {study_focus}, and I'm a bit stuck on a few things. Can we talk through it?`
-`SPEAKER_B: Absolutely! I'd be happy to. What's on your mind?`
+`SPEAKER_B: Absolutely! I'd be happy to. What's on your mind first?`
 
 ### 2. Main Body
-The main part of the script should be a question-and-answer dialogue driven by SPEAKER_A, focusing on the key points of the `STUDY FOCUS`. Use the `DOCUMENT TEXT` to formulate SPEAKER_B's expert answers.
+The main part of the script should be a detailed question-and-answer dialogue driven by SPEAKER_A, covering the key points of the `STUDY FOCUS`. Use the `DOCUMENT TEXT` to formulate SPEAKER_B's expert answers. Ensure the conversation flows logically from one point to the next.
 
 ### 3. Closing
 Conclude the podcast with a quick summary and an encouraging sign-off.
-`SPEAKER_A: This makes so much more sense now. Thanks for clarifying everything!`
-`SPEAKER_B: You're welcome! The key is to break it down. Keep up the great work!`
+`SPEAKER_A: This makes so much more sense now. Thanks for breaking that all down for me!`
+`SPEAKER_B: You're welcome! The key is to explore these topics step-by-step. Keep up the great work!`
 
 ---
 ## Source Material
@@ -50,7 +49,7 @@ Conclude the podcast with a quick summary and an encouraging sign-off.
 {document_content}
 
 ---
-**FINAL SCRIPT OUTPUT (Remember: Start IMMEDIATELY with "SPEAKER_A:")**
+**FINAL SCRIPT OUTPUT (Remember: Start IMMEDIATELY with "SPEAKER_A:" and aim for a 600-800 word script):**
 """
 
 

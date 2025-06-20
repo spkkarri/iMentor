@@ -1,4 +1,3 @@
-
 // server/server.js
 
 // --- DOTENV MUST BE THE VERY FIRST THING TO RUN ---
@@ -23,7 +22,7 @@ const connectDB = require('./config/db');
 const { getLocalIPs } = require('./utils/networkUtils');
 const { performAssetCleanup } = require('./utils/assetCleanup');
 const { authMiddleware } = require('./middleware/authMiddleware');
-const { fixedAdminAuthMiddleware } = require('./middleware/fixedAdminAuthMiddleware'); 
+// const { fixedAdminAuthMiddleware } = require('./middleware/fixedAdminAuthMiddleware'); // Not used if admin routes are separate
 
 // --- Route Imports ---
 const networkRoutes = require('./routes/network');
@@ -40,7 +39,7 @@ const subjectsRoutes = require('./routes/subjects');
 const generationRoutes = require('./routes/generation');
 const exportRoutes = require('./routes/export');
 const kgRoutes = require('./routes/kg');
-const llmConfigRoutes = require('./routes/llmConfig');
+const llmConfigRoutes = require('./routes/llmConfig'); // <<< Import the new route
 
 // --- Configuration Defaults & Variables (Now safely read after dotenv.config) ---
 const DEFAULT_PORT = 5001;
@@ -76,7 +75,7 @@ app.use('/api/auth', authRoutes);
 // Protected routes (authMiddleware applied)
 app.use('/api/user', authMiddleware, userRoutes);
 app.use('/api/chat', authMiddleware, chatRoutes);
-app.use('/api/upload', authMiddleware, uploadRoutes); // <<< THIS IS THE CORRECTED LINE
+app.use('/api/upload', authMiddleware, uploadRoutes);
 app.use('/api/files', authMiddleware, filesRoutes);
 app.use('/api/syllabus', authMiddleware, syllabusRoutes);
 app.use('/api/mindmap', authMiddleware, mindmapRoutes);
@@ -85,9 +84,9 @@ app.use('/api/subjects', authMiddleware, subjectsRoutes);
 app.use('/api/generate', authMiddleware, generationRoutes);
 app.use('/api/export', authMiddleware, exportRoutes);
 app.use('/api/kg', authMiddleware, kgRoutes);
-app.use('/api/llm', authMiddleware, llmConfigRoutes);
+app.use('/api/llm', authMiddleware, llmConfigRoutes); // <<< Mounted the new route
 
-// Admin routes (uses its own dedicated middleware)
+// Admin routes (uses its own dedicated middleware via the route file itself)
 app.use('/api/admin/documents', adminDocsRoutes);
 
 
@@ -215,16 +214,16 @@ function askQuestion(query) {
 async function configureAndStart() {
     console.log("--- Starting Server Configuration ---");
     
-    if (!geminiApiKey) {
-        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        console.error("!!! FATAL: GEMINI_API_KEY environment variable is not set. !!!");
-        console.error("!!! Please set it before running the server:               !!!");
-        console.error("!!! export GEMINI_API_KEY='YOUR_API_KEY'                   !!!");
-        console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        process.exit(1);
-    } else {
-        console.log("✓ GEMINI_API_KEY found.");
-    }
+    // if (!geminiApiKey) {
+    //     console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    //     console.error("!!! FATAL: GEMINI_API_KEY environment variable is not set. !!!");
+    //     console.error("!!! Please set it before running the server:               !!!");
+    //     console.error("!!! export GEMINI_API_KEY='YOUR_API_KEY'                   !!!");
+    //     console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    //     process.exit(1);
+    // } else {
+    //     console.log("✓ GEMINI_API_KEY found.");
+    // }
 
     if (!mongoUri) {
         const answer = await askQuestion(`Enter MongoDB URI or press Enter for default (${DEFAULT_MONGO_URI}): `);

@@ -1,27 +1,24 @@
 // frontend/src/components/auth/AuthModal.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.jsx';
 import { useAppState } from '../../contexts/AppStateContext.jsx';
 import LLMSelection from './LLMSelection.jsx';
-import api from '../../services/api.js';
 import toast from 'react-hot-toast';
-import { LogIn, UserPlus, X, KeyRound, AtSign, AlertCircle } from 'lucide-react';
+import { LogIn, UserPlus, X, KeyRound, AtSign, AlertCircle, HardDrive } from 'lucide-react';
 import Button from '../core/Button.jsx';
 import IconButton from '../core/IconButton.jsx';
 import { motion } from 'framer-motion';
 
 function AuthModal({ isOpen, onClose }) {
     const { login, signup } = useAuth();
-    const { setIsAdminSessionActive, switchLLM: setGlobalLLM } = useAppState();
-    const navigate = useNavigate();
+    const { setIsAdminSessionActive, switchLLM: setGlobalLLM, selectedLLM } = useAppState();
 
     const [isLoginView, setIsLoginView] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [localSelectedLLM, setLocalSelectedLLM] = useState('gemini');
     const [apiKey, setApiKey] = useState('');
-
+    const [ollamaUrl, setOllamaUrl] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     
@@ -33,18 +30,18 @@ function AuthModal({ isOpen, onClose }) {
             setEmail('');
             setPassword('');
             setApiKey('');
+            setOllamaUrl('');
+            setLocalSelectedLLM(selectedLLM || 'gemini');
+        } else {
+            setIsLoginView(true);
         }
-    }, [isOpen, isLoginView]);
-    
-    useEffect(() => {
-        setApiKey('');
-    }, [localSelectedLLM]);
+    }, [isOpen, selectedLLM]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        if (!emailRegex.test(email) && !(isLoginView && email === (import.meta.env.VITE_ADMIN_USERNAME || 'admin@admin.com'))) {
+        if (!emailRegex.test(email) && !(isLoginView && email === (process.env.VITE_ADMIN_USERNAME || 'admin@admin.com'))) {
             return setError("Please enter a valid email address.");
         }
         if (password.length < 6) {
@@ -53,35 +50,38 @@ function AuthModal({ isOpen, onClose }) {
         if (!isLoginView && localSelectedLLM === 'gemini' && !apiKey.trim()) {
             return setError("Gemini API Key is required.");
         }
+        if (!isLoginView && localSelectedLLM === 'ollama' && !ollamaUrl.trim()) {
+            return setError("Ollama URL is required.");
+        }
         
         setLoading(true);
-        const toastId = toast.loading(isLoginView ? 'Logging in...' : 'Signing up...');
+        const toastId = toast.loading(isLoginView ? 'Logging in...' : 'Creating account...');
 
         try {
             if (isLoginView) {
-                // The login function now handles both regular and admin logins
                 const authDataResponse = await login({ email, password });
-                
-                // --- THIS IS THE FIX ---
-                // Check for the special flag from the backend
                 if (authDataResponse.isAdminLogin) {
                     toast.dismiss(toastId);
                     toast.success("Admin login successful!");
                     setIsAdminSessionActive(true); 
                     onClose({ isAdminLogin: true });
                 } else {
-                    // It's a regular user login, proceed as before
                     toast.dismiss(toastId);
                     toast.success(authDataResponse.message || 'Login Successful!');
                     onClose(authDataResponse);
                 }
-                // --- END OF FIX ---
             } else { // Signup logic
-                const authDataResponse = await signup({
+                const signupData = {
                     email, password,
-                    apiKey: apiKey,
                     preferredLlmProvider: localSelectedLLM,
-                });
+                };
+                if (localSelectedLLM === 'gemini') {
+                    signupData.apiKey = apiKey;
+                } else if (localSelectedLLM === 'ollama') {
+                    signupData.ollamaUrl = ollamaUrl;
+                }
+
+                const authDataResponse = await signup(signupData);
                 setGlobalLLM(localSelectedLLM);
                 toast.dismiss(toastId);
                 toast.success(authDataResponse.message || 'Signup Successful!');
@@ -98,7 +98,7 @@ function AuthModal({ isOpen, onClose }) {
 
     const inputWrapperClass = "relative";
     const inputIconClass = "absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-muted-light dark:text-text-muted-dark";
-    const inputFieldStyledClass = "input-field pl-10 py-2.5 text-sm";
+    const inputFieldStyledClass = "input-field pl-10 py-2.5 text-sm w-full";
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -134,25 +134,25 @@ function AuthModal({ isOpen, onClose }) {
                         <div className="space-y-4 pt-2 animate-fadeIn">
                             <LLMSelection selectedLLM={localSelectedLLM} onLlmChange={setLocalSelectedLLM} disabled={loading} />
                             
-                            {localSelectedLLM === 'gemini' && (
-                                <motion.div key="gemini-input" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-3 space-y-1">
-                                    <label htmlFor="api-key-input" className="block text-xs font-medium text-text-muted-light dark:text-text-muted-dark">Gemini API Key <span className="text-red-500">*</span></label>
+                            <div style={{ display: localSelectedLLM === 'gemini' ? 'block' : 'none' }}>
+                                <motion.div key="gemini-input" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                    <label htmlFor="api-key-input" className="block text-xs font-medium text-text-muted-light dark:text-text-muted-dark mb-1">Gemini API Key <span className="text-red-500">*</span></label>
                                     <div className={inputWrapperClass}>
                                         <KeyRound className={inputIconClass} />
-                                        <input type="password" id="api-key-input" className={inputFieldStyledClass} placeholder="Enter your Gemini API Key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} required disabled={loading} />
+                                        <input type="password" id="api-key-input" className={inputFieldStyledClass} placeholder="Enter your Gemini API Key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} required={localSelectedLLM === 'gemini'} disabled={loading} />
                                     </div>
                                 </motion.div>
-                            )}
-                            
-                            {localSelectedLLM === 'ollama' && (
-                                <motion.div key="ollama-input" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-3 space-y-1">
-                                    <label htmlFor="api-key-input" className="block text-xs font-medium text-text-muted-light dark:text-text-muted-dark">Ollama API Key (Optional)</label>
+                            </div>
+                        
+                            <div style={{ display: localSelectedLLM === 'ollama' ? 'block' : 'none' }}>
+                                <motion.div key="ollama-input" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                    <label htmlFor="ollama-url-input" className="block text-xs font-medium text-text-muted-light dark:text-text-muted-dark mb-1">Ollama URL <span className="text-red-500">*</span></label>
                                     <div className={inputWrapperClass}>
-                                        <KeyRound className={inputIconClass} />
-                                        <input type="password" id="api-key-input" className={inputFieldStyledClass} placeholder="Enter if your Ollama requires a key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} disabled={loading} />
+                                        <HardDrive className={inputIconClass} />
+                                        <input type="text" id="ollama-url-input" className={inputFieldStyledClass} placeholder="e.g., http://localhost:11434" value={ollamaUrl} onChange={(e) => setOllamaUrl(e.target.value)} required={localSelectedLLM === 'ollama'} disabled={loading} />
                                     </div>
                                 </motion.div>
-                            )}
+                            </div>
                         </div>
                     )}
 

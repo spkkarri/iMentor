@@ -27,6 +27,11 @@ function MainAppLayout({ orchestratorStatus }) {
     } = useAppState();
     const [appStateMessages, setAppStateMessages] = useState([]);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [isChatProcessing, setIsChatProcessing] = useState(false);
+
+    const handleChatProcessingStatusChange = (isLoading) => {
+        setIsChatProcessing(isLoading);
+    };
 
     const handleRegularUserLogout = () => {
         regularUserLogout();
@@ -86,7 +91,14 @@ function MainAppLayout({ orchestratorStatus }) {
 
     return (
         <>
-            <TopNav user={regularUser} onLogout={handleRegularUserLogout} onNewChat={handleNewChat} onHistoryClick={() => setIsHistoryModalOpen(true)} orchestratorStatus={orchestratorStatus} />
+            <TopNav 
+                user={regularUser} 
+                onLogout={handleRegularUserLogout} 
+                onNewChat={handleNewChat} 
+                onHistoryClick={() => setIsHistoryModalOpen(true)} 
+                orchestratorStatus={orchestratorStatus}
+                isChatProcessing={isChatProcessing}
+            />
             <div className="flex flex-1 overflow-hidden pt-16 bg-background-light dark:bg-background-dark">
                 <AnimatePresence mode="wait">
                     {isLeftPanelOpen ? (
@@ -96,7 +108,12 @@ function MainAppLayout({ orchestratorStatus }) {
                     ) : ( <LeftCollapsedNav /> )}
                 </AnimatePresence>
                 <main className={`flex-1 flex flex-col overflow-hidden p-1 sm:p-2 md:p-4 transition-all duration-300 ease-in-out ${isLeftPanelOpen ? 'lg:ml-0' : 'lg:ml-16 md:ml-14'} ${isRightPanelOpen ? 'lg:mr-0' : 'lg:mr-16 md:mr-14'}`}>
-                    <CenterPanel messages={appStateMessages} setMessages={setAppStateMessages} currentSessionId={currentSessionId} />
+                    <CenterPanel 
+                        messages={appStateMessages} 
+                        setMessages={setAppStateMessages} 
+                        currentSessionId={currentSessionId}
+                        onChatProcessingChange={handleChatProcessingStatusChange}
+                    />
                 </main>
                 <AnimatePresence mode="wait">
                     {isRightPanelOpen ? (

@@ -28,12 +28,11 @@ Example of a good updated summary:
  * @param {string} ollamaModel - The specific Ollama model if the provider is 'ollama'.
  * @returns {Promise<string>} The generated summary text.
  */
-async function createOrUpdateSummary(messagesToSummarize, existingSummary, llmProvider, ollamaModel) {
+async function createOrUpdateSummary(messagesToSummarize, existingSummary, llmProvider, ollamaModel, userApiKey, userOllamaUrl) {
     if (!messagesToSummarize || messagesToSummarize.length === 0) {
-        return existingSummary || ""; // Return old summary or empty string if nothing to summarize
+        return existingSummary || "";
     }
 
-    // Format the history for the summarization prompt
     const newMessagesText = messagesToSummarize.map(msg => {
         const role = msg.role === 'model' ? 'Assistant' : 'User';
         const text = msg.parts?.[0]?.text || '';
@@ -49,30 +48,30 @@ async function createOrUpdateSummary(messagesToSummarize, existingSummary, llmPr
 
     const historyForLlm = [{ role: 'user', parts: [{ text: userPrompt }] }];
 
-    console.log(`[SummarizationService] Requesting summary using ${llmProvider}. Existing summary length: ${existingSummary ? existingSummary.length : 0}, New messages length: ${newMessagesText.length}`);
+    console.log(`[SummarizationService] Requesting summary using ${llmProvider}.`);
 
     try {
         let summary;
+        const llmOptions = { 
+            apiKey: userApiKey,
+            ollamaUrl: userOllamaUrl
+        };
         if (llmProvider === 'ollama') {
             summary = await ollamaService.generateContentWithHistory(
-                historyForLlm,
-                SUMMARIZATION_SYSTEM_PROMPT,
-                { model: ollamaModel, maxOutputTokens: 2048 } // Use a reasonable token limit for summaries
+                historyForLlm, SUMMARIZATION_SYSTEM_PROMPT, null, { ...llmOptions, model: ollamaModel }
             );
-        } else { // Default to Gemini
+        } else {
             summary = await geminiService.generateContentWithHistory(
-                historyForLlm,
-                SUMMARIZATION_SYSTEM_PROMPT
+                historyForLlm, SUMMARIZATION_SYSTEM_PROMPT, null, llmOptions
             );
         }
-
         console.log(`[SummarizationService] Summary generated successfully.`);
         return summary.trim();
     } catch (error) {
         console.error(`[SummarizationService] Error generating summary: ${error.message}`);
-        // Return the old summary on failure to avoid losing context.
         return existingSummary || "";
     }
 }
+
 
 module.exports = { createOrUpdateSummary };

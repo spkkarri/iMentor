@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-function TopNav({ user: authUser, onLogout, onNewChat, onHistoryClick, orchestratorStatus }) {
+function TopNav({ user: authUser, onLogout, onNewChat, onHistoryClick, orchestratorStatus, isChatProcessing  }) {
     const { selectedLLM, switchLLM } = useAppState();
     const [isLLMModalOpen, setIsLLMModalOpen] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -54,27 +54,32 @@ function TopNav({ user: authUser, onLogout, onNewChat, onHistoryClick, orchestra
                     <div className="flex items-center gap-1 sm:gap-2">
                          <button
                             onClick={onNewChat}
-                            className="flex items-center gap-1 px-2 py-1.5 text-xs sm:text-sm font-medium rounded-md text-text-light dark:text-text-dark bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                            className={`flex items-center gap-1 px-2 py-1.5 text-xs sm:text-sm font-medium rounded-md text-text-light dark:text-text-dark bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${isChatProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={isChatProcessing}
                             title="Start a new chat session"
                         >
                             <MessageSquare size={14} /> <span className="hidden sm:inline">New Chat</span>
                         </button>
+                        
                         <button
                             onClick={onHistoryClick}
-                            className="flex items-center gap-1 px-2 py-1.5 text-xs sm:text-sm font-medium rounded-md text-text-light dark:text-text-dark bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                            className={`flex items-center gap-1 px-2 py-1.5 text-xs sm:text-sm font-medium rounded-md text-text-light dark:text-text-dark bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${isChatProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={isChatProcessing}
                             title="View chat history"
                         >
                             <HistoryIcon size={14} /> <span className="hidden sm:inline">History</span>
                         </button>
                         <button
                             onClick={() => setIsLLMModalOpen(true)}
-                            className="flex items-center gap-1 px-2 py-1.5 text-xs sm:text-sm font-medium rounded-md text-text-light dark:text-text-dark bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                            className={`flex items-center gap-1 px-2 py-1.5 text-xs sm:text-sm font-medium rounded-md text-text-light dark:text-text-dark bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${isChatProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={isChatProcessing}
                             title={`Switch LLM (Current: ${selectedLLM.toUpperCase()})`}
                         >
                             <Cpu size={14} /> <span className="hidden xs:inline">{selectedLLM.toUpperCase()}</span>
                         </button>
                     </div>
                 </div>
+
 
                 <div className="flex items-center gap-1.5 sm:gap-2">
                     {/* --- FIX: Added a fixed-size wrapper div for the status indicator --- */}

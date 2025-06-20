@@ -1,4 +1,3 @@
-// frontend/src/contexts/AppStateContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
 export const AppStateContext = createContext(null);
@@ -55,22 +54,16 @@ export const AppStateProvider = ({ children }) => {
          console.log("AppStateContext: Switched LLM to:", llm);
     };
 
-    // --- THIS IS THE FIX ---
-    // The setSessionId function is the central point for session changes.
-    // When the session is cleared (on logout), we must also clear related context.
     const setSessionId = (sessionId) => {
         if (sessionId) {
             localStorage.setItem('aiTutorSessionId', sessionId);
         } else {
-            // This 'else' block runs on logout.
             console.log("AppStateContext: Clearing session and related context (logout).");
             localStorage.removeItem('aiTutorSessionId');
             
-            // Explicitly clear the subject from storage AND state.
             localStorage.removeItem('aiTutorSelectedSubject'); 
             setSelectedSubjectState(null);
             
-            // Also clear the analysis document selection from state.
             setSelectedDocumentForAnalysisState(null);
         }
         setCurrentSessionIdState(sessionId);
@@ -118,7 +111,7 @@ export const AppStateProvider = ({ children }) => {
     const setIsAdminSessionActive = (isActive) => {
         if (isActive) {
             sessionStorage.setItem('isAdminSessionActive', 'true');
-            setSessionId(null); // This will now trigger the clearing of subject context
+            setSessionId(null); 
         } else {
             sessionStorage.removeItem('isAdminSessionActive');
         }

@@ -2,12 +2,10 @@
 import axios from "axios";
 import toast from "react-hot-toast";
 
-// --- Axios API Client (for real backend calls) ---
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api",
 });
 
-// Axios Request Interceptor to add JWT tokens
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -21,7 +19,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Axios Response Interceptor to handle common errors (e.g., 401)
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -47,50 +44,39 @@ function parseAnalysisOutput(rawOutput) {
     return { content: mainContent, thinking: thinkingText };
 }
 
-
-// --- API Definition Object ---
 const api = {
-  
   login: async (credentials) => {
     const response = await apiClient.post("/auth/signin", credentials);
     return response.data;
   },
-
   signup: async (userData) => {
     const response = await apiClient.post("/auth/signup", userData);
     return response.data;
   },
-
   getMe: async () => {
     const response = await apiClient.get("/auth/me");
     return response.data;
   },
-
   sendMessage: async (payload) => {
     const response = await apiClient.post("/chat/message", payload);
     return response.data;
   },
-
   getChatHistory: async (sessionId) => {
     const response = await apiClient.get(`/chat/session/${sessionId}`);
     return response.data;
   },
-
   getChatSessions: async () => {
     const response = await apiClient.get("/chat/sessions");
     return response.data;
   },
-
   startNewSession: async (previousSessionId) => {
     const response = await apiClient.post("/chat/history", { previousSessionId });
     return response.data;
   },
-
   deleteChatSession: async (sessionId) => {
     const response = await apiClient.delete(`/chat/session/${sessionId}`);
     return response.data;
   },
-
   uploadFile: async (formData, onUploadProgress) => {
     const response = await apiClient.post("/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -98,22 +84,19 @@ const api = {
     });
     return response.data;
   },
-
   getFiles: async () => {
     const response = await apiClient.get("/files");
     return response.data;
   },
-
   deleteFile: async (serverFilename) => {
     const response = await apiClient.delete(`/files/${serverFilename}`);
     return response.data;
   },
-
   updateUserLLMConfig: async (configData) => {
+    console.log("[Frontend API] Sending LLM config update:", configData);
     const response = await apiClient.put("/llm/config", configData);
     return response.data;
   },
-
   getOrchestratorStatus: async () => {
     try {
       const response = await apiClient.get("/network/ip");
@@ -122,24 +105,18 @@ const api = {
       return { status: "error", message: "Backend Unreachable" };
     }
   },
-  
   getUserProfile: async () => {
     const response = await apiClient.get("/user/profile");
     return response.data;
   },
-
   updateUserProfile: async (profileData) => {
     const response = await apiClient.put("/user/profile", profileData);
     return response.data;
   },
-
   getSubjects: async () => {
     const response = await apiClient.get("/subjects");
     return response.data;
   },
-  
-  // --- MISSING FUNCTIONS ADDED BACK ---
-
   requestAnalysis: async (payload) => {
     const { filename, analysis_type } = payload;
     if (!filename || !analysis_type) {
@@ -147,12 +124,9 @@ const api = {
     }
     const toastId = toast.loading(`Generating ${analysis_type} for "${filename}"...`);
     try {
-      // This single endpoint now intelligently fetches from either User or Admin docs on the backend
       const response = await apiClient.get(`/analysis/${encodeURIComponent(filename)}`);
       const fullAnalysisObject = response.data;
-
       const rawOutput = fullAnalysisObject[analysis_type];
-
       if (!rawOutput || typeof rawOutput !== 'string' || rawOutput.trim() === "") {
          toast.success(`No stored ${analysis_type} found for "${filename}".`, { id: toastId });
          return {
@@ -160,9 +134,7 @@ const api = {
             thinking: "No analysis data found in the database for this type."
          };
       }
-      
       const { content, thinking } = parseAnalysisOutput(rawOutput);
-      
       toast.success(`Successfully generated ${analysis_type} for "${filename}".`, { id: toastId });
       return { content, thinking };
     } catch (error) {
@@ -171,13 +143,11 @@ const api = {
       throw error;
     }
   },
-
   generateDocument: async ({ markdownContent, docType, sourceDocumentName }) => {
     const response = await apiClient.post('/generate/document', 
       { markdownContent, docType, sourceDocumentName },
       { responseType: 'blob' }
     );
-    
     const contentDisposition = response.headers['content-disposition'];
     let filename = `generated-document.${docType}`;
     if (contentDisposition) {
@@ -188,7 +158,6 @@ const api = {
     }
     return { fileBlob: response.data, filename: filename };
   },
-
   generatePodcast: async ({ analysisContent, sourceDocumentName, podcastOptions }) => {
     const response = await apiClient.post('/export/podcast', 
       { analysisContent, sourceDocumentName, podcastOptions },
@@ -196,7 +165,6 @@ const api = {
     );
     return { audioBlob: response.data, sourceDocumentName };
   },
-
   getKnowledgeGraph: async (documentName) => {
     const response = await apiClient.get(`/kg/visualize/${encodeURIComponent(documentName)}`);
     return response.data;

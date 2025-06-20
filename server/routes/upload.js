@@ -6,7 +6,7 @@ const fs = require('fs');
 const axios = require('axios');
 const User = require('../models/User');
 const { Worker } = require('worker_threads');
-
+const { decrypt } = require('../utils/crypto');
 const router = express.Router();
 
 // --- Constants & Multer Config (Unchanged) ---
@@ -116,7 +116,7 @@ router.post('/', async (req, res, next) => {
 
         try {
             // Fetch user preferences AT THE START of the upload process.
-            const user = await User.findById(userId).select('uploadedDocuments.filename preferredLlmProvider ollamaModel');
+            const user = await User.findById(userId).select('uploadedDocuments.filename preferredLlmProvider ollamaModel ollamaUrl +encryptedApiKey');
             if (!user) {
                 await fs.promises.unlink(absoluteFilePath).catch(e => console.error(`Cleanup Error: ${e.message}`));
                 return res.status(404).json({ message: "User not found." });
@@ -124,6 +124,14 @@ router.post('/', async (req, res, next) => {
 
             const llmProviderForWorkers = user.preferredLlmProvider || 'gemini';
             const ollamaModelForWorkers = user.ollamaModel || process.env.OLLAMA_DEFAULT_MODEL;
+
+            const userApiKey = user.encryptedApiKey ? decrypt(user.encryptedApiKey) : null;
+            const userOllamaUrl = user.ollamaUrl || null;
+
+            if (llmProviderForWorkers === 'gemini' && !userApiKey) {
+                await fs.unlink(absoluteFilePath).catch(e => console.error(`Cleanup Error: ${e.message}`));
+                return res.status(400).json({ message: "Cannot process document. Your Gemini API key is missing. Please add it in your profile settings." });
+            }
 
             if (user.uploadedDocuments.some(doc => doc.filename === originalName)) {
                 await fs.promises.unlink(absoluteFilePath).catch(e => console.error(`Cleanup Error: ${e.message}`));
@@ -151,8 +159,13 @@ router.post('/', async (req, res, next) => {
 
             // Pass the preferences to the workers
             const workerData = { 
-                userId, originalName, textForAnalysis: ragResult.text, 
-                llmProvider: llmProviderForWorkers, ollamaModel: ollamaModelForWorkers 
+                userId, 
+                originalName, 
+                textForAnalysis: ragResult.text, 
+                llmProvider: llmProviderForWorkers, 
+                ollamaModel: ollamaModelForWorkers,
+                apiKey: userApiKey,      
+                ollamaUrl: userOllamaUrl
             };
             const kgWorkerData = { ...workerData, chunksForKg: ragResult.chunksForKg };
 

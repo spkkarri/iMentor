@@ -1,0 +1,96 @@
+# FusedChatbotNew/.gitignore
+
+# ===================================================================
+# 1. DEPENDENCIES & LOCK FILES
+# ===================================================================
+# Node.js dependencies for both client and server
+/client/node_modules
+/server/node_modules
+
+# Python virtual environment
+/server/ai_core_service/venv
+/server/ai_core_service/.venv
+
+# Dependency logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+# ===================================================================
+# 2. SENSITIVE & ENVIRONMENT-SPECIFIC FILES
+# ===================================================================
+# Never commit environment variables. Use .env.example instead.
+.env
+.env.*
+!.env.example
+
+# Server-specific environment files
+/server/.env
+
+# React-specific environment files
+/client/.env.local
+/client/.env.development.local
+/client/.env.test.local
+/client/.env.production.local
+
+
+# ===================================================================
+# 3. BUILD ARTIFACTS & CACHES
+# ===================================================================
+# React build output
+/client/build
+/client/.cache
+
+# Python bytecode and distribution files
+/server/ai_core_service/__pycache__
+/server/ai_core_service/*.py[cod]
+/server/ai_core_service/*.egg-info
+/server/ai_core_service/dist
+/server/ai_core_service/build
+
+
+# ===================================================================
+# 4. USER-GENERATED & RUNTIME DATA
+# ===================================================================
+# Top-level uploads directory
+/uploads/
+
+# User-specific assets (like uploaded code, docs, images)
+/server/assets/*
+!/server/assets/.gitkeep
+
+# User-specific backups
+/server/backup_assets/
+
+# Generated FAISS vector indexes
+/server/faiss_indices/
+/server/ai_core_service/indexes/
+
+# Temporary directories created during uploads
+/server/682d73135a427c0d9205b1dc/
+
+
+# ===================================================================
+# 5. OS & EDITOR CONFIGURATION
+# ===================================================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.history/
+*.swp
+
+
+# ===================================================================
+# 6. LOG FILES
+# ===================================================================
+*.log
+logs
+
+# In your .gitignore file
+
+# ... other python rules like __pycache__/ ...
+
+# Hugging Face and other model caches
+server/ai_core_service/.cache/

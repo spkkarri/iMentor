@@ -1,0 +1,85 @@
+/* client/src/index.css */
+
+/*
+  STEP 1: THEME AND COLOR DEFINITIONS
+  We are defining two complete color palettes using CSS Custom Properties (variables).
+  The root element will have a `data-theme` attribute ('light' or 'dark'),
+  which will determine which set of variables is active.
+*/
+
+/* 1A: Light Theme Palette */
+[data-theme='light'] {
+  --bg-primary: #FFFFFF;          /* Main content background (e.g., chat area) */
+  --bg-secondary: #F7F7F7;       /* Sidebar, header backgrounds */
+  --bg-tertiary: #EFEFEF;        /* Dropdowns, inputs, buttons */
+  --bg-accent: #007ACC;          /* Primary action button background */
+  
+  --text-primary: #1F1F1F;       /* Main text color */
+  --text-secondary: #5B5B5B;     /* Subtler text, placeholders, labels */
+  --text-on-accent: #FFFFFF;      /* Text on top of accent-colored elements (e.g., Run button) */
+
+  --border-primary: #E0E0E0;     /* Borders for containers, inputs */
+  --accent-active: #007ACC;        /* Active icon color, highlights, links */
+  --accent-hover: #005A9E;         /* Hover state for buttons and links */
+}
+
+/* 1B: Dark Theme Palette (Modeled after your screenshot and VS Code) */
+[data-theme='dark'] {
+  --bg-primary: #1E1E1E;          /* Main content background */
+  --bg-secondary: #252526;       /* Sidebar background */
+  --bg-tertiary: #333333;        /* Dropdowns, inputs */
+  --bg-accent: #007ACC;          /* Primary action button background */
+
+  --text-primary: #CCCCCC;       /* Main text */
+  --text-secondary: #9B9B9B;     /* Subtler text, placeholders */
+  --text-on-accent: #FFFFFF;      /* Text on top of accent-colored elements */
+  
+  --border-primary: #3C3C3C;     /* Borders for containers */
+  --accent-active: #009CFB;        /* Active icon color, brighter for dark mode */
+  --accent-hover: #009CFB;         /* Hover state */
+}
+
+/*
+  STEP 2: GLOBAL STYLES
+  Apply the variables to the base elements. Now, changing the `data-theme` attribute
+  on the <html> element will instantly swap all the colors.
+*/
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Use the CSS variables */
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+
+  /* Add a smooth transition for all color and background changes */
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Add a global scrollbar style to match the themes */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}

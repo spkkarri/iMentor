@@ -1,0 +1,431 @@
+/* client/src/components/ChatPage.css */
+/* This file styles the new 3-column layout and its components, using the variables from index.css */
+
+/* ==========================================================================
+   1. Main Layout Structure (CSS Grid)
+   ========================================================================== */
+
+.main-layout {
+  display: grid;
+  grid-template-columns: 55px 320px 1fr;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+}
+
+/* ==========================================================================
+   2. Activity Bar (Far Left Column)
+   ========================================================================== */
+
+.activity-bar {
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 1rem;
+  gap: 0.5rem;
+}
+.activity-button {
+  background: none; border: none; color: var(--text-secondary); padding: 0.75rem;
+  cursor: pointer; border-radius: 6px; display: flex; align-items: center;
+  justify-content: center; transition: all 0.2s ease; border-left: 2px solid transparent;
+}
+.activity-button:hover { color: var(--text-primary); background-color: var(--bg-tertiary); }
+.activity-button.active { color: var(--accent-active); border-left: 2px solid var(--accent-active); }
+
+/* ==========================================================================
+   3. Sidebar Area (Second Column)
+   ========================================================================== */
+
+.sidebar-area {
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar-panel { padding: 1rem 1.25rem; }
+.sidebar-header { font-size: 1.1rem; font-weight: 600; margin-top: 0; margin-bottom: 1.5rem; color: var(--text-primary); }
+
+/* Styling for widgets inside the sidebar panels */
+.llm-settings-widget h4 {
+  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-secondary); margin-bottom: 1rem; padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-primary);
+}
+.setting-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 0.9rem; }
+.setting-item label { color: var(--text-secondary); }
+.setting-item select,
+.setting-item input[type="checkbox"] { background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-primary); border-radius: 5px; padding: 0.4rem 0.6rem; }
+.setting-item input[type="checkbox"] {
+  height: 20px; width: 36px; appearance: none; position: relative;
+  cursor: pointer; transition: background-color 0.2s;
+}
+.setting-item input[type="checkbox"]::before {
+  content: ''; height: 14px; width: 14px; background-color: var(--text-secondary);
+  border-radius: 50%; position: absolute; top: 2px; left: 2px;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+.setting-item input[type="checkbox"]:checked { background-color: var(--accent-active); }
+.setting-item input[type="checkbox"]:checked::before { transform: translateX(16px); background-color: white; }
+
+/* ==========================================================================
+   4. Chat View (Main Content Area)
+   ========================================================================== */
+
+.chat-view { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.chat-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border-primary); flex-shrink: 0;
+}
+.chat-header h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+.header-controls { display: flex; align-items: center; gap: 0.5rem; }
+.header-button {
+  background: none; border: 1px solid transparent; color: var(--text-secondary); padding: 0.5rem;
+  border-radius: 6px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: all 0.2s ease;
+}
+.header-button:hover:not(:disabled) { background-color: var(--bg-tertiary); color: var(--text-primary); }
+.header-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.username-display { font-size: 0.9rem; color: var(--text-secondary); margin-right: 0.5rem; }
+
+/* Messages Area & Welcome Screen */
+.messages-area { flex-grow: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.welcome-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; color: var(--text-secondary); text-align: center; }
+.welcome-icon { margin-bottom: 1rem; opacity: 0.5; }
+.welcome-screen h2 { color: var(--text-primary); font-size: 1.5rem; margin: 0 0 0.5rem 0; }
+
+/* Individual Message Styling */
+.message { display: flex; max-width: 80%; }
+.message.user { align-self: flex-end; }
+.message.model { align-self: flex-start; }
+.message-content-wrapper { padding: 0.75rem 1.25rem; border-radius: 12px; line-height: 1.6; }
+.message.user .message-content-wrapper { background-color: var(--accent-active); color: var(--text-on-accent); border-bottom-right-radius: 4px; }
+.message.model .message-content-wrapper { background-color: var(--bg-secondary); border: 1px solid var(--border-primary); color: var(--text-primary); border-bottom-left-radius: 4px; }
+.message-sender-name { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; opacity: 0.8; }
+.message.user .message-sender-name { color: var(--text-on-accent); }
+.message.user .message-text { color: var(--text-on-accent); }
+.message .message-text p { margin-top: 0; }
+.message .message-text a { color: var(--accent-active); }
+.message.user .message-text a { color: var(--text-on-accent); text-decoration: underline; }
+
+/* Thinking Process Details */
+.message-thinking-trace { margin-top: 1rem; background-color: color-mix(in srgb, var(--bg-primary) 50%, var(--bg-secondary)); border-radius: 8px; border: 1px solid var(--border-primary); font-size: 0.85rem; }
+.message-thinking-trace summary { padding: 0.5rem 1rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; outline: none; }
+.message-thinking-trace[open] summary { border-bottom: 1px solid var(--border-primary); }
+.message-thinking-trace pre { margin: 0; padding: 1rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text-primary); max-height: 200px; overflow-y: auto; }
+
+/* Input Area */
+.input-area { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-primary); flex-shrink: 0; }
+.input-area textarea { flex-grow: 1; padding: 0.75rem 1rem; border-radius: 8px; resize: none; font-size: 1rem; max-height: 150px; background-color: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-primary); font-family: inherit; }
+.input-area textarea:focus { outline: none; border-color: var(--accent-active); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-active) 25%, transparent); }
+.rag-toggle-container { display: flex; align-items: center; gap: 0.5rem; }
+.rag-toggle-container label { color: var(--text-secondary); font-size: 0.9rem; }
+.rag-toggle-container input[type="checkbox"] { height: 20px; width: 36px; appearance: none; background-color: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: 20px; position: relative; cursor: pointer; transition: background-color 0.2s; }
+.rag-toggle-container input[type="checkbox"]::before { content: ''; height: 14px; width: 14px; background-color: var(--text-secondary); border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: transform 0.2s ease, background-color 0.2s ease; }
+.rag-toggle-container input[type="checkbox"]:checked { background-color: var(--accent-active); }
+.rag-toggle-container input[type="checkbox"]:checked::before { transform: translateX(16px); background-color: white; }
+.send-button { background-color: var(--accent-active); color: var(--text-on-accent); border-radius: 8px; border: none; height: 44px; width: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.2s ease; }
+.send-button:hover:not(:disabled) { background-color: var(--accent-hover); }
+.send-button:disabled { background-color: var(--bg-tertiary); color: var(--text-secondary); cursor: not-allowed; }
+
+/* Voice Input Button Styles */
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-active) 70%, transparent); } 70% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent-active) 0%, transparent); } 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-active) 0%, transparent); } }
+.voice-input-button { background-color: transparent; color: var(--text-secondary); border: 1px solid transparent; border-radius: 8px; height: 44px; width: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0; }
+.voice-input-button:hover:not(:disabled) { background-color: var(--bg-tertiary); color: var(--text-primary); }
+.voice-input-button.listening { color: var(--accent-active); background-color: color-mix(in srgb, var(--accent-active) 15%, transparent); animation: pulse 1.5s infinite; }
+.voice-input-button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Status Indicators */
+.indicator-container { flex-shrink: 0; padding: 0 1.5rem; }
+.loading-indicator, .error-indicator { padding: 0.5rem 0; text-align: center; font-size: 0.9rem; color: var(--text-secondary); }
+.error-indicator { background-color: color-mix(in srgb, var(--accent-active) 10%, transparent); color: var(--accent-active); border-radius: 6px; }
+
+/* ==========================================================================
+   5. SHARED FORM STYLES (for AuthPage, SettingsPage, etc.)
+   ========================================================================== */
+
+.form-page-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    width: 100vw;
+    background-color: var(--bg-secondary);
+    padding: 2rem 1rem;
+    box-sizing: border-box;
+}
+
+.form-box {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border-primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+}
+
+.form-box h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.form-sub-header {
+    margin-top: 0;
+    margin-bottom: 30px;
+    color: var(--text-secondary);
+}
+
+.input-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid var(--border-primary);
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--accent-active);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-active) 20%, transparent);
+}
+
+.input-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: block;
+    margin-top: 6px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 30px;
+}
+
+.primary-button, .secondary-button {
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.primary-button {
+    background-color: var(--accent-active);
+    color: var(--text-on-accent);
+    border-color: var(--accent-active);
+}
+
+.primary-button:hover:not(:disabled) {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.secondary-button {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-primary);
+}
+
+.secondary-button:hover:not(:disabled) {
+    border-color: var(--text-secondary);
+}
+
+.primary-button:disabled, .secondary-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.error-message {
+    color: #e53e3e;
+    margin-top: 15px;
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}
+
+.success-message {
+    color: #27ae60;
+    background-color: rgba(39, 174, 96, 0.1);
+    border: 1px solid rgba(39, 174, 96, 0.2);
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 15px;
+    font-size: 0.9rem;
+}
+
+/* Add this to the end of client/src/components/ChatPage.css */
+
+.header-button.admin-button {
+    color: #f5a623; /* A distinct color like gold/yellow for admin */
+}
+
+.header-button.admin-button:hover:not(:disabled) {
+    background-color: color-mix(in srgb, #f5a623 15%, transparent);
+    color: #f8c364;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .main-layout {
+    grid-template-columns: 45px 280px 1fr; /* Slightly narrower sidebar and activity bar */
+  }
+  .sidebar-area {
+    width: 280px; /* Ensure sidebar doesn't overflow */
+  }
+  .message {
+    max-width: 90%; /* Allow messages to take more space */
+  }
+}
+
+@media (max-width: 768px) {
+  .main-layout {
+    grid-template-columns: 0 0 1fr; /* Hide activity bar and sidebar */
+  }
+  .activity-bar {
+    display: none; /* Hide activity bar */
+  }
+  .sidebar-area {
+    display: none; /* Hide sidebar */
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 250px;
+    height: 100%;
+    transition: left 0.3s ease;
+    z-index: 1000;
+  }
+  .sidebar-area.active {
+    left: 0; /* Show sidebar when toggled */
+  }
+  .chat-view {
+    grid-column: 1 / 4; /* Chat view takes full width */
+  }
+  .input-area {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .input-area textarea {
+    width: 100%; /* Full width for textarea */
+  }
+  .send-button, .voice-input-button {
+    width: 100%; /* Full width for buttons */
+    max-width: 44px; /* Maintain original size as max */
+    margin: 0 auto;
+  }
+}
+
+/* Toggle Button for Sidebar (Add this to your HTML and style here) */
+.toggle-sidebar {
+  display: none; /* Hidden by default */
+}
+@media (max-width: 768px) {
+  .toggle-sidebar {
+    display: block;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 0.5rem;
+    cursor: pointer;
+    z-index: 1001;
+  }
+  .toggle-sidebar:hover {
+    background-color: var(--bg-tertiary);
+  }
+}
+
+/* Enhance existing responsive adjustments */
+@media (max-width: 768px) {
+  .main-layout {
+    grid-template-columns: 1fr; /* Single column for chat view */
+  }
+  .activity-bar {
+    display: none; /* Hide activity bar */
+  }
+  .sidebar-area {
+    display: none; /* Hide sidebar */
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 250px;
+    height: 100%;
+    transition: left 0.3s ease;
+    z-index: 1000;
+    background-color: var(--bg-secondary); /* Match sidebar background */
+  }
+  .sidebar-area.active {
+    left: 0; /* Show sidebar when toggled */
+  }
+  .chat-view {
+    grid-column: 1; /* Chat view takes full width */
+    width: 100%;
+  }
+  .input-area {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .input-area textarea {
+    width: 100%; /* Full width for textarea */
+  }
+  .send-button, .voice-input-button {
+    width: 100%; /* Full width for buttons */
+    max-width: 44px; /* Maintain original size as max */
+    margin: 0 auto;
+  }
+}
+
+/* Toggle Button for Sidebar (Add this to your HTML and style here) */
+.toggle-sidebar {
+  display: none; /* Hidden by default */
+}
+@media (max-width: 768px) {
+  .toggle-sidebar {
+    display: block;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 0.5rem;
+    cursor: pointer;
+    z-index: 1001;
+    color: var(--text-secondary);
+  }
+  .toggle-sidebar:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}

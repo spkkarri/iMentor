@@ -1,0 +1,161 @@
+/* client/src/components/AdminPanel.css */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Re-use the theme-aware form container style for consistency */
+.admin-panel-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    background-color: var(--bg-secondary);
+    padding: 2rem 1rem;
+}
+
+.admin-panel-box {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 30px 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border-primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 700px;
+}
+
+.admin-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.admin-panel-header h2 {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 600;
+}
+
+.requests-list-container {
+    min-height: 200px;
+}
+
+.requests-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.request-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 10px;
+    border-bottom: 1px solid var(--border-primary);
+    transition: background-color 0.2s ease;
+}
+
+.request-item:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.request-item:last-child {
+    border-bottom: none;
+}
+
+.request-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.request-info .username {
+    font-weight: 500;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.request-info .request-date {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.request-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.action-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border-primary);
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-button.approve:hover {
+    background-color: rgba(39, 174, 96, 0.1);
+    color: #27ae60;
+    border-color: #27ae60;
+}
+
+.action-button.deny:hover {
+    background-color: rgba(229, 62, 62, 0.1);
+    color: #e53e3e;
+    border-color: #e53e3e;
+}
+
+.spinner {
+    animation: spin 1.5s linear infinite;
+    color: var(--text-secondary);
+}
+
+.no-requests-message {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.admin-error-message {
+    color: #e53e3e;
+    background-color: rgba(229, 62, 62, 0.1);
+    border: 1px solid #e53e3e;
+    padding: 10px 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.admin-panel-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-primary);
+}
+
+/* Re-using styles from other components */
+.admin-panel-footer .secondary-button {
+    padding: 10px 20px;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.admin-panel-footer .secondary-button:hover {
+    border-color: var(--text-secondary);
+}

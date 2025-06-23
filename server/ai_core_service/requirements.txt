@@ -1,0 +1,43 @@
+# Core Web Framework & Server
+Flask
+Flask-CORS
+# waitress # Production WSGI server, consider using this or Gunicorn/Uvicorn
+
+# Configuration & Utilities
+python-dotenv
+uuid # Standard library, listed for explicitness if previously included
+
+# AI - Langchain Ecosystem
+langchain
+langchain-community
+langchain-huggingface # For integrating HuggingFace models/embeddings with Langchain
+langchain-ollama      # For Ollama integration with Langchain
+
+# AI - LLM & Embeddings Libraries
+ollama                # Direct Ollama client library
+sentence-transformers # For generating sentence embeddings (primary for RAG)
+
+# AI - Vector Store
+# Choose one of the FAISS packages based on your environment:
+faiss-cpu             # CPU version of FAISS
+# faiss-gpu           # GPU version of FAISS (requires CUDA)
+
+# Document Processing & Text Extraction
+pypdf                 # Modern PDF library, successor to PyPDF2
+PyPDF2                # Older PDF library, kept for compatibility if specific features were used
+pymupdf               # PyMuPDF (Fitz) for efficient PDF parsing
+python-docx           # For .docx (Word) files
+python-pptx           # For .pptx (PowerPoint) files
+
+# Tokenizers
+tiktoken              # Tokenizer used by OpenAI models, often useful with Langchain
+
+# HTTP Client Libraries
+requests              # General purpose HTTP client
+httpx                 # Modern HTTP client, supports async
+
+# ... other requirements ...
+google-generativeai
+
+# ... other requirements ...
+groq

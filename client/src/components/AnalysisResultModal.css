@@ -1,0 +1,175 @@
+/* client/src/components/AnalysisResultModal.css */
+
+/* Keyframe animations for a smooth entrance/exit */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* The semi-transparent backdrop */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+  /* Adds a modern blur effect to the background */
+  backdrop-filter: blur(4px);
+}
+
+/* The main modal container */
+.modal-content {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  animation: scaleUp 0.2s ease-out;
+}
+
+/* Header section with title and close button */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.modal-close-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+.modal-close-button:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Main body of the modal where content lives */
+.modal-body {
+  overflow-y: auto;
+  flex-grow: 1;
+  padding: 1.5rem;
+}
+
+.modal-document-name {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-top: 0;
+  margin-bottom: 1rem;
+  background-color: var(--bg-tertiary);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.modal-thinking-details {
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+.modal-thinking-details summary {
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  color: var(--text-secondary);
+  transition: background-color 0.2s;
+}
+.modal-thinking-details[open] summary {
+  border-bottom: 1px solid var(--border-primary);
+}
+.modal-thinking-details:hover {
+    border-color: var(--accent-active);
+}
+.modal-thinking-details pre {
+  padding: 1rem;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.85rem;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+/* The main container for the analysis output (text or diagram) */
+.modal-result-container {
+  background-color: var(--bg-primary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  min-height: 200px;
+  /* Ensures any generated markdown looks good */
+  line-height: 1.7;
+}
+.modal-result-container ul, .modal-result-container ol {
+  padding-left: 1.5rem;
+}
+.modal-result-container li {
+  margin-bottom: 0.5rem;
+}
+
+/* Footer with action buttons */
+.modal-footer {
+  border-top: 1px solid var(--border-primary);
+  padding: 1rem 1.5rem;
+  text-align: right;
+  flex-shrink: 0;
+  background-color: var(--bg-tertiary);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/*
+  START OF FIX:
+  This rule now uses the correct theme variables for both the background
+  and, crucially, the text color.
+*/
+.modal-action-button {
+  padding: 0.6rem 1.25rem;
+  background-color: var(--accent-active);
+  color: var(--text-on-accent); /* THIS IS THE FIX */
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+/* END OF FIX */
+
+.modal-action-button:hover {
+  background-color: var(--accent-hover);
+}

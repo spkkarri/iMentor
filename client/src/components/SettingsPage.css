@@ -1,0 +1,103 @@
+/* client/src/components/SettingsPage.css */
+.settings-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Align to top */
+    min-height: 100vh;
+    background-color: var(--bg-secondary);
+    padding: 2rem 1rem;
+}
+
+.settings-box {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border-primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+}
+
+.settings-box h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.settings-sub-header {
+    margin-top: 0;
+    margin-bottom: 30px;
+    color: var(--text-secondary);
+}
+
+.input-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: block;
+    margin-top: 6px;
+    text-align: left;
+}
+
+/* Re-using styles from the theme-aware auth page */
+.settings-box .input-group,
+.settings-box .input-group label,
+.settings-box .input-group input,
+.settings-box .error-message {
+    text-align: left;
+}
+
+.settings-box .success-message {
+    color: #27ae60;
+    background-color: rgba(39, 174, 96, 0.1);
+    border: 1px solid rgba(39, 174, 96, 0.2);
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 15px;
+    font-size: 0.9rem;
+}
+
+.settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 30px;
+}
+
+.primary-button, .secondary-button {
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.primary-button {
+    background-color: var(--accent-active);
+    color: var(--text-on-accent);
+    border-color: var(--accent-active);
+}
+
+.primary-button:hover:not(:disabled) {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.secondary-button {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-primary);
+}
+
+.secondary-button:hover:not(:disabled) {
+    border-color: var(--text-secondary);
+}
+
+.primary-button:disabled, .secondary-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

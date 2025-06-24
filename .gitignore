@@ -40,3 +40,24 @@ __pycache__/
 # Ignore specific file types that are often generated
 *.faiss
 *.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+build/
+.npm
+npm-debug.log*
+
+# OS-specific
+.DS_Store
+Thumbs.db

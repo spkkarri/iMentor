@@ -49,87 +49,15 @@
 }
 
 /* Styles for the icon-only refresh button when sidebar is collapsed */
-/* Ensure you add className="fm-refresh-btn-collapsed widget-icon-button" in JS */
-.fm-refresh-btn-collapsed.widget-icon-button { 
-    background: none;
-    border: none;
-    color: var(--text-secondary); /* Or var(--text-primary) as in ChatPage.css */
-    padding: 4px;
-    cursor: pointer;
-    font-size: 1em; /* Match general .widget-icon if desired, or keep specific */
-    line-height: 1;
-}
-.fm-refresh-btn-collapsed.widget-icon-button:hover:not(:disabled) {
-    color: var(--accent-blue);
-}
-.fm-refresh-btn-collapsed.widget-icon-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-
-/* Error, Loading, Empty state messages */
-/* These are inside .widget-content, so they will be hidden when collapsed */
-.fm-error,
-.fm-loading,
-.fm-empty {
-    font-size: 0.85rem;
-    padding: 10px 0; /* Padding adjusted as parent .widget-content has padding */
-    border-radius: 4px;
-    text-align: center;
-    /* margin: 5px 20px 5px 0; /* Original margin - might not be needed if .widget-content has padding */
-    flex-shrink: 0; /* Good for preventing these messages from collapsing */
-}
-
-.fm-error {
-    color: var(--error-color);
-    border: 1px solid var(--error-color);
-    background-color: var(--error-bg);
-    margin: 5px 0; /* Add some vertical margin if padding is removed */
-}
-
-.fm-loading,
-.fm-empty {
-    color: var(--text-secondary);
-    font-style: italic;
-     margin: 5px 0; /* Add some vertical margin */
-}
-
-.fm-loading-bottom {
-    margin-top: auto; 
-    padding: 5px 0;
-}
-
-/* This container holds the scrollable list of files */
-/* It should be inside the .widget-content div in your JS */
+/*/* File List Styling */
 .fm-file-list-container {
-    flex-grow: 1; /* CRITICAL: Allows this to take up space within .widget-content (if .widget-content is flex column) */
-    overflow-y: auto; /* CRITICAL: Enables scrolling for the list */
-    position: relative; 
-    /* padding-right: 10px; /* This can create an uneven look if scrollbar isn't always visible */
-    /* Consider adding padding to .fm-file-item instead if needed */
+    max-height: 200px; /* Or whatever height you prefer */
+    overflow-y: auto;
+    padding-right: 5px; /* Space for scrollbar */
 }
 
-/* Scrollbar styling (good as is) */
-.fm-file-list-container::-webkit-scrollbar {
-    width: 8px;
-}
-.fm-file-list-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-.fm-file-list-container::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb); /* Use theme variable */
-    border-radius: 10px;
-}
-.fm-file-list-container {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent; /* Use theme variable */
-}
-
-
-/* Styles for the file list and items (largely good as is) */
 .fm-file-list {
-    list-style: none;
+    list-style-type: none;
     padding: 0;
     margin: 0;
 }
@@ -137,106 +65,120 @@
 .fm-file-item {
     display: flex;
     align-items: center;
-    padding: 8px 5px; 
-    margin-bottom: 5px; /* Space between items */
-    border-radius: 4px;
-    background-color: #2f2f34; /* Or var(--bg-widget-item) */
-    transition: background-color 0.2s ease;
-    gap: 10px;
-}
-/* Add right margin if scrollbar padding on container isn't ideal */
-.fm-file-list-container:hover .fm-file-item { 
-    /* Example: margin-right: 8px; if scrollbar appears on hover and shifts content */
+    justify-content: space-between;
+    padding: 8px 5px;
+    border-bottom: 1px solid #3a3a3a;
+    transition: background-color 0.2s;
 }
 
+.fm-file-item:last-child {
+    border-bottom: none;
+}
 
 .fm-file-item:hover {
-    background-color: #3a3a40; /* Or var(--bg-widget-item-hover) */
+    background-color: #383838;
 }
 
 .fm-file-icon {
-    flex-shrink: 0;
-    font-size: 1.1rem;
-    line-height: 1;
-    width: 20px; /* Give a fixed width for alignment */
-    text-align: center;
+    margin-right: 10px;
+    font-size: 1.2em;
 }
 
 .fm-file-details {
     flex-grow: 1;
-    overflow: hidden; 
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    /* min-height: 30px; /* Removed, let content define height or use padding */
+    overflow: hidden; /* Prevents long names from breaking layout */
 }
 
 .fm-file-name {
-    font-size: 0.85rem;
-    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: 0.9em;
 }
 
 .fm-file-size {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    margin-top: 2px;
+    font-size: 0.75em;
+    color: #b3b3b3;
 }
 
+/* Action Buttons Styling */
 .fm-file-actions {
     display: flex;
-    gap: 5px;
-    flex-shrink: 0;
-    /* margin-left: auto; /* This pushes actions to the far right; remove if not desired or handled by flex on parent */
+    align-items: center;
+    gap: 8px; /* Space between icons */
 }
 
+/* --- THE KEY STYLE FOR THE ICONS --- */
 .fm-action-btn {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: #b3b3b3; /* A slightly muted icon color */
     cursor: pointer;
-    padding: 3px; 
-    font-size: 1rem; 
-    line-height: 1;
-    border-radius: 3px;
-    transition: color 0.2s ease, background-color 0.2s ease;
+    font-size: 1em; /* Adjust size as needed */
+    padding: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
 }
+
 .fm-action-btn:hover:not(:disabled) {
-    color: var(--text-primary);
-    background-color: #4a4a50;
+    background-color: #4f4f4f;
+    color: #ffffff; /* Make icon brighter on hover */
 }
+
 .fm-action-btn:disabled {
-    opacity: 0.5;
     cursor: not-allowed;
+    color: #555; /* Faded color when disabled */
 }
 
-/* Specific hover colors for action buttons (good as is) */
-.fm-delete-btn:hover:not(:disabled) { color: var(--error-color); }
-.fm-rename-btn:hover:not(:disabled) { color: var(--accent-blue-light); }
-.fm-save-btn:hover:not(:disabled) { color: var(--success-color); /* Use theme success */ }
-.fm-cancel-btn:hover:not(:disabled) { color: #ffc107; /* Keep or use a theme warning/neutral */ }
-
-
+/* Rename Input Styling */
 .fm-rename-section {
     display: flex;
     align-items: center;
     gap: 5px;
-    width: 100%;
 }
 
 .fm-rename-input {
-    flex-grow: 1;
-    padding: 4px 8px;
-    background-color: var(--bg-input);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    width: 100%;
+    background-color: #1c1c1c;
+    border: 1px solid #90caf9;
+    color: white;
     border-radius: 4px;
-    font-size: 0.85rem;
-    outline: none;
-    min-width: 50px;
+    padding: 4px 6px;
+    font-size: 0.9em;
 }
-.fm-rename-input:focus {
-    border-color: var(--accent-blue);
+
+/* Helper messages */
+.fm-error, .fm-loading, .fm-empty {
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 4px;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+.fm-error {
+    background-color: #4d2323;
+    color: #ff8a80;
+}
+
+/* Podcast Player Styling */
+.podcast-player-container {
+    padding: 10px;
+    margin: 5px 0 15px 0;
+    background-color: #1c1c1c;
+    border: 1px solid #444;
+    border-radius: 6px;
+}
+
+.podcast-player-container p {
+    margin: 0 0 8px 0;
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+.podcast-player-container audio {
+    width: 100%;
+    height: 40px;
 }

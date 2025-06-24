@@ -11,7 +11,11 @@ import { v4 as uuidv4 } from 'uuid';
 import DocumentAnalysisWidget from './DocumentAnalysisWidget';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faTimes, faUpload, faCog, faFolderOpen, faGlobe, faBookOpen } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faBars, faTimes, faUpload, faCog, faFolderOpen, faGlobe, faBookOpen, 
+    faUser, faRobot, faVolumeUp, faStopCircle 
+} from '@fortawesome/free-solid-svg-icons';
+
 
 import SystemPromptWidget, { availablePrompts, getPromptTextById } from './SystemPromptWidget';
 import HistoryModal from './HistoryModal';
@@ -19,6 +23,11 @@ import FileUploadWidget from './FileUploadWidget';
 import FileManagerWidget from './FileManagerWidget';
 
 import './ChatPage.css';
+
+
+import { useTextToSpeech } from '../hooks/useTextToSpeech'; // For spoken AI responses
+import ChatInput from './ChatInput'; // Our new, consolidated input component
+
 
 const ChatPage = ({ setIsAuthenticated }) => {
     const [messages, setMessages] = useState([]);
@@ -58,9 +67,35 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(true); // true = expanded, false = collapsed
 
+    // --- Voice I/O Integration ---
+    const { speak, cancel, isSpeaking, isSupported: isTtsSupported } = useTextToSpeech();
+    const [autoSpeak, setAutoSpeak] = useState(true); // Let user toggle auto-speaking on/off
+    // --- End Voice I/O Integration ---
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    useEffect(() => {
+        if (!autoSpeak) return;
+        const lastMessage = messages[messages.length - 1];
+
+
+        // Check if there is a last message, it's from the AI, and it hasn't been spoken yet.
+        // The 'spoken' property is a temporary flag we'll add to the message object.
+        if (lastMessage && (lastMessage.role === 'model' || lastMessage.role === 'bot') && !lastMessage.spoken) {
+             // The `useTextToSpeech` hook automatically handles stripping markdown for us!
+            speak({ text: lastMessage.parts[0]?.text || '' });
+
+            // Mark the message as spoken to prevent it from being re-spoken on re-renders
+            setMessages(prev => prev.map((msg, index) => 
+                index === prev.length - 1 ? { ...msg, spoken: true } : msg
+            ));
+        }
+
+        // Add isSpeaking to the dependency array to avoid issues if a message arrives while another is speaking
+    }, [messages, autoSpeak, speak, isSpeaking]);
+    // --- End Voice I/O Integration ---
 
     const performLogoutCleanup = useCallback((isRedirecting = true) => {
         console.log("[Client ChatPage] Performing logout cleanup...");
@@ -268,9 +303,11 @@ const ChatPage = ({ setIsAuthenticated }) => {
         actualSaveAndReset(false);
     };
 
-    const handleSendMessage = useCallback(async (e) => {
-        if (e && typeof e.preventDefault === 'function') e.preventDefault();
-        const textToSend = inputText.trim();
+    const handleSendMessage = useCallback(async (messageText) => {
+    // If called from the Send Button (onClick), messageText will be undefined.
+    // If called from ChatInput (onEnterPress), messageText will be the text.
+    // We prioritize the argument, but fall back to the state for the button click.
+        const textToSend = messageText.trim();
         const currentLocalSessionId = localStorage.getItem('sessionId');
         const currentLocalUserId = localStorage.getItem('userId');
 
@@ -284,8 +321,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
         const newUserMessage = { role: 'user', parts: [{ text: textToSend }], timestamp: new Date() };
         const previousMessagesState = [...messages];
-        setMessages(prev => [...prev, newUserMessage]);
-        setInputText(''); setError('');
+        setMessages(prevMessages => [...prevMessages, newUserMessage]);
+        setInputText(''); 
+        setError(prev => prev && (prev.includes("Session invalid") || prev.includes("Critical Error")) ? prev : ''); // A safer way to clear non-critical errors
         
 
         // let relevantDocsFromRag = []; let ragQueryError = null;
@@ -348,15 +386,16 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } catch (err) {
             const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to get response.';
             setError(prev => prev ? `${prev} | Chat Error: ${errorMessage}` : `Chat Error: ${errorMessage}`);
-            setMessages(previousMessagesState);
+            const errorBotMessage = { role: 'model', parts: [{ text: `I'm sorry, an error occurred: ${errorMessage}` }], timestamp: new Date(), isError: true };
+            setMessages(prev => [...prev, errorBotMessage]);
             if (err.response?.status === 401) performLogoutCleanup(true);
         } finally {
             setIsLoading(false);
         }
     }, [
-        inputText, isLoading,  messages, editableSystemPromptText,
+         isLoading, messages, editableSystemPromptText,
         hasFiles, selectedLlmProvider, selectedGroqModel, selectedOllamaModel,
-        performLogoutCleanup,uiSelectedTool // No need for setIsAuthenticated, navigate here as performLogoutCleanup handles them
+        performLogoutCleanup, uiSelectedTool , messages
     ]);
 
 
@@ -415,14 +454,14 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     }, [selectedDocForAnalysis, isAnalyzingDoc]); // analyzeDocument is stable import
 
-    const handleEnterKey = useCallback((e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            if (!isLoading &&  inputText.trim()) {
-                handleSendMessage(); // No need to pass 'e' if handleSendMessage doesn't use it for this path
-            }
-        }
-    }, [handleSendMessage, isLoading, inputText]);
+    // const handleEnterKey = useCallback(() => {
+    //     // This is now called from the child component on Enter press.
+    //     // It will use the current `inputText` state to send the message.
+    //     if (!isLoading && inputText.trim()) {
+    //     handleSendMessage(inputText);
+    //     }
+    // }, [handleSendMessage, isLoading, inputText]);
+
 
     const isProcessing = isLoading || isAnalyzingDoc;
 
@@ -552,6 +591,25 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                 <option value="ollama:codegemma">Local: CodeGemma 7B</option>
                             </select>
                         </div>
+
+
+                        {isTtsSupported && (
+                            <div className="autospeak-toggle">
+                                <label>
+                                    <input
+                                    type="checkbox"
+                                    checked={autoSpeak}
+                                    onChange={(e) => {
+                                        setAutoSpeak(e.target.checked);
+                                        if (!e.target.checked) cancel(); // Stop speaking if user unchecks
+                                    }}
+                                />
+                                Speak Responses
+                                </label>
+                            </div>
+                        )}
+
+
                         <span className="username-display">Hi, {username}!</span>
                         <button onClick={handleHistory} className="header-button history-button" disabled={isProcessing}>History</button>
                         <button onClick={handleNewChatWrapper} className="header-button newchat-button" disabled={isProcessing}>New Chat</button>
@@ -560,49 +618,65 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 </header>
 
                 <div className="messages-area">
-                    {messages.map((msg, index) => {
-                        if (!msg?.role || !msg?.parts?.length || !msg.timestamp) {
-                            console.warn("Skipping rendering invalid message object:", msg);
-                            return <div key={`error-${index}`} className="message-error">Msg Error</div>;
-                        }
+                                    {messages.map((msg, index) => {
+                                        if (!msg?.role || !msg?.parts?.length || !msg.timestamp) {
+                                            console.warn("Skipping rendering invalid message object:", msg);
+                                            return <div key={`error-${index}`} className="message-error">Msg Error</div>;
+                                        }
 
-                        const messageText = msg.parts[0]?.text || '';
-                        const isBot = msg.role === 'model' || msg.role === 'bot'; // Accommodate 'bot' for flexibility
+                                        const messageText = msg.parts[0]?.text || '';
+                                        const isBot = msg.role === 'model' || msg.role === 'bot';
 
-                        return (
-                            <div key={`${sessionId}-${index}-${new Date(msg.timestamp).toISOString()}-${msg.role}`} className={`message-container ${msg.role}-message-container`}>
-                                <div className={`message ${msg.role}`}>
-                                    <div className="message-content">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                                    </div>
-                                    {isBot && msg.thinking && (
-                                        <details className="message-thinking-client" style={{ marginTop: '5px', fontSize: '0.8em' }}>
-                                            <summary style={{ cursor: 'pointer', color: '#90caf9' }}>Show Reasoning</summary>
-                                            <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', backgroundColor: '#333', padding: '5px', borderRadius: '4px', marginTop: '5px' }}>
-                                                <code>{msg.thinking}</code>
-                                            </pre>
-                                        </details>
-                                    )}
-                                    {isBot && msg.references && msg.references.length > 0 && (
-                                        <div className="message-references-client" style={{ marginTop: '5px', fontSize: '0.8em' }}>
-                                            <strong style={{ color: '#b3b3b3' }}>References:</strong>
-                                            <ul style={{ listStyleType: 'none', paddingLeft: '10px', margin: '5px 0 0 0' }}>
-                                                {msg.references.map((ref, refIdx) => (
-                                                    <li key={refIdx} title={ref.content_preview || ref.chunk_content || ''} style={{ marginBottom: '3px' }}>
-                                                        [{ref.number || refIdx + 1}] {ref.source}
-                                                        {ref.score && ` (Score: ${ref.score.toFixed(3)})`}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
+                                        return (
+                                            <div key={`${sessionId}-${index}-${new Date(msg.timestamp).toISOString()}`} className={`message-container ${msg.role}-message-container`}>
+                                                <div className={`message ${msg.role}`}>
+                                                    <div className="message-icon">
+                                                        <FontAwesomeIcon icon={isBot ? faRobot : faUser} />
+                                                    </div>
+                                                    <div className="message-content">
+                                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+
+                                                        {isBot && isTtsSupported && messageText && (
+                                                            <div className="tts-controls">
+                                                                <button onClick={() => isSpeaking ? cancel() : speak({ text: messageText })} title={isSpeaking ? "Stop" : "Read aloud"}>
+                                                                    <FontAwesomeIcon icon={isSpeaking ? faStopCircle : faVolumeUp} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="message-details">
+                                                    {isBot && msg.thinking && (
+                                                        <details className="message-thinking-client">
+                                                            <summary style={{ cursor: 'pointer', color: '#90caf9' }}>Show Reasoning</summary>
+                                                            <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', backgroundColor: '#333', padding: '5px', borderRadius: '4px', marginTop: '5px' }}>
+                                                                <code>{msg.thinking}</code>
+                                                            </pre>
+                                                        </details>
+                                                    )}
+                                                    {isBot && msg.references && msg.references.length > 0 && (
+                                                        <div className="message-references-client">
+                                                            <strong style={{ color: '#b3b3b3' }}>References:</strong>
+                                                            <ul style={{ listStyleType: 'none', paddingLeft: '10px', margin: '5px 0 0 0' }}>
+                                                                {msg.references.map((ref, refIdx) => (
+                                                                    <li key={refIdx} title={ref.content_preview || ref.chunk_content || ''} style={{ marginBottom: '3px' }}>
+                                                                        [{ref.number || refIdx + 1}] {ref.source}
+                                                                        {ref.score && ` (Score: ${ref.score.toFixed(3)})`}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    <span className="message-timestamp">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {/* Correct position of the ref to auto-scroll */}
+                                    <div ref={messagesEndRef} />
                                 </div>
-                                <span className="message-timestamp">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                        );
-                    })}
-                    <div ref={messagesEndRef} />
-                </div>
+
 
                 {(isLoading || isAnalyzingDoc) && (
                     <div className="loading-indicator">
@@ -618,21 +692,31 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 )}
 
                 <footer className="input-area">
-                    <textarea
+                    {/* Our new component replaces ONLY the textarea */}
+                    <ChatInput
                         value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={handleEnterKey}
-                        placeholder="Ask your tutor..."
-                        rows="1"
+                        onInputChange={setInputText}
+                        onSendMessage={handleSendMessage}
                         disabled={isProcessing}
-                        aria-label="Chat input"
                     />
-                       {/* +++ MODIFIED: Tool Toggle Buttons with correct onClick and className logic +++ */}
-                       {/* +++ MODIFIED: Tool Toggle Buttons with correct onClick and className logic +++ */}
+                    <button 
+                        className="send-button-standalone" 
+                        onClick={() => handleSendMessage(inputText)} 
+                        disabled={isProcessing || !inputText.trim()} 
+                        title="Send Message" 
+                        aria-label="Send message"
+                    >
+                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                            <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                        </svg>
+                        
+                    </button>
+
+                    {/* This div and its contents remain UNCHANGED and are preserved */}
                     <div className="tool-toggle-buttons-chatpage">
                         <button 
                             onClick={() => handleToolModeChange('web')}
-                           className={`tool-button-chatpage ${uiSelectedTool === 'web' ? 'active-tool' : ''}`}
+                            className={`tool-button-chatpage ${uiSelectedTool === 'web' ? 'active-tool' : ''}`}
                             title="Activate Web Search"
                             disabled={isProcessing}
                             aria-pressed={uiSelectedTool === 'web'}
@@ -646,20 +730,22 @@ const ChatPage = ({ setIsAuthenticated }) => {
                             disabled={isProcessing}
                             aria-pressed={uiSelectedTool === 'academic'}
                         >
-                             <FontAwesomeIcon icon={faBookOpen} /> {/* Changed to faBookOpen */}
+                                <FontAwesomeIcon icon={faBookOpen} />
                         </button>
                     </div>
-                    {/* +++ END OF TOOL TOGGLE BUTTONS DIV +++ */}
 
-
-                    
-                    <button id="sendChatMessageButton" onClick={handleSendMessage} disabled={isProcessing || !inputText.trim()} title="Send Message" aria-label="Send message">
+                    {/* This button and its logic remain UNCHANGED and are preserved */}
+                    {/* <button id="sendChatMessageButton" onClick={() => handleSendMessage(inputText)} disabled={isProcessing || !inputText.trim()} title="Send Message" aria-label="Send message">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
                             <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
                         </svg>
-                    </button>
+                    </button> */}
                 </footer>
+                { /* +++ END OF TOOL TOGGLE BUTTONS DIV +++ */}
 
+
+                    
+                
                 <HistoryModal isOpen={isHistoryModalOpen} onClose={closeHistoryModal} />
             </div>
         </div>

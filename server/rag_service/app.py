@@ -241,7 +241,7 @@ def add_document():
         faiss_handler.add_documents_to_index(user_id, documents)
         logger.info(f"Successfully processed and added document: {original_name} for user: {user_id}")
         
-        if os.path.exists(file_path): os.remove(file_path) # Cleanup successful processing
+       
 
         return jsonify({
             "message": f"Document '{original_name}' processed and added to index.",
@@ -251,7 +251,7 @@ def add_document():
         }), 200
     except Exception as e:
         logger.error(f"--- Add Document Error for file '{original_name}' ---", exc_info=True)
-        if os.path.exists(file_path): os.remove(file_path) # Cleanup on error too
+        
         return create_error_response(f"Failed to process document '{original_name}': {str(e)}", 500)
 
 

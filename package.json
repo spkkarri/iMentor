@@ -11,5 +11,8 @@
     "start:all": "concurrently --names \"NOTEBOOK,RAG,SEARCH,BACKEND,FRONTEND\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold,bgYellow.bold,bgCyan.bold\" \"npm:start:notebook\" \"npm:start:rag\" \"npm:start:search\" \"npm:start:backend\" \"npm:start:frontend\""
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
 }

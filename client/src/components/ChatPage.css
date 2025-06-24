@@ -1,4 +1,4 @@
-z/* client/src/components/ChatPage.css */
+/* client/src/components/ChatPage.css */
 
 /* === Dark Theme Variables === */
 :root {
@@ -300,169 +300,231 @@ body {
 .messages-area::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb); border-radius: 4px; }
 
 /* Individual Message Styling */
+/* === INTEGRATED Message & TTS Styles === */
+.message-container {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 5px;
+}
+/* .user-message-container {
+    The align-items property is now gone */
+/* } */
+.model-message-container {
+    align-items: flex-start;
+}
 .message {
-  display: flex;
-  max-width: 80%; /* Max width of a message bubble */
-  position: relative;
-  word-wrap: break-word;
-  flex-direction: column; /* Stack content and timestamp */
+    display: flex;
+    gap: 12px;
+    max-width: 80%;
 }
-.message.user {
-  align-self: flex-end;
-  align-items: flex-end; /* Align timestamp to the right */
+.user-message-container .message {
+    flex-direction: row-reverse;
 }
-.message.model {
-  align-self: flex-start;
-  align-items: flex-start; /* Align timestamp to the left */
+.message-icon {
+    display: none; /* This will hide the icons */
+}
+.model-message-container .message-icon {
+    background-color: #1c669f;
 }
 .message-content {
-  padding: 12px 18px;
-  border-radius: 18px;
-  font-size: 0.95rem;
-  line-height: 1.6;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  text-align: left; /* Ensure text aligns left within bubble */
+    padding: 12px 18px;
+    border-radius: 18px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    text-align: left;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
-.message.user .message-content {
-  background-color: var(--user-message-bg);
-  color: var(--user-message-text);
-  border-bottom-right-radius: 5px; /* Speech bubble tail */
+.user-message-container .message-content {
+    background-color: var(--user-message-bg);
+    color: var(--user-message-text);
+    border-bottom-right-radius: 5px;
 }
-.message.model .message-content {
-  background-color: var(--model-message-bg);
-  color: var(--model-message-text);
-  border-bottom-left-radius: 5px; /* Speech bubble tail */
+.user-message-container .message-content {
+    background-color: transparent; /* Remove the background */
+    padding: 0;                   /* Remove the padding */
+    box-shadow: none;             /* Remove the shadow */
+    color: var(--text-primary);   /* Make text color same as AI */
 }
-/* Markdown Styles within messages */
-.message-content p { margin: 0 0 0.6em 0; }
-.message-content p:last-child { margin-bottom: 0; }
-.message-content strong { font-weight: 600; }
-.message-content em { font-style: italic; }
-.message-content ul, .message-content ol { padding-left: 25px; margin: 0.5em 0; }
-.message-content li { margin-bottom: 0.3em; }
-.message-content a { color: var(--text-link); text-decoration: none; }
-.message-content a:hover { text-decoration: underline; }
-.message-content pre {
-  background-color: var(--code-bg);
-  border: 1px solid var(--code-border);
-  border-radius: 6px;
-  padding: 12px 15px;
-  overflow-x: auto;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-  font-size: 0.9rem;
-  margin: 1em 0;
-  white-space: pre;
-  color: var(--code-text);
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--code-bg);
+.tts-controls {
+    text-align: right;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 6px;
 }
-.message-content pre::-webkit-scrollbar { height: 6px; }
-.message-content pre::-webkit-scrollbar-track { background: var(--code-bg); }
-.message-content pre::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb); border-radius: 3px; }
-.message-content code { /* Inline code */
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-  font-size: 0.88rem;
-  background-color: rgba(255, 255, 255, 0.08);
-  padding: 0.2em 0.5em;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
+.tts-controls button {
+    background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem; padding: 2px; opacity: 0.7; transition: all 0.2s ease;
 }
-.message-content pre code { /* Code within pre block */
-  background-color: transparent;
-  padding: 0;
-  border: none;
-  font-size: inherit;
-  color: inherit;
+.message-content:hover .tts-controls button { opacity: 1; }
+.tts-controls button:hover { color: var(--text-primary); }
+.message-details {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    padding: 4px 15px;
+    max-width: 80%;
 }
-/* Citation Style */
-.message-content em:has(> span.citation-ref) {
-   font-style: normal;
-   display: block;
-   margin-top: 10px;
-   font-size: 0.8rem;
-   color: var(--text-secondary);
+.user-message-container .message-details { align-self: flex-end; text-align: right; }
+.model-message-container .message-details {
+    align-self: flex-start;
+    padding-left: 0; /* Remove the indentation */
 }
-/* .citation-ref {
-   /* Add specific styles if needed */
- 
+.message-details .message-timestamp { font-size: 0.95em; }
 
 
-.message-timestamp {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  margin-top: 6px;
-  padding: 0 5px; /* Add slight padding */
-}
-
-/* Loading/Error Indicators */
-.loading-indicator, .error-indicator {
-  text-align: center;
-  padding: 10px 20px;
-  font-size: 0.85rem;
-  font-style: italic;
-  color: var(--text-secondary);
-  flex-shrink: 0; /* Prevent shrinking */
-  margin: 5px 20px; /* Add margin */
-}
-.error-indicator {
-  color: var(--error-color);
-  background-color: var(--error-bg);
-  border: 1px solid var(--error-color);
-  border-radius: 4px;
-  font-style: normal;
-}
-.message-error { /* Style for message rendering errors */
-  color: var(--error-color);
-  font-style: italic;
-  text-align: center;
-  padding: 5px;
-  font-size: 0.8rem;
-}
-
-/* Input Area */
+/* Input Area Layout */
+/* === INTEGRATED Input Area & New Component Styles === */
 .input-area {
   display: flex;
-  align-items: center; 
-  padding: 10px 12px; /* Adjust padding as you like */
-  border-top: 1px solid var(--border-color);
-  background-color: var(--bg-header);
-  flex-shrink: 0;
-  gap: 8px; /* Space between textarea, tool button group, and send button */
+  align-items: center;
+  padding: 10px 15px;
+  /* border-top is now gone */
+  gap: 10px;
 }
 
-.input-area textarea {
-  flex-grow: 1;
-  padding: 10px 18px;
-  border: 1px solid var(--border-color);
-  border-radius: 20px; /* Pill shape */
+.autospeak-toggle {
+    display: flex;
+    align-items: center;
+    margin-right: 15px;
+}
+.autospeak-toggle label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.autospeak-toggle input[type="checkbox"] {
+    margin-right: 5px;
+    accent-color: var(--accent-blue);
+}
+
+
+
+.chat-input-wrapper {
+  flex-grow: 1; /* Takes up all available space */
+  position: relative; /* Anchor for the microphone */
+}
+
+/* The textarea inside the wrapper */
+.chat-textarea-embedded {
+  width: 100%;
+  background-color: transparent; /* Remove background */
+  color: var(--text-primary);
+  border: none; /* Remove all borders first */
+  border-bottom: 1px solid #4a4a4a; /* Add ONLY a bottom border */
+  border-radius: 0; /* No need for rounded corners on a line */
+  padding: 12px 18px 12px 48px;
   resize: none;
   font-size: 0.95rem;
   line-height: 1.5;
-  max-height: 120px; /* Limit height */
-  overflow-y: auto; /* Scroll if needed */
-  box-sizing: border-box;
-  font-family: inherit;
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-}
-.input-area textarea::-webkit-scrollbar { width: 6px; }
-.input-area textarea::-webkit-scrollbar-track { background: var(--scrollbar-track); }
-.input-area textarea::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb); border-radius: 3px; }
-.input-area textarea::placeholder { color: var(--text-secondary); opacity: 0.7; }
-.input-area textarea:focus {
+  max-height: 120px;
+  overflow-y: auto;
   outline: none;
-  border-color: var(--accent-blue);
-  background-color: var(--bg-input); /* Keep bg same on focus */
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.3);
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+    font-style: normal;
 }
-.input-area textarea:disabled {
-  background-color: #2a2a30;
-  opacity: 0.6;
+.chat-textarea-embedded:focus {
+  border-color: var(--accent-blue);
+}
+
+
+
+
+
+.chat-textarea:focus {
+  border-color: var(--accent-blue);
+}
+
+
+.chat-textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.chat-textarea-embedded::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-textarea-embedded::-webkit-scrollbar-track {
+  background: transparent; /* Makes the track inside the textarea invisible */
+}
+
+.chat-textarea-embedded::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 4px;
+  border: 2px solid #3c3c43; /* Creates a nice padding effect around the thumb */
+}
+
+
+
+
+mic-button,
+.send-button {
+  flex-shrink: 0; /* Prevents buttons from getting squished */
+  background: none;
+  border: none;
+  color: #a0a0a0; /* Use text-secondary variable */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  transition: all 0.2s ease;
+}
+
+.mic-button-embedded {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.mic-button-embedded.listening {
+  color: var(--accent-blue);
+}
+
+/* The standalone Send Button */
+.send-button-standalone {
+  flex-shrink: 0;
+  background-color: transparent; /* Remove background */
+  border: none;                   /* Remove border */
+  border-radius: 10px;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* When the button is NOT disabled (i.e., there is text) */
+.send-button-standalone:not(:disabled) {
+  background-color: transparent; /* Keep background transparent */
+  border-color: transparent;     /* Keep border transparent */
+  color: var(--accent-blue);     /* Make the ICON blue when active */
+}
+
+.send-button-standalone:disabled {
+  color: #6d6d6d;
+  opacity: 0.8;
   cursor: not-allowed;
 }
+@keyframes pulse-border {
+    0% { box-shadow: 0 0 0 0 rgba(244, 71, 71, 0.4); }
+    70% { box-shadow: 0 0 0 5px rgba(244, 71, 71, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(244, 71, 71, 0); }
+}
+
+
 
 /* RAG Toggle Styles */
 .rag-toggle-container {
@@ -505,7 +567,7 @@ body {
   color: #666; /* Muted color when disabled */
 }
 
-/* * Send Button */ */
+
  
 
 /* CONTAINER FOR THE TWO TOOL BUTTONS */
@@ -546,7 +608,7 @@ body {
 }
 
 
-input-area div.tool-toggle-buttons-chatpage button.tool-button-chatpage:hover:not(:disabled):not(.active-tool) {
+.input-area div.tool-toggle-buttons-chatpage button.tool-button-chatpage:hover:not(:disabled):not(.active-tool) {
     background-color: rgba(255, 255, 255, 0.05); 
 }
 /* HOVER state for an ALREADY ACTIVE tool button */

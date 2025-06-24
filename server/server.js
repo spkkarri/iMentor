@@ -5,6 +5,7 @@ dotenv.config();
 const analysisRoutes = require('./routes/analysis'); // <--- ADD THIS LINE
 const express = require('express');
 const cors = require('cors');
+const serveStatic = require('serve-static');
 const path = require('path');
 const { getLocalIPs } = require('./utils/networkUtils');
 const fs = require('fs');
@@ -40,6 +41,17 @@ const app = express();
 app.use(cors()); // Allows requests from frontend (potentially on different IPs in LAN)
 app.use(express.json());
 
+// Add this line to serve static files (like images, css, or our MP3s) from the 'public' directory
+// app.use(express.static(path.join(__dirname, 'public')));
+const serve = serveStatic(path.join(__dirname, 'public'), {
+    'index': false, // Don't look for index.html files
+    'setHeaders': (res, path) => {
+        // Set headers to allow for proper streaming and seeking
+        res.setHeader('Accept-Ranges', 'bytes');
+    }
+});
+app.use(serve)
+
 // --- Basic Root Route ---
 app.get('/', (req, res) => res.send('Chatbot Backend API is running...'));
 
@@ -47,11 +59,13 @@ app.get('/', (req, res) => res.send('Chatbot Backend API is running...'));
 app.use('/api/network', require('./routes/network')); // For IP info
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/audio', require('./routes/audio'));
+app.use('/api/internal', require('./routes/internal'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/files', require('./routes/files'));
-app.use('/api/syllabus', require('./routes/syllabus')); // <-- ADD THIS LINE
+app.use('/api/syllabus', require('./routes/syllabus')); 
 // Example: with other app.use() for routes
-app.use('/api/analyze', analysisRoutes); // <--- ADD THIS LINE
+app.use('/api/analyze', analysisRoutes); 
 
 
 

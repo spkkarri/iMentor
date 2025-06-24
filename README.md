@@ -1,107 +1,172 @@
-# Advanced AI Chatbot with RAG and Analysis Tools
+# 🚀 AI-Powered Learning & Document Analysis Platform
 
-This project is a sophisticated, multi-service chatbot application featuring a main **Node.js backend** that orchestrates tasks between a user-facing **React frontend** and specialized **Python microservices** for:
-
-* Retrieval-Augmented Generation (RAG)
-* Web Search
-* Advanced Document Analysis
+A full-stack, multi-agent AI application built to revolutionize learning and document comprehension. This platform combines multiple large language models (LLMs), a robust Retrieval-Augmented Generation (RAG) system, and specialized microservices into one seamless, interactive experience.
 
 ---
 
-## 📁 Project Architecture
+## ✨ Features
 
-Ensure the following directory structure, with both main folders placed side-by-side:
+### 💬 Multi-Modal & Voice-Enabled Chat
+- **Interactive Interface**: A responsive React frontend for real-time conversations.
+- **Voice I/O**: Full voice support with integrated **Speech-to-Text (STT)** for hands-free input and toggleable **Text-to-Speech (TTS)** for listening to AI responses.
+- **Multi-LLM Backend**: Dynamically switch between top-tier LLMs like **Google Gemini**, high-speed **Groq**, and local **Ollama** models.
+
+### 📚 Advanced Document Comprehension
+- **Retrieval-Augmented Generation (RAG)**: Upload PDF documents to build a custom, searchable knowledge base. The AI references your documents to generate precise, context-aware answers.
+- **Deep Document Analysis**:
+  - **FAQ Generation**: Automatically creates a list of questions and answers from document content.
+  - **Key Topics Extraction**: Summarizes and highlights major themes.
+  - **Mind Map Creation**: Visualizes document structure for better understanding.
+
+### 🧠 Agentic Tools & Capabilities
+- **Web Search Agent**: Autonomously pulls real-time information from the internet via DuckDuckGo when its internal knowledge is insufficient.
+- **Podcast Generator**: Converts entire documents into natural-sounding audio podcasts using `gTTS` and `FFmpeg`.
+
+### 🔁 Robust Chat & Session Management
+- **Persistent Chat History**: Save, view, and reload past conversations.
+- **Customizable System Prompts**: Tweak the AI's personality and behavior to fit your learning style.
+- **Chain-of-Thought & Source Citing**: The AI provides reasoning and cites sources from your documents for verifiable accuracy.
+
+---
+
+## 🏗️ Architecture Overview
+
+This project follows a **microservices architecture**, orchestrated from the root directory for modularity and scalability.
 
 ```
-/your_main_projects_folder/
-├── Notebook/                   # Python Analysis & Ollama-based Service
-│   └── backend/
-│
-└── Chatbot-geminiV3/           # Main Chatbot Application
-    ├── client/                 # React Frontend
-    ├── server/                 # Node.js Backend
-    │   ├── rag_service/        # Python RAG Service
-    │   └── search_service/     # Python Web Search Service
-    ├── setup.bat               # Automated Installer
-    ├── start-all.bat           # Automated Starter
-    └── package.json            # Script Runner
+chatbot-academics-project/
+├── client/             # React frontend (UI)
+├── server/             # Node.js backend (API, Auth)
+│   ├── rag_service/    # Python RAG service (FAISS-based)
+│   ├── search_service/ # Python web search agent
+│   ├── audio_service/  # Python podcast/audio generator
+├── Notebook/           # Python document analysis service
 ```
 
 ---
 
-## ⚙️ Prerequisites
+## 🛠️ Tech Stack
 
-Make sure you have the following installed:
-
-* [Git](https://git-scm.com/)
-* [Node.js](https://nodejs.org/) (v18.x or later)
-* [Python](https://www.python.org/) (v3.9 or later)
-* [MongoDB](https://www.mongodb.com/try/download/community) (local or MongoDB Atlas)
-* [Ollama](https://ollama.com/) (required for the Notebook/Analysis service)
-
----
-
-## 🛠️ Installation & Running the Project (Windows)
-
-This project includes **automated batch scripts** for quick setup and one-click launch.
+| Layer          | Technology                                       |
+|----------------|--------------------------------------------------|
+| **Frontend**   | React.js                                         |
+| **Backend**    | Node.js, Express.js                              |
+| **Microservices** | Python (Flask, Waitress)                   |
+| **AI Libraries** | LangChain, Sentence Transformers             |
+| **Database**   | MongoDB                                          |
+| **Vector DB**  | FAISS                                            |
+| **AI Providers** | Google Gemini, GroqCloud, Ollama             |
+| **Orchestration** | `concurrently` for parallel service startup |
 
 ---
 
-### 📅 Step 1: First-Time Setup (Automated)
+## 🔧 Setup & Installation
 
-Run the `setup.bat` script to automatically install all required global tools and project dependencies.
+### ✅ Prerequisites
 
-#### Instructions:
-
-1. **Open Command Prompt or PowerShell as Administrator.**
-2. Navigate to the `Chatbot-geminiV3` directory:
-
-   ```bash
-   cd path/to/Chatbot-geminiV3
-   ```
-3. Run the setup script:
-
-   ```bash
-   .\setup.bat
-   ```
-4. Copy `.env.example` to `.env` and add your required API keys and secrets.
+- **Node.js** (v18 or later)
+- **npm**
+- **Python** (v3.9–3.11 recommended)
+- **pip**
+- **MongoDB** (Running instance)
+- **[Optional] Ollama** (for local LLM support)
 
 ---
 
-### 🔄 Step 2: Running the Application (Automated)
+### 1. Clone the Repository
 
-After completing the setup, start the entire application using **one command.**
-
-#### Instructions:
-
-1. Open a **single terminal** in the `Chatbot-geminiV3` directory.
-2. Run the master start script:
-
-   ```bash
-   .\start-all.bat
-   ```
-
-This will start **all five services concurrently**, with each service's logs clearly labeled, for example:
-
-```
-[BACKEND] Server listening on port 5001
-[FRONTEND] Compiled successfully!
-[RAG] Serving on http://0.0.0.0:5002
-[SEARCH] Search service running on port 5003
-[NOTEBOOK] Serving on http://0.0.0.0:5000
+```bash
+git clone https://github.com/Hary5357c/chatbot-academics-project.git
+cd chatbot-academics-project
 ```
 
-#### Access the Application:
+---
 
-Open your browser and go to:
-**[http://localhost:3000](http://localhost:3000)**
+### 2. Configure Environment Variables
+
+- Navigate to the `server/` directory.
+- Copy the `.env.example` file:
+
+```bash
+cp server/.env.example server/.env
+```
+
+- Fill in your API keys and config values:
+  - `GEMINI_API_KEY`
+  - `GROQ_API_KEY`
+  - `MONGO_URI`
+  - And others as required
 
 ---
 
-### ❌ Stopping the Application
+### 3. Install Dependencies
 
-Press `Ctrl + C` in the terminal where `start-all.bat` is running to stop all services simultaneously.
+#### 🔹 Root (for concurrently)
+```bash
+npm install
+```
+
+#### 🔹 Backend (Node.js)
+```bash
+npm install --prefix server
+```
+
+#### 🔹 Frontend (React)
+```bash
+npm install --prefix client
+```
+
+#### 🔹 Python Microservices
+Repeat the following steps for each service:  
+`Notebook/backend`, `server/rag_service/`, `server/search_service/`, and `server/audio_service/`.
+
+```bash
+cd path/to/service
+python -m venv .venv         # Create virtual environment (optional)
+source .venv/bin/activate    # Activate it (use .venv\Scripts\activate on Windows)
+pip install -r requirements.txt
+```
 
 ---
 
-You're now ready to use the **Advanced AI Chatbot** with integrated RAG, web search, and document analysis!
+### 4. Start the Application
+
+From the **project root**, run:
+
+```bash
+npm run start-all
+```
+
+This will use `concurrently` to spin up:
+
+- Frontend (React)
+- Main Backend (Node.js)
+- RAG Service
+- Search Service
+- Audio Service
+- Notebook/Analysis Service
+
+🟢 The platform will be live at:  
+**http://localhost:3000**
+
+---
+
+## 🧪 Example Use Cases
+
+- Learn from custom textbooks, research papers, or notes.
+- Generate structured summaries and mind maps for study.
+- Convert academic documents into audio formats for passive learning.
+- Ask complex, contextual questions and get AI-backed answers.
+
+---
+
+## 📫 Contact
+
+For questions, feature requests, or contributions:
+
+📧 Email: [kurmapuhsai@gmail.com]  
+🐙 GitHub: [github.com/Hary5357c](https://github.com/Hary5357c)
+
+---
+
+

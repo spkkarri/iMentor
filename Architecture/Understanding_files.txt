@@ -1,0 +1,446 @@
+Understanding: server/server.js (The Core Orchestrator)
+1. High-Level Purpose
+This file is the central nervous system of the entire backend application. It does not perform specific AI or business logic itself. Instead, its primary role is to initialize, configure, and manage all the different parts of the backend system. It acts as the main entry point and the "conductor" that ensures all other services and routes are properly started and connected.
+2. Key Responsibilities & Logic
+A. API Gateway & Route Management:
+This file uses Express.js (app = express()) to create the main web server.
+Its most important function is to mount the route handlers from the ./routes/ directory. Lines like app.use('/api/chat', require('./routes/chat')); tell the application: "When a request comes in for /api/chat, delegate all handling of that request to the chat.js file."
+This creates a clean, modular architecture where the logic for each feature (chat, upload, auth) is kept in its own separate file.
+B. Configuration & Startup Logic:
+The configureAndStart() function is the master startup sequence.
+Environment-Aware: It uses the dotenv package to load sensitive information (like API keys) and configurations (like database URIs) from a .env file.
+User-Friendly Prompts: If critical information like MONGO_URI or PYTHON_RAG_SERVICE_URL is not found in the environment, the server doesn't crash. Instead, it interactively prompts the user in the console to provide the information. This makes first-time setup much easier.
+Critical Checks: It performs a hard-stop check for the GEMINI_API_KEY, exiting immediately if it's not set, which prevents the application from running in a broken state.
+C. Service Health Checks:
+The checkRagService() function is a crucial piece of system resilience.
+Before the server fully starts, it sends an HTTP request to the Python RAG microservice's /health endpoint.
+This proactively checks if a critical dependency is running. If the RAG service is down, it prints a clear warning to the user, explaining which features will be unavailable.
+D. Database & File System Management:
+Database Connection: It initiates the connection to MongoDB via the connectDB() function.
+Directory Management: The ensureServerDirectories() function checks if essential folders like /assets and /backup_assets exist, and creates them if they don't. This prevents errors later on.
+Asset Cleanup: It calls performAssetCleanup(), suggesting a startup routine that backs up or cleans out old files to ensure a fresh start for user sessions.
+E. Error Handling & Process Management:
+Centralized Error Handling: The app.use((err, req, res, next) => ...) block is a global "safety net." If any error occurs in any of the route handlers, it will be caught here, logged, and a clean, standardized JSON error message will be sent to the client.
+Graceful Shutdown: The code listens for system signals (SIGINT, SIGTERM, which are triggered by Ctrl+C). When a signal is received, the gracefulShutdown function is called. This ensures that the HTTP server stops accepting new requests and the MongoDB connection is closed properly before the application exits, preventing data corruption.
+3. Role in the Overall Architecture
+The server.js file is the Orchestrator. It doesn't handle the specifics of a chat conversation or a file upload. Its job is to set up the stage, make sure all the actors (the routes and microservices) are ready, and provide them with the resources they need (like a database connection). It is the foundation upon which all other backend functionality is built.
+
+
+
+Understanding: server/routes/chat.js (The Conversational Brain)
+1. High-Level Purpose
+This file is the brain and central processing unit for all conversational interactions in the application. It acts as a sophisticated "switchboard operator" that receives a user's message and decides which tools to use, which AI models to call, and how to combine all the information to generate the most intelligent and contextually-aware response. It also manages the persistence of chat history and user sessions.
+2. Key API Endpoints
+This file defines four main API endpoints:
+POST /api/chat/message: This is the main workhorse of the entire application. The React client sends all user chat messages to this endpoint. It triggers the complex pipeline of RAG, tool use, and LLM calls.
+POST /api/chat/rag: A specialized diagnostic endpoint. It allows the client to directly query the RAG service for a given message without involving an LLM. This is useful for testing or showing the user what documents are relevant to their query.
+GET /api/chat/sessions: Fetches a summary list of all past chat sessions for the authenticated user, sorted by the most recently updated.
+GET /api/chat/session/:sessionId: Retrieves the full message history for a single, specific chat session, allowing a user to resume a previous conversation.
+3. The Master Chat Pipeline (POST /message)
+The logic inside the /message endpoint is the most critical part of the project. It follows a precise, multi-step pipeline:
+Input & Initialization:
+It receives the user's query, the history, a sessionId, and, importantly, a toolMode (web_explicit, academic, or default) and the desired llmProvider (Groq, Ollama, Gemini).
+It performs security and sanity checks (user is authenticated, query is not empty).
+It saves the user's incoming message to the database immediately using saveChatMessage.
+Baseline RAG Context Retrieval (Always On):
+It always calls queryPythonRagService first. This attempts to find relevant information from the user's uploaded documents for every single message.
+It evaluates if the returned context is "meaningful" to decide if the user's documents already contain a good answer. This result is stored in isContextMeaningful.
+Tool Selection Logic (The First if/else Block):
+Based on the toolMode from the client, it decides which primary tool to use:
+If academic_search: It calls the searchAcademicSources service to get data from academic papers.
+If web_search_explicit: It unconditionally calls the performFullWebSearch pipeline, which first uses an LLM to refine the search query and then gets results from the web search service.
+If default_behavior (no specific tool selected): It enters a conditional web search mode. It will only perform a web search if the RAG context from Step 2 was not meaningful, OR if the user explicitly uses a keyword like "search web for".
+Context Combination:
+This is a crucial step. It intelligently combines the context from the primary tool (Web/Academic search) with the baseline context from the RAG service.
+It creates a single, consolidated block of text (combinedContextForLLM) to be sent to the AI. This ensures the LLM has all possible information at its disposal.
+It also truncates the context if it exceeds a maximum length (MAX_CONTEXT_LENGTH) to avoid token limits.
+Dynamic Instruction Generation:
+It generates a dynamic, specific instruction for the LLM (llmInstruction) based on which tool was used. For example, if academic search was used, it instructs the LLM to cite the results. This is a powerful form of prompt engineering.
+LLM Provider Selection (The Second if/else Block):
+Based on the llmProvider from the client, it routes the request to the correct AI model.
+It carefully formats the final payload (history, context, query, instructions) to match the specific API requirements of Groq, Ollama, or Gemini.
+It calls the appropriate service to get the final generated answer.
+Finalization:
+It saves the final AI-generated response to the database, associating it with the correct user and session.
+It packages everything—the final reply, a detailed thinking log, any references from the RAG service, and the session_id—into a single JSON object and sends it back to the React client.
+4. Helper Functions & Database Interaction
+queryPythonRagService(userId, query): This function's job is to abstract away the complexity of calling the Python RAG microservice. It constructs the URL, makes the axios.post call, handles potential network errors gracefully, and returns a clean, predictable { context, references } object.
+saveChatMessage(...): This function handles all database interactions. It uses ChatHistory.findOneAndUpdate with the upsert: true option. This is a very efficient database pattern: it updates an existing session document if one is found, or creates a new one if it's the first message in a session.
+5. Role in the Overall Architecture
+The chat.js file is the Primary Logic Orchestrator. While server.js is the conductor that starts the orchestra, chat.js is the lead musician who reads the sheet music (the user's query) and tells each section (RAG, Web Search, LLMs) when and how to play. It perfectly embodies the "Orchestrator" pattern by connecting:
+The Client (via Express routes).
+The Database (via the ChatHistory model).
+Internal Microservices (Python RAG).
+External and Internal Services (Gemini, Groq, Web Search, Academic Search).
+
+
+Understanding: server/routes/upload.js (The RAG Ingestion Gateway)
+1. High-Level Purpose
+This file is responsible for the entire lifecycle of a file upload. Its purpose is to securely receive files from an authenticated user, validate them, save them to a structured file system, record their metadata in the database, and—most importantly—trigger the AI processing pipeline that makes the file's content searchable by the RAG system. It is the bridge between the user's raw data and the application's "knowledge base."
+2. Core Components & Logic
+A. Configuration and Validation (multer):
+multer is the key technology here. It's an Express.js middleware specifically designed for handling multipart/form-data, which is used for file uploads.
+Dynamic Storage Engine (storage): This is highly sophisticated.
+It first checks that a user is authenticated (req.user).
+It creates a unique folder for each user based on their username (e.g., ./assets/john_doe/).
+It then creates subfolders based on file type (e.g., ./assets/john_doe/docs/ or ./assets/john_doe/images/), keeping the server's file system organized.
+It generates a unique, non-conflicting filename for each uploaded file on the server by prepending a timestamp (e.g., 1678886400000-My_Report.pdf), preventing accidental overwrites.
+Strict File Filtering (fileFilter): This provides security and control.
+It rejects any upload attempt if the user is not authenticated.
+It maintains an allow-list of both MIME types and file extensions (ALLOWED_MIME_TYPES_MAP, ALLOWED_EXTENSIONS).
+A file is only accepted if both its MIME type and extension are on the approved lists, providing a two-layered defense against invalid or malicious file types.
+Resource Limits: It sets a hard limit on file size (MAX_FILE_SIZE_BYTES) to prevent users from uploading excessively large files that could overwhelm the server or the RAG processing pipeline.
+B. The Main Upload Pipeline (POST /)
+This endpoint handles the entire process step-by-step:
+Authentication: It first runs the tempAuth middleware to ensure a valid user is making the request.
+Multer Execution: It then invokes the upload.single('file') middleware, which does the heavy lifting: it processes the incoming data stream, runs the fileFilter, saves the file to the location determined by the storage engine, and attaches the file's details to the req.file object.
+Error Handling: It has detailed error handling for all multer-related issues, providing clear, user-friendly error messages for common problems like "File too large" or "Invalid file type."
+Database Metadata Management (The "Brain" of the operation):
+This is a critical, robust piece of logic. After a file is physically saved, the code interacts with the UserFile MongoDB collection.
+It first checks if the user has previously uploaded a file with the same name.
+If YES (Update): It updates the existing database record with the new file's details. Crucially, it then deletes the old physical file from the server, preventing orphaned files and wasted disk space.
+If NO (Create): It creates a new document in the UserFile collection, storing all relevant metadata: the user's ID, the original filename, the unique server filename, the file path, size, and MIME type.
+Database Failure Cleanup: If the database operation fails for any reason, the code enters a "rollback" state. It deletes the just-uploaded physical file from the server to ensure the system remains in a consistent state (no physical files without a corresponding database record).
+Asynchronous RAG Triggering (The "Handoff"):
+Once the file is saved and its metadata is in the database, it calls the triggerPythonRagProcessing function.
+This function sends an HTTP POST request to the Python RAG service's /add_document endpoint. It tells the Python service: "A new file is ready for you at this file_path. Please process it for this user_id."
+This call is made asynchronously and the Node.js server does not wait for it to finish (.then().catch()). This is an excellent design choice. It allows the Node.js server to immediately return a "Success!" message to the user, while the potentially time-consuming AI processing (chunking, embedding) happens in the background.
+3. Role in the Overall Architecture
+The upload.js file is the Ingestion and Processing Gateway. It serves as the formal entry point for all external knowledge into the system. Its role is to:
+Guard the system by validating and sanitizing all incoming files.
+Organize the files on the server's disk in a structured and user-specific way.
+Catalog every file by recording its metadata in the central MongoDB database.
+Delegate the AI-specific work by handing off the file path to the specialized Python RAG microservice for background processing.
+This separation of concerns—where Node.js handles the web request and file management, and Python handles the AI processing—is a perfect example of a well-implemented microservice architecture.
+
+
+
+Understanding: server/middleware/authMiddleware.js (User Context Provider)
+1. High-Level Purpose
+This file's sole purpose is to identify and validate the user making an API request. It acts as a "gatekeeper" for protected routes. Its job is to inspect incoming requests, determine which user they belong to, and attach that user's information to the request object (req.user) so that subsequent route handlers know who they are serving.
+2. Key Responsibilities & Logic
+Middleware Function (tempAuth): The code defines a function that conforms to the Express.js middleware pattern ((req, res, next)). This allows it to be "plugged into" the request-response cycle before the main route logic is executed.
+Header-Based Identification: It uses a temporary and insecure method for identifying the user. It expects the client to send a custom HTTP header, X-User-ID, containing the user's unique MongoDB _id. The file's comments correctly identify this as insecure and for debugging only.
+Strict Validation:
+If the X-User-ID header is missing entirely, it immediately stops the request with a 401 Unauthorized error. It does not proceed.
+It takes the provided ID and queries the User collection in the database (User.findById(userId)).
+If no user is found for that ID, it also stops the request with a 401 Unauthorized error.
+It handles potential database errors, such as an invalid ID format (CastError), by returning a 400 Bad Request.
+Attaching User Context: If the user is successfully found, it attaches the entire user document (excluding the password, for security) to the req.user object.
+Passing Control: Finally, it calls next(), which passes control to the next middleware in the chain or to the final route handler (e.g., the logic inside chat.js or upload.js).
+3. Role in the Overall Architecture
+This middleware is the Authentication Layer. It is the component that turns an anonymous HTTP request into an authenticated, user-specific one. By placing this middleware in front of your routes (router.post('/', tempAuth, ...)), you ensure that no unauthenticated traffic can access sensitive operations like uploading files or retrieving chat history. The req.user object it creates is critical for the rest of the application, as it's used to:
+Create user-specific folders for uploads (upload.js).
+Associate chat messages with a specific user (chat.js).
+Isolate data so one user cannot see another's files or chats.
+
+
+
+Understanding: server/models/ChatHistory.js (The Conversation Data Blueprint)
+1. High-Level Purpose
+This file defines the database schema for storing all conversational data. It acts as a blueprint, telling the application (and the MongoDB database) exactly what a "chat history" document should look like, what fields it must contain, and what data types those fields should have. This ensures data consistency and integrity.
+2. Key Responsibilities & Logic
+Mongoose Schema Definition: It uses mongoose, the standard Object-Document Mapper (ODM) for Node.js and MongoDB, to define the structure.
+Nested Schemas for Organization: The schema is brilliantly structured using nested schemas for clarity and maintainability:
+MessagePartSchema: The most granular level. It defines a single part of a message, containing just text. This structure is inherited from the Gemini API and allows for future multi-modal parts (e.g., images) to be added easily.
+MessageSchema: Defines a single message object within a conversation. It contains:
+role: A critical field that must be either 'user' or 'model'.
+parts: An array of MessagePartSchema objects.
+timestamp: Automatically records when the message was created.
+references, thinking, provider: Optional fields to store rich metadata for AI-generated responses.
+ChatHistorySchema: The top-level document schema. This is what is actually stored as a single document in the MongoDB collection. It represents one entire chat session and contains:
+userId: A reference to the User model, linking the chat to a specific user. This is indexed for fast lookups.
+sessionId: A unique string (like a UUID) that identifies this specific conversation. This is also indexed and unique, preventing duplicate sessions.
+messages: An array containing all the MessageSchema objects for that conversation.
+createdAt and updatedAt: Timestamps to track the session's lifecycle.
+Data Integrity: By using required: true and enum constraints, the schema enforces data rules at the application level, preventing malformed data from being saved to the database.
+Model Creation: The final line, mongoose.model('ChatHistory', ChatHistorySchema), compiles the schema into a usable Mongoose model. This model is an object that provides the application with methods to interact with the chathistories collection in MongoDB (e.g., ChatHistory.find(), ChatHistory.findOne(), ChatHistory.findOneAndUpdate()).
+3. Role in the Overall Architecture
+This model is the Data Persistence Layer for Conversations. It is the "memory" of the application. The chat.js route handler uses this model directly to:
+Write: Save new user and model messages to the database.
+Read: Fetch past conversations for a user.
+Update: Modify existing chat sessions.
+
+
+
+Understanding: server/rag_service/app.py (The RAG Knowledge Engine)
+1. High-Level Purpose
+This file defines a dedicated, standalone Python web service whose sole purpose is to handle all tasks related to creating, managing, and querying a vector-based knowledge base. It is a specialized AI worker that receives commands from the Node.js orchestrator. It uses the Flask web framework to expose API endpoints that allow the orchestrator to tell it which documents to learn from and what information to retrieve.
+2. Key Responsibilities & Logic
+A. Initialization & Global State Management (Crucial for Performance):
+Singleton Embedding Model: The most important design choice here is the one-time initialization of the embedding model. The code calls faiss_handler.get_embedding_model() at the top level of the script, before the server even starts. This is critical because loading a large AI model from disk into memory is slow and resource-intensive. By doing it only once when the service starts, every subsequent API request can use the already-loaded model instantly, making the service fast and efficient.
+Pre-loading Default Index: The initialize_global_components function also attempts to pre-load the default FAISS vector index into memory. This further improves the performance of queries that rely on the general knowledge base.
+Robust Startup Sequence: The if __name__ == '__main__': block defines the server's startup process. It ensures all necessary components are initialized before it starts listening for requests. It also smartly chooses between the Flask development server (for debugging) and a more production-ready server like waitress.
+B. Core API Endpoints:
+This service exposes three main API endpoints for the Node.js backend to call:
+GET /health: A vital endpoint for system monitoring. The Node.js server calls this on startup to verify that the RAG service is running and that its critical components (like the embedding model and default index) are loaded and healthy. It provides a detailed JSON response about the service's status.
+POST /add_document: This is the "learning" endpoint.
+The Node.js upload.js route calls this after a user uploads a file.
+It receives a user_id and a file_path pointing to the file on the server's disk.
+It uses the file_parser module to read the document and extract its text content.
+It then uses file_parser.chunk_text to split the long text into smaller, manageable pieces, which is essential for effective RAG.
+Finally, it calls faiss_handler.add_documents_to_index, which takes these text chunks, converts them into numerical vectors using the embedding model, and saves them into a user-specific FAISS index file.
+It cleans up by deleting the temporary file from the disk after processing.
+POST /query: This is the "retrieval" endpoint.
+The Node.js chat.js route calls this endpoint with a user's query.
+It receives the query, a user_id, and a k value (how many results to find).
+It then calls the master retrieval function, faiss_handler.query_index. This is a sophisticated function that:
+Queries the default (general knowledge) index.
+If a user_id is provided, it also queries that user's specific index.
+It then intelligently combines and ranks the results from both sources.
+It formats the retrieved document chunks into a clean context string to be sent back to the Node.js server (which will then pass it to the LLM).
+It also creates a references array containing metadata about the source documents, which can be displayed in the UI.
+3. Role in the Overall Architecture
+This app.py is a perfect example of a specialized microservice. It has a very narrow and well-defined set of responsibilities:
+Abstraction of Complexity: It hides all the complex Python-specific AI logic (Flask, FAISS, Sentence Transformers, LangChain) from the Node.js server. The Node.js server doesn't need to know how a PDF is parsed or how a vector search is performed; it just needs to know how to call the /add_document and /query endpoints.
+The Knowledge Core: This service is the long-term memory for all document-based knowledge in the system. It is responsible for both ingesting this knowledge and retrieving it on demand.
+Independent Worker: It runs as a completely separate process from the Node.js server. This means it can be developed, updated, and even restarted independently without affecting the main application, which is a key benefit of a microservice architecture.
+
+
+
+
+Understanding: server/rag_service/faiss_handler.py (The Vector Database Engine)
+1. High-Level Purpose
+This file is a specialized handler module that encapsulates all direct interactions with the FAISS vector index. Its purpose is to manage the entire lifecycle of vector data: creating embeddings, building and saving indexes, adding new data, and performing high-speed similarity searches. It abstracts away the complex, low-level details of vector math and file I/O, providing the app.py service with clean, high-level functions like add_documents_to_index and query_index.
+2. Key Responsibilities & Logic
+A. Embedding Model Management (get_embedding_model):
+Singleton Pattern: Like app.py, this module ensures the AI embedding model is loaded only once using a global variable (embedding_model).
+Hardware Acceleration: It intelligently checks for a GPU (faiss.get_num_gpus() > 0) and configures the HuggingFaceEmbeddings model to use 'cuda' if available, falling back to 'cpu' otherwise. This is a critical performance optimization.
+Embedding Dimension Cache: The get_embedding_dimension function cleverly calculates the model's vector dimension (e.g., 768) by running a "dummy" query and then caches the result in a global variable (_embedding_dimension). This avoids re-calculating it repeatedly.
+B. Index Lifecycle Management (load_or_create_index):
+This is the most complex and robust function in the file. It's a "smart loader" for FAISS indexes.
+In-Memory Caching: It maintains a loaded_indices dictionary to keep frequently accessed indexes in memory, avoiding slow disk reads.
+Dimension Mismatch Detection (CRITICAL): This is its most important feature. Before loading an index from disk, it checks if the dimension of the saved index (index.index.d) matches the dimension of the currently loaded embedding model. If they don't match (e.g., if you switched to a new model), the old index is incompatible. The code correctly identifies this, deletes the old, invalid index files, and creates a fresh, empty one. This prevents catastrophic application-level errors.
+Corruption Handling: It uses try...except blocks to catch pickle errors, which can happen if an index file is corrupted. In this case, it also deletes the bad index and creates a new one.
+C. Adding Data to the Index (add_documents_to_index):
+This function takes a list of LangchainDocument objects.
+It first uses the embedding model to convert the text of each document chunk into a numerical vector (embedder.embed_documents(texts)).
+It generates a unique UUID for each chunk. FAISS requires 64-bit integer IDs, so it converts these UUIDs to integers for the index itself.
+It adds the vectors and their integer IDs to the raw FAISS index (index.index.add_with_ids).
+It then saves the original text content and metadata into LangChain's docstore and creates a mapping from the integer ID in the index to the string UUID in the docstore (index_to_docstore_id). This is how it reconnects a found vector back to its original text.
+Finally, it calls save_index to persist the updated index to disk.
+D. Querying the Index (query_index):
+This is the high-performance retrieval engine.
+Combined Search Strategy: It's designed to query both the specific user's index and the general-purpose default index.
+It runs similarity_search_with_score on each index, which takes the user's text query, embeds it, and then efficiently finds the k most similar vectors in the FAISS index.
+Deduplication and Ranking: After getting results from both indexes, it has a clever deduplication step. It creates a dictionary keyed by the document's content to ensure the same text chunk isn't returned twice (even if found in both indexes). It then sorts all unique results by their similarity score to return only the absolute best matches to the app.py service.
+3. Role in the Overall Architecture
+This faiss_handler.py module is the Low-Level Vector Storage and Retrieval Layer. It is the deepest part of the AI stack. Its relationship to the other components is:
+It is a servant to app.py. app.py gives it high-level commands, and this module executes the complex, nitty-gritty details.
+It is the direct user of the config.py file, from which it gets settings like the model name and index paths.
+It is the master of the FAISS library and the on-disk .faiss and .pkl files, managing all read/write operations.
+The extreme attention to detail, especially in handling dimension mismatches, caching, and error recovery, makes this module the robust and reliable foundation upon which the entire RAG functionality rests.
+
+
+
+Understanding: server/rag_service/config.py (The RAG Service Control Panel)
+1. High-Level Purpose
+This file's purpose is to centralize all configuration variables for the Python-based RAG service. It acts as a single, unified "source of truth" for settings that control the behavior of the AI models, file paths, and server parameters. By keeping all these settings in one place, it makes the entire microservice easier to manage, modify, and understand.
+2. Key Responsibilities & Logic
+A. Centralized Configuration:
+The primary design pattern is to define all configurable parameters as uppercase global variables. This is a standard Python convention that makes them easily recognizable as constants.
+Environment Variable Overrides: For every setting, it follows a robust pattern: os.getenv('ENV_VAR_NAME', 'default_value'). This means it will first try to get the value from a system environment variable, and if it's not found, it will fall back to a sensible default value. This makes the service highly configurable for different environments (development, testing, production) without changing the code.
+B. Key Configuration Groups:
+The file neatly organizes settings into logical groups:
+Path Management: It cleverly determines the absolute path of the main server directory (SERVER_DIR). This is crucial because it allows all other file paths (like for the FAISS indexes) to be defined relative to this base path, making the application portable and preventing errors caused by running the script from different locations.
+Embedding Model Configuration: It defines which AI model to use for converting text to vectors (EMBEDDING_MODEL_NAME). This is arguably the most important setting, as changing it directly impacts the "brain" of the RAG system.
+LLM Configuration: It specifies the connection details for the generative AI model (e.g., OLLAMA_BASE_URL and OLLAMA_MODEL) that will be used for final answer generation (likely by a higher-level module that this config also serves).
+FAISS & RAG Configuration: It defines the location of the vector indexes (FAISS_INDEX_DIR), the name of the default index (DEFAULT_INDEX_USER_ID), and a key performance parameter (RAG_CHUNK_K), which controls how many context chunks are retrieved during a query.
+Text Splitting Configuration: It centralizes the CHUNK_SIZE and CHUNK_OVERLAP parameters, ensuring that documents are chunked consistently across the application (both when creating the default index and when processing user uploads).
+Analysis Prompts: It contains a dictionary of pre-written ANALYSIS_PROMPTS. This is an excellent practice for prompt engineering, as it keeps the complex instructions for the LLM separate from the application logic, making them easy to view and tweak.
+Logging Setup: It includes a setup_logging() function that provides a standardized logging format for the entire microservice. This is essential for debugging and monitoring the service's health and activity.
+3. Role in the Overall Architecture
+The config.py module is the Immutable Foundation of the Python microservice. It doesn't do anything on its own, but it informs every other module what to do. Its role is:
+To Decouple Logic from Settings: Modules like faiss_handler.py and app.py don't have hardcoded model names or file paths. Instead, they import config and use config.EMBEDDING_MODEL_NAME or config.FAISS_INDEX_DIR. This means you can change the entire behavior of the RAG service (e.g., swap to a different AI model) by changing only one line in this config file, without touching the complex logic in the other files.
+To Provide Consistency: By defining CHUNK_SIZE and other parameters here, it ensures that all parts of the application use the same values, which is critical for the RAG system to function correctly. If documents were chunked with one size and queries were processed with another, the results would be unreliable.
+To Improve Readability and Maintenance: Anyone trying to understand or modify the RAG service can start by reading this file to get a high-level overview of all its key parameters.
+
+
+
+
+Understanding: server/search_service/app.py (The Web Search Microservice)
+1. High-Level Purpose
+This file defines a lightweight, highly-specialized Python microservice whose sole responsibility is to perform live web searches. It acts as an abstraction layer over a specific search engine library (duckduckgo-search), providing a simple, stable API endpoint for the main Node.js orchestrator to use whenever it needs information from the internet.
+2. Key Responsibilities & Logic
+A. API Endpoint (POST /search):
+The service exposes a single endpoint, /search, which accepts POST requests. This is the only way for other services to interact with it.
+Strict Input: It expects a JSON payload with a single required key: "query". It includes error handling to return a 400 Bad Request if the payload is missing or malformed.
+Core Search Functionality: The heart of the service is the line ddgs.text(query, max_results=10). It uses the imported duckduckgo-search library to execute a text-based web search for the provided query, retrieving a maximum of 10 results.
+Standardized Output: It formats the results into a clean JSON object, {'results': search_results}, ensuring a predictable response structure for the calling service (the Node.js backend).
+Robust Error Handling: It wraps the entire search logic in a try...except block, logging any unexpected errors on the server side while returning a generic 500 Internal Server Error to the client. This prevents internal implementation details from leaking.
+B. Production-Ready Server:
+The if __name__ == '__main__': block uses waitress, a production-quality WSGI server, to run the Flask application. This is a significant step up from Flask's built-in development server, indicating that the service is intended to be stable and handle concurrent requests efficiently.
+It binds to host='0.0.0.0', which makes it accessible on the local network, allowing the main Node.js server (which could be running on the same machine or a different one in a Docker environment) to connect to it.
+3. Role in the Overall Architecture
+This search_service is a textbook example of a Specialized Worker Microservice. Its role is clear and distinct:
+Single Responsibility: It does one thing and does it well: web searches. This adheres perfectly to the Single Responsibility Principle of good software design.
+Abstraction: It hides the implementation details of how a web search is performed. The Node.js chat.js module doesn't need to know or care that it's using the duckduckgo-search library. It just knows it can send a query to http://localhost:5003/search. If you ever wanted to switch to a Google Search API or a Bing Search API, you would only need to change this one app.py file, and the rest of your application would continue to work without any modifications.
+Servant to the Orchestrator: This service is a "servant" that is called upon by the chat.js "brain" when its tool-selection logic determines that a web search is the appropriate action to take for a user's query.
+
+
+
+
+
+
+Understanding: The Academic Search Service Module (academicSearchService.js & its dependencies)
+1. High-Level Purpose
+This is not a separate microservice, but a cohesive Node.js module that acts as a powerful meta-search engine for academic papers. Its sole purpose is to provide a single, unified function (searchAcademicSources) that can query multiple scholarly databases simultaneously, then intelligently merge, de-duplicate, and rank the results before returning a clean, consolidated list. It is the application's dedicated "research assistant."
+2. Architecture & Key Design Patterns
+This module is a masterclass in good software design, demonstrating several key patterns:
+Orchestrator/Worker Pattern: The academicSearchService.js file acts as the Orchestrator. It doesn't talk to any external APIs itself. Instead, it commands the three "Worker" modules (openAlexService.js, coreService.js, arxivService.js), which handle the specific API interactions.
+Adapter Pattern: Each worker module contains a transform...ToMcp function. This is the Adapter Pattern. It takes the unique, API-specific data format from each source (OpenAlex, CORE, arXiv) and transforms it into a single, consistent internal format (a Master Canonical Paper or "MCP" format). This decouples the main application from the messy details of the external APIs.
+Parallel Execution for Performance: The orchestrator uses Promise.all to call all three worker services simultaneously. This is a massive performance gain, as the total time to get results is determined by the slowest service, not the sum of all of them.
+Resilient Design: Each API call within Promise.all has its own .catch() block that returns an empty array []. This ensures that if one service (e.g., CORE) is down or returns an error, it doesn't crash the entire academic search operation.
+3. Component Breakdown
+A. academicSearchService.js (The Meta-Search Orchestrator)
+This file manages the entire workflow after being called by chat.js.
+Parallel Fetching: Dispatches search requests to all three data sources at once.
+Aggregation: Collects all the results (now in the standardized MCP format) into a single large array.
+De-duplication: This is a sophisticated and crucial step. It iterates through all results and ensures each paper appears only once. It intelligently prioritizes de-duplication by:
+First, using the paper's DOI (Digital Object Identifier), which is a unique ID.
+If a DOI is not available, it falls back to a normalized title (lowercase, punctuation removed), which is a very effective way to match identical papers from different sources.
+Sorting & Ranking: It sorts the final, unique list of papers based on user-specified criteria like year or citations. The relevance sort is particularly smart, attempting to create a weighted score since relevance scores from different APIs are not directly comparable.
+Limiting: It takes the final, sorted list and returns only the top limit results, providing a concise, high-quality context for the LLM.
+B. The "Worker" Modules (openAlexService.js, coreService.js, arxivService.js)
+Each of these files is a specialized adapter for a single academic database.
+openAlexService.js:
+API Type: Modern REST API.
+Pagination: Uses an efficient cursor-based method (next_cursor).
+Unique Challenge: OpenAlex returns abstracts in a complex "inverted index" format. This module contains a dedicated helper function, reconstructAbstract, to correctly rebuild the abstract text, showing a deep integration with the source API.
+coreService.js:
+API Type: Standard REST API with an API Key.
+Pagination: Uses a traditional page number and limit based method.
+Note: The API key appears to be hardcoded. For production, this should be moved to a .env file.
+arxivService.js:
+API Type: An older style of API that returns data in XML format.
+Unique Challenge: This module must use the xml2js library to parse the raw XML text into a usable JavaScript object before it can be transformed. This highlights the power of the Adapter pattern in handling very different data sources.
+Pagination: Uses an offset-based method (start and max_results).
+4. Role in the Overall Architecture
+The Academic Search Service module is the application's Scholarly Research Arm. It is a powerful, internal tool that the chat.js "brain" can call upon whenever a user's query requires deep, factual, or citable information from scientific literature. It completely abstracts away the immense complexity of fetching and normalizing data from three disparate, quirky APIs, providing the rest of the application with a clean, simple, and powerful function.
+
+
+Understanding: Notebook/backend/app.py (The Document Analysis Service)
+1. High-Level Purpose (In the Integrated System)
+This file defines a specialized Python microservice whose sole purpose is to perform deep, structured analysis of documents. In the main project's architecture, this service will not act as a full application. Instead, it is a dedicated "Analysis Worker" that the central Node.js orchestrator will call when it needs to generate high-level content like FAQs, topic summaries, or mindmaps from a given file.
+2. Core Logic to be Integrated (/analyze endpoint)
+The most valuable and essential part of this service is the logic contained within the POST /analyze endpoint. This is the functionality we will keep and integrate.
+Functionality: It accepts a full_file_path to a document on the server and an analysis_type (e.g., faq, topics).
+Prompt Engineering: It uses a dictionary of pre-defined prompts from a shared configuration file (unified_config.ANALYSIS_PROMPTS) to instruct an LLM on how to perform a specific analysis task.
+AI Execution: It calls a core AI function (ai_core.generate_document_analysis_from_path) which reads the document's text and uses an LLM to generate the structured content (e.g., a list of FAQs).
+Output: It returns the generated content in a clean JSON format, {"content": "...", "thinking": "..."}, which the Node.js backend can then process and send to the React client.
+3. Key Architectural Consideration (Path & Config Sharing)
+Shared Configuration: A critical aspect of this service is its ability to import the unified_config module from the rag_service. This allows it to share core settings like AI model names and prompt definitions, ensuring consistency across the Python microservices.
+Absolute Path Requirement: The /analyze endpoint is designed to work with absolute file paths. This is a secure and robust design, as it means the Node.js orchestrator will have full control over which files the service is allowed to access and analyze.
+4. Logic to be Deprecated and Ignored (For Integration)
+To fit this service into the main project's architecture, a significant portion of its current functionality will be deprecated and handled by the central Node.js application instead. These features are being ignored because the main application provides a more robust and unified implementation.
+GET / (Frontend Serving): NEGLECTED. The service will no longer serve its own HTML frontend. All user interaction will be handled by the main React application.
+POST /upload (File Upload): NEGLECTED. All file uploads are managed by the Node.js -> rag_service pipeline. This service will only read files, not receive new ones.
+POST /chat (Chat Endpoint): NEGLECTED. All conversational logic is handled by the chat.js route in the Node.js backend, which provides a more advanced tool-chaining and provider-selection pipeline.
+GET /history (Chat History): NEGLECTED. Chat history is managed centrally by the Node.js backend and stored in the main MongoDB database.
+Internal RAG & Vector Store: NEGLECTED. The service's own RAG and FAISS index management will be disabled. The central rag_service is the single source of truth for all Retrieval-Augmented Generation.
+5. Final Role in the Overall Architecture
+After integration, this Notebook/backend/app.py will be transformed from a full-stack application into a lean, Specialized Analysis Microservice. Its responsibilities will be narrowed to a single, powerful function:
+Receive a request from the Node.js orchestrator at the /analyze endpoint.
+Read a specified document from the file system.
+Execute a complex, LLM-based analysis on the document's content.
+Return the structured result.
+
+
+
+Understanding: Notebook/backend/Ollama_unittest.py (Developer Diagnostic Tool)
+1. High-Level Purpose
+This file is a developer utility script, not part of the main application's runtime. Its purpose is to provide a quick and simple way to test and validate the connection to the Ollama server. It helps developers answer two critical questions before running the application: "Is my Ollama server running?" and "Are the specific AI models I need (mxbai-embed-large, deepseek-r1) available and working correctly?"
+2. Key Logic
+Embeddings Test (check_embeddings): It attempts to initialize the OllamaEmbeddings class with a specific model name. If successful, it tries to create a vector embedding from a test sentence. This confirms that the embedding model is correctly served by Ollama.
+LLM Test (check_llm): It attempts to initialize the ChatOllama class. If successful, it sends a simple prompt ("Say 'Hello, world!'") to the model. This confirms that the generative language model is working.
+Clear Pass/Fail Output: The script provides a clear summary, printing success or failure messages for each test and exiting with a status code (0 for success, 1 for failure), which is useful for automated checks.
+3. Role in the Overall Architecture
+This script plays the role of a Sanity Check and Troubleshooting Tool. It is not called by app.py or any other part of the application. It is meant to be run manually by a developer (python Ollama_unittest.py) to diagnose connection issues with the underlying Ollama AI engine.
+
+
+
+
+
+Understanding: Notebook/backend/config.py (The Notebook's Control Panel & Prompt Library)
+1. High-Level Purpose
+This file is the local configuration and prompt engineering library for the self-contained Notebook application. It centralizes all the settings and, most importantly, the complex, carefully crafted prompt templates that define the "personality" and behavior of the application's AI.
+2. Key Responsibilities & Logic
+Local Configuration: It defines the connection details for Ollama, local file paths (FAISS_FOLDER, UPLOAD_FOLDER), and RAG parameters that are specific to this Notebook application's internal RAG system.
+The Prompt Library (CRITICAL): This is the most valuable part of the file. It defines the PromptTemplate objects used by the AI.
+SYNTHESIS_PROMPT_TEMPLATE: A highly detailed and structured prompt that instructs the LLM on how to behave as an "Expert for an academic audience." It mandates a <thinking> process, enforces source citation [1], and gives clear rules for integrating general knowledge. This is the core "personality" of the chat feature.
+ANALYSIS_PROMPTS: A dictionary containing separate, specialized prompts for each type of document analysis (faq, topics, mindmap). Each prompt gives the LLM a specific task and a strict output format. This is the logic that powers the Notebook app's most unique feature.
+3. Role in the Overall Architecture
+This config.py is the AI Behavior Blueprint for the Notebook application. While it contains path and server settings, its most important role is to store the sophisticated prompt templates. These prompts are the "software" that programs the LLM to perform the desired tasks. For our integration, the ANALYSIS_PROMPTS are the most valuable asset to preserve.
+
+
+
+
+
+Understanding: Notebook/backend/ai_core.py (The Notebook's AI Engine)
+1. High-Level Purpose
+This file is the AI engine room for the Notebook application. It contains all the functions that perform the actual AI-related work, such as extracting text from documents, creating embeddings, interacting with the vector store, and calling the LLM to generate responses. The app.py file acts as the API layer, but this ai_core.py file is where the "magic" happens.
+2. Key Logic & Features
+Initialization (initialize_ai_components): This function is responsible for creating and globally storing the main embeddings and llm objects from Ollama, making them available to all other functions in the module.
+Local RAG System Logic: It contains a complete, self-contained RAG pipeline:
+extract_text_from_pdf: Uses PyMuPDF (fitz) to robustly extract text from PDF files.
+create_chunks_from_text: Splits text into manageable chunks.
+add_documents_to_vector_store: Adds documents to its own local FAISS vector store.
+perform_rag_search and synthesize_chat_response: The full pipeline for its internal chat functionality.
+The Document Analysis Engine (generate_document_analysis_from_path): This is the most important function for our integration.
+It is designed to be called by the app.py's /analyze endpoint.
+It takes an absolute file path as input, which is a secure design that allows the calling service (our Node.js backend) to control exactly which file is analyzed.
+It reads the file, extracts the text, and truncates it if necessary to fit within the LLM's context limit.
+It uses the appropriate prompt template from config.py based on the requested analysis type.
+It calls the LLM to generate the analysis and then parses the response, separating the "thinking" process from the final content.
+3. Role in the Overall Architecture
+This ai_core.py is the AI Logic Layer for the Notebook service. It directly implements the features exposed by the app.py API.
+For our integration plan, this file is central. We will be "gutting" this file, preserving its most valuable function while discarding the redundant parts:
+PRESERVE: The generate_document_analysis_from_path function is the key asset. Its logic, along with its helpers like extract_text_from_pdf and initialize_ai_components, will form the core of the new, specialized "Analysis Service."
+NEGLECT: The functions related to the local RAG system (add_documents_to_vector_store, perform_rag_search, etc.) will be ignored, as this functionality is already handled by the main project's rag_service.
+
+
+
+
+
+Understanding: The Information Retrieval Service Layer (Gemini, Groq, Web Search)
+This is not just one service but a collection of modules that act as Connectors to External Knowledge Sources. Their collective purpose is to fetch raw information and answers from various powerful APIs (Google Gemini, GroqCloud, and the open web). They are the "long-distance communication" systems for the chat.js brain.
+server/services/geminiService.js (The Google AI Connector)
+1. High-Level Purpose
+This module is a dedicated client adapter for the Google Gemini API. It encapsulates all the logic required to communicate with Google's generative AI models, handling authentication, request formatting, and response parsing.
+2. Key Logic & Features
+Initialization & Safety: It initializes the Google Generative AI client using an API key from the environment variables. It includes a critical check to throw an error if the key is missing. It also pre-defines base generation configurations and safety settings (HarmBlockThreshold), ensuring all calls to the API are consistent and safe.
+Complex Prompt Construction: The generateContentWithHistory function is highly intelligent.
+It takes chat history, the user's query, and critically, externalContext (from RAG or other tools) and a specificInstruction (from chat.js).
+It dynamically builds the final prompt. If externalContext exists, it wraps the user's query with instructions to use that context.
+It merges the systemPromptText and the specificInstruction into a single, powerful system instruction for the model. This is advanced prompt engineering.
+Error Handling: It has robust error handling, specifically looking for common API issues like invalid keys, blocked content (due to safety settings), or quota limits, and returns user-friendly error messages.
+3. Role in the Architecture
+This is a Primary Generative AI Provider. It is one of the main "brains" the chat.js orchestrator can choose to call to generate a final, synthesized answer for the user.
+server/services/groqService.js (The High-Speed AI Connector)
+1. High-Level Purpose
+This module is a dedicated client adapter for the GroqCloud API. Groq is known for its extremely high-speed inference, and this service allows the application to leverage that speed. It acts as a translator, converting the application's internal data format into the OpenAI-compatible format that Groq's API expects.
+2. Key Logic & Features
+API Compatibility Layer: Groq uses an API that mimics OpenAI's. This module's key responsibility is to transform the chat history (which might be in a Gemini-like {role, parts:[{text}]} format) into the {role, content} format that Groq expects.
+Dynamic Payload Creation: Similar to the Gemini service, it constructs the final API payload by combining the system prompt, the transformed chat history, and the user's query (which is augmented with RAG context if provided).
+Detailed Error Handling: It has excellent error handling specific to the Groq API, checking for authentication failures (401), rate limits (429), and other common HTTP status codes, providing clear feedback.
+Performance Monitoring: It logs the API call duration (endTime - startTime), which is useful for tracking the performance of the Groq service.
+3. Role in the Architecture
+This is another Primary Generative AI Provider. It gives the application a high-speed alternative to Gemini. The chat.js orchestrator can select this provider based on the user's request, allowing for flexibility in choosing between different AI models and providers.
+server/services/webSearchService.js (The Filtered Web Retrieval Engine)
+This file represents a significant evolution from the simple Python search_service. This is a much more sophisticated and controlled system.
+1. High-Level Purpose
+This module's purpose is to perform a general web search and then aggressively filter the results to ensure only high-quality, authoritative sources are used. It acts as a "quality control" layer on top of a raw web search.
+2. Key Logic & Features
+Delegation to Python Worker: It does not perform the search itself. It calls the simple Python search_service microservice at http://localhost:5003/search to get a raw list of up to 10 results from DuckDuckGo.
+Authoritative Source Filtering (CRITICAL): This is the most important feature.
+It maintains several lists of trusted domains (ACADEMIC_SITES, MEDICAL_SITES, etc.) and combines them into a single ALLOWED_SITES_SET for fast lookups.
+It iterates through the raw results from the Python service and discards any link whose hostname is not in the trusted set.
+Standardization: After filtering, it formats the remaining high-quality results into the application's internal "MCP" (Master Canonical Paper) format, ensuring the data structure is consistent with what the academicSearchService produces.
+3. Role in the Architecture
+This is the General Web Information Retrieval Layer. It works in tandem with the Python search_service. The Python service is the "unfiltered firehose," and this Node.js module is the "purification filter." It ensures that when the chat.js brain decides to use the "web search" tool, the context it receives is from reliable and authoritative sources, not random blogs or forums. This dramatically increases the trustworthiness of the AI's web-augmented answers.
+
+
+
+
+
+

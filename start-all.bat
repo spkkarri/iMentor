@@ -1,3 +1,0 @@
-@echo off
-echo Starting all chatbot services...
-npm run start:all

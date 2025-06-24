@@ -11,16 +11,20 @@ logger_init = logging.getLogger(__name__ + "_init") # Use a distinct name for th
 # --- Path Setup to find 'rag_service' package ---
 path_to_rag_service_parent = None # Initialize for robust error message in except block
 try:
+    # The current script is in Notebook/backend. We want to get to the project root.
     current_script_dir = os.path.dirname(os.path.abspath(__file__))
-    notebook_project_dir = os.path.dirname(current_script_dir)
-    chatbot_main_project_dir = os.path.dirname(notebook_project_dir)
-    path_to_rag_service_parent = os.path.join(chatbot_main_project_dir, 'Chatbot-geminiV3', 'server')
+    notebook_dir = os.path.dirname(current_script_dir)
+    project_root_dir = os.path.dirname(notebook_dir) # This is now the main project root
 
-    if path_to_rag_service_parent not in sys.path:
-        sys.path.insert(0, path_to_rag_service_parent)
-        logger_init.debug(f"Added to sys.path for rag_service package: {path_to_rag_service_parent}")
+    # The rag_service is now in server/rag_service relative to the root
+    path_to_server_dir = os.path.join(project_root_dir, 'server')
+
+    if path_to_server_dir not in sys.path:
+        sys.path.insert(0, path_to_server_dir)
+        logger_init.debug(f"Added to sys.path for rag_service package: {path_to_server_dir}")
     else:
-        logger_init.debug(f"Path for rag_service package already in sys.path: {path_to_rag_service_parent}")
+        logger_init.debug(f"Path for rag_service package already in sys.path: {path_to_server_dir}")
+
 except Exception as e_path:
     logger_init.critical(f"CRITICAL ERROR during initial sys.path setup: {e_path}", exc_info=True)
     sys.exit(1)

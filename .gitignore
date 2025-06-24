@@ -61,3 +61,6 @@ npm-debug.log*
 # OS-specific
 .DS_Store
 Thumbs.db
+
+/server/assets/
+/server/public/

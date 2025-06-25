@@ -27,6 +27,8 @@
   .loading-animator-container {
     padding: 10px;
     margin: 8px 0;
+    width: 100vw;
+    box-sizing: border-box;
   }
   .lottie-wrapper {
     width: 70vw;
@@ -37,5 +39,7 @@
   .status-text {
     font-size: 0.85rem;
     min-height: 24px;
+    width: 100%;
+    box-sizing: border-box;
   }
 }

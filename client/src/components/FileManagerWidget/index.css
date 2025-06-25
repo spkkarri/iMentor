@@ -122,21 +122,38 @@
   .file-manager-widget {
     padding: 8px 2vw;
     margin-top: 10px;
+    width: 100vw;
+    box-sizing: border-box;
   }
   .file-manager-widget h3 {
     font-size: 1.1rem;
     padding-bottom: 6px;
+    width: 100%;
   }
   .file-list {
     max-height: 120px;
+    width: 100%;
   }
   .file-item {
     font-size: 0.98rem;
     padding: 7px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 8px;
   }
   .popover-menu {
     width: 98vw;
     min-width: 0;
     max-width: 98vw;
+  }
+  .menu-button, .popover-menu-item, .popover-menu-item.danger {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .file-manager-loading,
+  .file-manager-error {
+    width: 100%;
+    box-sizing: border-box;
   }
 }

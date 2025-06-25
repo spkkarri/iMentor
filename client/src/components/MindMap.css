@@ -182,20 +182,27 @@
     box-shadow: none;
     border-radius: 8px;
     padding: 0 2vw;
+    box-sizing: border-box;
   }
   .custom-node {
-    width: 90vw !important;
+    width: 100% !important;
     min-width: 60px;
     max-width: 98vw;
     font-size: 12px;
     padding: 6px 6px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
   }
   .node-label {
     max-width: 60vw;
     font-size: 0.95rem;
+    width: 100%;
+    box-sizing: border-box;
   }
   .mindmap-modal-content {
     max-width: 98vw;
     padding: 1rem;
+    width: 100vw;
+    box-sizing: border-box;
   }
 }

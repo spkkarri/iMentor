@@ -33,10 +33,14 @@
   .landing-wrapper {
     padding: 0 2vw;
     height: 100dvh;
+    width: 100vw;
+    box-sizing: border-box;
   }
   .gemlama-logo {
     font-size: 2.5rem;
     text-align: center;
     padding: 0 2vw;
+    width: 100%;
+    box-sizing: border-box;
   }
 }

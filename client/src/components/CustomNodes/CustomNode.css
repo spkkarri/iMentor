@@ -24,9 +24,12 @@
 
 @media (max-width: 600px) {
   .custom-node {
-    min-width: 90px;
+    min-width: 60px;
     max-width: 98vw;
+    width: 100%;
     font-size: 12px;
     padding: 6px 6px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
   }
 }

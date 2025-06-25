@@ -28,7 +28,7 @@ FusedChatbotNew is a full-stack conversational AI application that integrates a 
 *   *Voice-to-Text Recognition:* Convert spoken input into text for hands-free interaction.
 *   *Chat Deletion:* Delete chat sessions for privacy and clutter management.
 *   *Enhanced UI:* Modern, intuitive interface for a seamless user experience.
-*   *Admin Pannel:* Users seeking access to Admin API keys can submit a request directly through the interface. Admins are automatically notified via email, and upon approval or rejection, users receive real-                        time status updates through email notifications.
+*   *Admin Pannel:* When a user wants to access the Admin API keys, they must first submit a request to the admin. The API keys will be accessible to the user only after the admin grants approval.
 
 
 ---

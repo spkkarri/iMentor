@@ -50,6 +50,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const isProcessing = Object.values(loadingStates).some(Boolean);
 
+    // This useEffect is correct and will now work with the modified JSX
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -416,7 +417,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
                     </div>
                 </header>
-                <div className="messages-area" ref={messagesEndRef}>
+                {/* ✅ MODIFIED: Removed ref from here */}
+                <div className="messages-area">
                     {messages.map((msg, index) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
                         const messageText = msg.parts[0]?.text || '';
@@ -425,8 +427,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         return (
                             <div key={index} className={`message-wrapper ${msg.role}`}>
                                 <div className={`message-content ${msg.type || ''}`}>
-                                    {/* ✅ REMOVED: The message-header div is gone */}
-                                    
                                     {/* Main message body */}
                                     {msg.type === 'mindmap' && msg.mindMapData ? (
                                         <div id={`mindmap-container-${index}`} className="mindmap-container">
@@ -463,6 +463,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
                             </div>
                         );
                     })}
+                    {/* ✅ MODIFIED: Added a new empty div with the ref here */}
+                    <div ref={messagesEndRef} />
                 </div>
                 <form onSubmit={handleSendMessage} className="message-input-form">
                     <textarea

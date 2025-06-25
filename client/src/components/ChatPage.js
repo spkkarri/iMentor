@@ -9,7 +9,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
-import { FaBars, FaPlus, FaTools } from 'react-icons/fa';
+import { FaBars, FaPlus, FaTools, FaMicrophone, FaSearch, FaRegObjectGroup } from 'react-icons/fa';
 import { Popover } from 'react-tiny-popover';
 
 import SystemPromptWidget, { availablePrompts, getPromptTextById } from './SystemPromptWidget';
@@ -533,66 +533,58 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     })}
                     <div ref={messagesEndRef} />
                 </div>
-                <form onSubmit={handleSendMessage} className="message-input-form">
-                    <textarea
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={handleEnterKey}
-                        placeholder="Type your message, or use the mic..."
-                        className="message-input"
+                <div className="modern-input-bar">
+                    <button
+                        type="button"
+                        className="input-action-btn"
+                        title="Upload file"
+                        onClick={() => setIsDrawerOpen(true)}
                         disabled={isProcessing}
+                    >
+                        <FaPlus />
+                    </button>
+                    <button
+                        type="button"
+                        className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''}`}
+                        title="Deep Research"
+                        onClick={() => {
+                            setIsDeepSearchEnabled((v) => { if (!v) setIsRagEnabled(false); return !v; });
+                        }}
+                        disabled={isProcessing}
+                    >
+                        <FaSearch style={{ marginRight: 6 }} /> Deep Research
+                    </button>
+                    <button
+                        type="button"
+                        className={`input-action-btn${isRagEnabled ? ' active' : ''}`}
+                        title="Canvas"
+                        onClick={() => {
+                            setIsRagEnabled((v) => { if (!v) setIsDeepSearchEnabled(false); return !v; });
+                        }}
+                        disabled={isProcessing}
+                    >
+                        <FaRegObjectGroup style={{ marginRight: 6 }} /> Canvas
+                    </button>
+                    <input
+                        type="text"
+                        value={inputText}
+                        onChange={e => setInputText(e.target.value)}
+                        onKeyDown={handleEnterKey}
+                        placeholder="Ask Gemini"
+                        className="modern-input"
+                        disabled={isProcessing}
+                        autoComplete="off"
                     />
-                    <div className="mobile-input-row">
-                        <div className="mobile-input-left">
-                            <button
-                                type="submit"
-                                className="send-button"
-                                title="Send message"
-                                disabled={isProcessing || !inputText.trim()}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94l18-9a.75.75 0 0 0 0-1.88l-18-9Z"/>
-                                </svg>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleMicButtonClick}
-                                className={`mic-button ${loadingStates.listening ? 'listening' : ''}`}
-                                title="Use microphone"
-                                disabled={isProcessing}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a8 8 0 0 0 7 7.93V22h2v-2.07A8 8 0 0 0 21 12v-2h-2z"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <div className="mobile-input-toggles">
-                            <button
-                                type="button"
-                                className={`toggle-btn${isDeepSearchEnabled ? ' active' : ''}`}
-                                onClick={() => {
-                                    setIsDeepSearchEnabled((v) => { if (!v) setIsRagEnabled(false); return !v; });
-                                }}
-                                disabled={isProcessing}
-                                title="Toggle Deep Search"
-                            >
-                                DS
-                            </button>
-                            <button
-                                type="button"
-                                className={`toggle-btn${isRagEnabled ? ' active' : ''}`}
-                                onClick={() => {
-                                    setIsRagEnabled((v) => { if (!v) setIsDeepSearchEnabled(false); return !v; });
-                                }}
-                                disabled={isProcessing}
-                                title="Toggle RAG"
-                            >
-                                RAG
-                            </button>
-                        </div>
-                    </div>
-                </form>
+                    <button
+                        type="button"
+                        className="input-action-btn"
+                        title="Use microphone"
+                        onClick={handleMicButtonClick}
+                        disabled={isProcessing}
+                    >
+                        <FaMicrophone />
+                    </button>
+                </div>
                 {error && <p className="error-message">{error}</p>}
             </div>
             {showHistoryModal && (

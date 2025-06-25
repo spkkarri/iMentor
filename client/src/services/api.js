@@ -1,4 +1,3 @@
-// client/src/services/api.js
 import axios from 'axios';
 
 const getApiBaseUrl = () => {
@@ -9,14 +8,30 @@ const getApiBaseUrl = () => {
 };
 
 const API_BASE_URL = getApiBaseUrl();
-const api = axios.create({ baseURL: API_BASE_URL });
+console.log("API Base URL:", API_BASE_URL);
+
+const api = axios.create({
+    baseURL: API_BASE_URL,
+});
 
 api.interceptors.request.use(
     (config) => {
+        // Add the auth token to every request
         const token = localStorage.getItem('token');
-        if (token) config.headers['Authorization'] = `Bearer ${token}`;
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        // Add user ID for specific routes that might need it (optional, can be derived from token on backend)
         const userId = localStorage.getItem('userId');
-        if (userId) config.headers['x-user-id'] = userId;
+        if (userId) {
+            config.headers['x-user-id'] = userId;
+            console.log('API Interceptor: Adding x-user-id header:', userId);
+        } else {
+            console.warn('API Interceptor: No userId found in localStorage');
+        }
+        
+        console.log('API Interceptor: Request headers:', config.headers);
+        
         if (config.data instanceof FormData) {
             delete config.headers['Content-Type'];
         } else if (!config.headers['Content-Type']) {
@@ -38,27 +53,21 @@ api.interceptors.response.use(
     }
 );
 
-// --- ALL FUNCTIONS ARE EXPORTED AS NAMED CONSTANTS ---
-
 export const signupUser = (userData) => api.post('/auth/signup', userData);
 export const signinUser = (userData) => api.post('/auth/signin', userData);
-
 export const sendMessage = (messageData) => api.post('/chat/message', messageData);
+export const saveChatHistory = (historyData) => api.post('/chat/history', historyData);
 export const queryRagService = (queryData) => api.post('/chat/rag', queryData);
-export const deepSearch = (queryData) => api.post('/deep_search', queryData);
-
+export const getChatSessions = () => api.get('/chat/sessions');
+export const getSessionDetails = (sessionId) => api.get(`/chat/session/${sessionId}`);
 export const uploadFile = (formData) => api.post('/upload', formData);
 export const getUserFiles = () => api.get('/files');
 export const deleteUserFile = (fileId) => api.delete(`/files/${fileId}`);
-export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${fileId}`, { newOriginalName });
-
 export const generatePodcast = (fileId) => api.post('/podcast/generate', { fileId });
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
-export const generatePresentation = (topic, userId) => api.post('/generate_presentation', { topic, userId });
+export const performDeepSearch = (query, history = []) => api.post('/chat/deep-search', { query, history });
 
-export const saveChatHistory = (historyData) => api.post('/history', historyData);
-export const getHistoryList = () => api.get('/history');
-export const getHistorySession = (sessionId) => api.get(`/history/${sessionId}`);
-export const deleteHistorySession = (sessionId) => api.delete(`/history/${sessionId}`);
+// --- FIX: Removed the duplicate declaration ---
+export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${fileId}`, { newOriginalName });
 
-// --- THERE IS NO 'export default' AT THE END OF THE FILE ---
+export const getCurrentUser = () => api.get('/auth/me'); 

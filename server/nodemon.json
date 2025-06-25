@@ -1,0 +1,11 @@
+{
+  "watch": ["."],
+  "ignore": [
+    "faiss_indices/*",
+    "assets/*",
+    "backup_assets/*",
+    "public/*",
+    "cache/*",
+    "*.test.js"
+  ]
+} 

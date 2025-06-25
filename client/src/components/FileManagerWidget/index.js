@@ -13,6 +13,7 @@ const FileManagerWidget = ({
     onRenameFile,
     onGeneratePodcast,
     onGenerateMindMap,
+    onChatWithFile,
     isProcessing
 }) => {
     // State to track which file's menu is currently open
@@ -48,12 +49,8 @@ const FileManagerWidget = ({
                             
                             <Popover
                                 isOpen={openMenuId === file._id}
-                                // --- THIS IS THE FIX ---
-                                // We tell the popover to try opening on the 'right' first.
-                                // If there's no space, it will try the other positions as fallbacks.
                                 positions={['right', 'left', 'bottom', 'top']} 
-                                align="center" // This helps align the popover nicely with the button
-                                // --- END FIX ---
+                                align="center"
                                 padding={10}
                                 onClickOutside={() => setOpenMenuId(null)}
                                 content={

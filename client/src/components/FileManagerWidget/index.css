@@ -117,3 +117,26 @@
   padding: 20px;
   font-style: italic;
 }
+
+@media (max-width: 600px) {
+  .file-manager-widget {
+    padding: 8px 2vw;
+    margin-top: 10px;
+  }
+  .file-manager-widget h3 {
+    font-size: 1.1rem;
+    padding-bottom: 6px;
+  }
+  .file-list {
+    max-height: 120px;
+  }
+  .file-item {
+    font-size: 0.98rem;
+    padding: 7px;
+  }
+  .popover-menu {
+    width: 98vw;
+    min-width: 0;
+    max-width: 98vw;
+  }
+}

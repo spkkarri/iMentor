@@ -21,3 +21,12 @@
 .custom-node.output {
     border-color: #f44336; /* Red for output */
 }
+
+@media (max-width: 600px) {
+  .custom-node {
+    min-width: 90px;
+    max-width: 98vw;
+    font-size: 12px;
+    padding: 6px 6px;
+  }
+}

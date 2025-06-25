@@ -22,3 +22,20 @@
   text-align: center;
   min-height: 40px; /* Reserve space to prevent layout shifts */
 }
+
+@media (max-width: 600px) {
+  .loading-animator-container {
+    padding: 10px;
+    margin: 8px 0;
+  }
+  .lottie-wrapper {
+    width: 70vw;
+    height: 70vw;
+    max-width: 120px;
+    max-height: 120px;
+  }
+  .status-text {
+    font-size: 0.85rem;
+    min-height: 24px;
+  }
+}

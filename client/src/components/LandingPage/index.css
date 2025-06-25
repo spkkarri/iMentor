@@ -28,3 +28,15 @@
     opacity: 1;
   }
 }
+
+@media (max-width: 600px) {
+  .landing-wrapper {
+    padding: 0 2vw;
+    height: 100dvh;
+  }
+  .gemlama-logo {
+    font-size: 2.5rem;
+    text-align: center;
+    padding: 0 2vw;
+  }
+}

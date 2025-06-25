@@ -9,6 +9,8 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
+import { FaBars, FaPlus, FaTools } from 'react-icons/fa';
+import { Popover } from 'react-tiny-popover';
 
 import SystemPromptWidget, { availablePrompts, getPromptTextById } from './SystemPromptWidget';
 import FileUploadWidget from './FileUploadWidget';
@@ -43,6 +45,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [activeFileForRag, setActiveFileForRag] = useState(null);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [currentlySpeakingIndex, setCurrentlySpeakingIndex] = useState(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isToolsPopoverOpen, setIsToolsPopoverOpen] = useState(false);
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
@@ -392,7 +396,26 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     return (
         <div className="chat-page-container">
-            <div className="sidebar-area">
+            {/* Hamburger icon for mobile */}
+            <button
+                className="mobile-hamburger"
+                onClick={() => setIsDrawerOpen(true)}
+                aria-label="Open menu"
+                style={{ display: 'none' }}
+            >
+                <FaBars size={24} />
+            </button>
+            {/* Sidebar for desktop, Drawer for mobile */}
+            <div className={`sidebar-area${isDrawerOpen ? ' mobile-drawer-open' : ''}`}>
+                {/* Drawer close button for mobile */}
+                <button
+                    className="mobile-drawer-close"
+                    onClick={() => setIsDrawerOpen(false)}
+                    aria-label="Close menu"
+                    style={{ display: 'none' }}
+                >
+                    ✕
+                </button>
                 <SystemPromptWidget selectedPromptId={currentSystemPromptId} promptText={editableSystemPromptText} onSelectChange={handlePromptSelectChange} onTextChange={handlePromptTextChange} />
                 <FileUploadWidget onUploadSuccess={fetchFiles} />
                 <FileManagerWidget
@@ -406,9 +429,55 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     onChatWithFile={handleChatWithFile}
                     isProcessing={isProcessing}
                 />
+                {/* Tools button with popover (mobile only) */}
+                <Popover
+                    isOpen={isToolsPopoverOpen}
+                    positions={["bottom", "top"]}
+                    align="center"
+                    padding={10}
+                    onClickOutside={() => setIsToolsPopoverOpen(false)}
+                    content={
+                        <div className="popover-menu">
+                            <button className="popover-menu-item"><FaTools /> Tool 1</button>
+                            <button className="popover-menu-item"><FaTools /> Tool 2</button>
+                        </div>
+                    }
+                >
+                    <button
+                        className="tools-btn"
+                        onClick={() => setIsToolsPopoverOpen((v) => !v)}
+                        style={{ display: 'none' }}
+                    >
+                        <FaTools /> Tools
+                    </button>
+                </Popover>
             </div>
+            {/* FAB for file upload (mobile only) */}
+            <button
+                className="mobile-fab"
+                onClick={() => {
+                    // Scroll to or open upload section
+                    if (isDrawerOpen) return;
+                    setIsDrawerOpen(true);
+                }}
+                aria-label="Upload file"
+                style={{ display: 'none' }}
+            >
+                <FaPlus size={28} />
+            </button>
+            {/* Overlay for drawer (mobile only) */}
+            {isDrawerOpen && <div className="mobile-drawer-overlay" onClick={() => setIsDrawerOpen(false)}></div>}
             <div className="chat-container">
                 <header className="chat-header">
+                    {/* Hamburger icon for mobile (visible only on mobile) */}
+                    <button
+                        className="mobile-hamburger"
+                        onClick={() => setIsDrawerOpen(true)}
+                        aria-label="Open menu"
+                        style={{ display: 'none' }}
+                    >
+                        <FaBars size={24} />
+                    </button>
                     <h1>Engineering Tutor</h1>
                     <div className="header-controls">
                         <span className="username-display">Hi, {username}!</span>
@@ -417,7 +486,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
                     </div>
                 </header>
-                {/* ✅ MODIFIED: Removed ref from here */}
                 <div className="messages-area">
                     {messages.map((msg, index) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
@@ -463,7 +531,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
                             </div>
                         );
                     })}
-                    {/* ✅ MODIFIED: Added a new empty div with the ref here */}
                     <div ref={messagesEndRef} />
                 </div>
                 <form onSubmit={handleSendMessage} className="message-input-form">

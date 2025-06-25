@@ -426,4 +426,98 @@
   .sources-list ul {
     padding-left: 18px;
   }
+  .mobile-hamburger {
+    display: block !important;
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 1201;
+    background: none;
+    border: none;
+    color: #fff;
+    padding: 8px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .sidebar-area {
+    display: none;
+  }
+  .sidebar-area.mobile-drawer-open {
+    display: flex !important;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 85vw;
+    max-width: 340px;
+    height: 100dvh;
+    background: #23272f;
+    z-index: 1202;
+    box-shadow: 2px 0 16px rgba(0,0,0,0.25);
+    padding: 24px 12px 12px 12px;
+    overflow-y: auto;
+    animation: slideInDrawer 0.25s cubic-bezier(0.4,0,0.2,1);
+  }
+  @keyframes slideInDrawer {
+    from { transform: translateX(-100%); opacity: 0.5; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .mobile-drawer-close {
+    display: block !important;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 2rem;
+    z-index: 1203;
+  }
+  .mobile-drawer-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 1200;
+  }
+  .mobile-fab {
+    display: block !important;
+    position: fixed;
+    right: 18px;
+    bottom: 24px;
+    z-index: 1204;
+    background: #90caf9;
+    color: #121212;
+    border: none;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    box-shadow: 0 4px 16px rgba(33,150,243,0.18);
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+  }
+  .mobile-fab:active {
+    background: #64b5f6;
+    color: #fff;
+  }
+  .tools-btn {
+    display: block !important;
+    width: 100%;
+    margin-top: 18px;
+    background: #3c3c3c;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 12px 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .tools-btn:active, .tools-btn:focus {
+    background: #444;
+  }
 }

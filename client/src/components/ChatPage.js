@@ -425,9 +425,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         return (
                             <div key={index} className={`message-wrapper ${msg.role}`}>
                                 <div className={`message-content ${msg.type || ''}`}>
-                                    <div className="message-header">
-                                        <span className="message-role">{msg.role === 'assistant' ? 'AI Assistant' : username}</span>
-                                    </div>
+                                    {/* ✅ REMOVED: The message-header div is gone */}
                                     
                                     {/* Main message body */}
                                     {msg.type === 'mindmap' && msg.mindMapData ? (
@@ -443,7 +441,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
                                     )}
 
-                                    {/* ✅ MODIFIED: Footer is now below the content */}
+                                    {/* Footer with timestamp and TTS button */}
                                     <div className="message-footer">
                                         {msg.role === 'assistant' && (
                                             <button

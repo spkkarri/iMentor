@@ -106,21 +106,9 @@
   margin: 0;
 }
 
-/* ✅ MODIFIED: Header now only contains the role */
-.message-header {
-  margin-bottom: 8px;
-  font-size: 0.8rem;
-  color: #b3b3b3;
-  font-weight: bold;
-}
+/* ✅ REMOVED: .message-header styles are no longer needed */
 
-.message-wrapper.user .message-header {
-  color: #121212;
-  opacity: 0.8;
-  text-align: right; /* Align user role to the right */
-}
-
-/* ✅ NEW: Footer for timestamp and TTS button */
+/* Footer for timestamp and TTS button */
 .message-footer {
   display: flex;
   justify-content: space-between;
@@ -143,7 +131,7 @@
   opacity: 0.7;
 }
 
-/* ✅ MODIFIED: TTS Button with transparent background */
+/* TTS Button with transparent background */
 .tts-button {
   background: transparent;
   border: none;

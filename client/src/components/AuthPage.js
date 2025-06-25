@@ -24,13 +24,16 @@ const AuthPage = ({ setIsAuthenticated }) => {
             const apiCall = isLogin ? signinUser : signupUser;
             const response = await apiCall(userData);
 
-            // Store user info, but no email
+            console.log('AuthPage: Auth response:', response);
+            const userId = response.data.user.id || response.data.user._id;
+            console.log('AuthPage: Setting userId:', userId);
             localStorage.setItem('token', response.data.token);
-            localStorage.setItem('userId', response.data.user.id);
+            localStorage.setItem('userId', String(userId));
             localStorage.setItem('username', response.data.user.username);
             setIsAuthenticated(true);
             navigate('/chat');
         } catch (err) {
+            console.error('AuthPage: Auth error:', err);
             const errorMessage = err.response?.data?.message || `Failed to ${isLogin ? 'sign in' : 'sign up'}. Please try again.`;
             setError(errorMessage);
         } finally {

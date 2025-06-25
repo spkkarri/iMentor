@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
+const vectorStore = require('../services/LangchainVectorStore');
 
 // GET all files for a user (no changes here)
 router.get('/', tempAuth, async (req, res) => {
@@ -53,32 +54,26 @@ router.patch('/:id', tempAuth, async (req, res) => {
 });
 
 
-// DELETE a file (no changes here)
 router.delete('/:id', tempAuth, async (req, res) => {
     try {
         const file = await File.findById(req.params.id);
         if (!file) return res.status(404).json({ msg: 'File not found in DB' });
         if (file.user.toString() !== req.user.id) return res.status(401).json({ msg: 'Not authorized' });
 
+        // Step 1: Delete from disk
         if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
-            console.log(`✅ Deleted file from disk: ${file.path}`);
-        } else {
-            console.warn(`Could not find file on disk to delete: ${file.path}`);
         }
 
-        const faissIndexPath = path.join(__dirname, '..', 'faiss_indices', `faiss_index_${req.user.id}`);
-        if (fs.existsSync(faissIndexPath)) {
-            fs.rmSync(faissIndexPath, { recursive: true, force: true });
-            console.log(`✅ Deleted FAISS index for user: ${req.user.id}`);
-        }
+        // Step 2: **Delete vectors from langchainvectordb*
+        await vectorStore.deleteDocumentsByFileId(req.params.id);
 
+        // Step 3: Delete from MongoDB
         await File.findByIdAndDelete(req.params.id);
         
-        res.json({ msg: 'File and associated data removed' });
+        res.json({ msg: 'File and all associated data removed' });
     } catch (err) {
         console.error(err.message);
-        if (err.kind === 'ObjectId') return res.status(404).json({ msg: 'File not found' });
         res.status(500).send('Server Error');
     }
 });

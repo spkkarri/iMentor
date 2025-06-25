@@ -2,6 +2,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CircularProgress } from '@mui/material';
+import { getCurrentUser } from './services/api';
 
 // Lazy load components to reduce initial bundle size
 const AuthPage = React.lazy(() => import('./components/AuthPage'));
@@ -56,22 +57,62 @@ const LoadingFallback = () => (
 );
 
 function App() {
-    const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('userId'));
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+    // Keep isAuthenticated in sync with localStorage userId (for multi-tab logout)
     useEffect(() => {
-        const handleStorageChange = (event) => {
-            if (event.key === 'userId') {
-                const hasUserId = !!event.newValue;
-                console.log("App Storage Listener: userId changed, setting isAuthenticated to", hasUserId);
-                setIsAuthenticated(hasUserId);
+        const handleStorage = (event) => {
+            if (event.key === 'userId' && !event.newValue) {
+                setIsAuthenticated(false);
             }
         };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
 
-        window.addEventListener('storage', handleStorageChange);
+    // On mount, set isAuthenticated based on userId and username
+    useEffect(() => {
+        const storedUserId = localStorage.getItem('userId');
+        const storedUsername = localStorage.getItem('username');
+        if (!storedUserId || !storedUsername) {
+            setIsAuthenticated(false);
+        } else {
+            setIsAuthenticated(true);
+        }
+    }, []);
 
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
+    useEffect(() => {
+        const checkAuth = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.log('[Auth Debug] No token in localStorage');
+                setIsAuthenticated(false);
+                return;
+            }
+            try {
+                const response = await getCurrentUser();
+                console.log('[Auth Debug] /api/auth/me success:', response.data);
+                const userId = response.data.user.id || response.data.user._id;
+                console.log('Setting userId:', userId);
+                localStorage.setItem('userId', String(userId));
+                localStorage.setItem('username', response.data.user.username);
+                setIsAuthenticated(true);
+            } catch (err) {
+                if (err.response) {
+                    // Server responded with a status code outside 2xx
+                    console.error('[Auth Debug] /api/auth/me error:', err.response.status, err.response.data);
+                } else if (err.request) {
+                    // No response received
+                    console.error('[Auth Debug] /api/auth/me no response:', err.request);
+                } else {
+                    // Something else happened
+                    console.error('[Auth Debug] /api/auth/me error:', err.message);
+                }
+                localStorage.clear();
+                setIsAuthenticated(false);
+            }
         };
+        checkAuth();
     }, []);
 
     return (

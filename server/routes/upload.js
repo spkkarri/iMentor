@@ -8,10 +8,20 @@ const fs = require('fs');
 const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
 const User = require('../models/User');
-const axios = require('axios');
+const VectorStore = require('../services/vectorStore');
+const vectorStore = require('../services/vectorStoreInstance');
+const DocumentProcessor = require('../services/documentProcessor');
+const documentProcessor = new DocumentProcessor(vectorStore);
 
-// Use memory storage to handle the file temporarily before we know its final name
-const upload = multer({ storage: multer.memoryStorage() });
+// Configure multer with a file size limit (e.g., 50MB)
+const upload = multer({
+    storage: multer.memoryStorage(), // Use memory storage to access req.file.buffer
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB limit
+    fileFilter: (req, file, cb) => {
+        // You can also add file type filters here
+        cb(null, true);
+    }
+});
 
 // @route   POST /api/upload
 // @desc    Upload a file, save metadata, rename file to its DB ID, then trigger RAG
@@ -55,16 +65,21 @@ router.post('/', tempAuth, upload.single('file'), async (req, res) => {
 
         console.log(`✅ File upload successful for User '${user.username}'. Final filename: ${finalFilename}.`);
         
-        // 5. Trigger background RAG processing with the guaranteed correct path
-        const pythonRagUrl = process.env.PYTHON_RAG_SERVICE_URL;
-        axios.post(`${pythonRagUrl}/add_document`, {
-            user_id: req.user.id,
-            file_path: finalPath // Use the final, correct path
-        }).then(response => {
-            console.log(`✅ Background RAG processing for '${req.file.originalname}' SUCCEEDED.`);
-        }).catch(err => {
-            console.error(`❌ Background RAG processing for '${req.file.originalname}' FAILED:`, err.message);
-        });
+        // 5. Process the document and add it to the vector store for RAG
+        try {
+            console.log(`🔄 Processing document for RAG: ${req.file.originalname}`);
+            const processingResult = await documentProcessor.processFile(finalPath, {
+                userId: req.user.id,
+                fileId: newFile._id.toString(),
+                originalName: req.file.originalname,
+                fileType: path.extname(req.file.originalname).substring(1)
+            });
+            
+            console.log(`✅ RAG processing completed for '${req.file.originalname}': ${processingResult.chunksAdded} chunks added`);
+        } catch (ragError) {
+            console.error(`❌ RAG processing failed for '${req.file.originalname}':`, ragError.message);
+            // Don't fail the upload if RAG processing fails
+        }
 
         res.status(201).json(newFile);
 
@@ -73,5 +88,12 @@ router.post('/', tempAuth, upload.single('file'), async (req, res) => {
         res.status(500).json({ message: 'Server error during file upload.' });
     }
 });
+
+function handleMulterError(err, req, res, next) {
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ message: 'File is too large. The maximum size is 50MB.' });
+    }
+    next(err);
+}
 
 module.exports = router;

@@ -4,51 +4,62 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     sendMessage as apiSendMessage, saveChatHistory, queryRagService, generatePodcast, generateMindMap,
-    getUserFiles, deleteUserFile, renameUserFile,
+    getUserFiles, deleteUserFile, renameUserFile, performDeepSearch,
 } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
 
 import SystemPromptWidget, { availablePrompts, getPromptTextById } from './SystemPromptWidget';
-import HistoryModal from './HistoryModal';
 import FileUploadWidget from './FileUploadWidget';
 import FileManagerWidget from './FileManagerWidget';
-import MindMap from './MindMap';
+import MindMap from './MindMap'; // Restored for mind map rendering
+import HistoryModal from './HistoryModal';
 
 import './ChatPage.css';
 
 const ChatPage = ({ setIsAuthenticated }) => {
-    // ... (all state is the same)
+    console.log('--- ChatPage Component Re-rendered ---');
+
+    // Moved loadingStates definition before its use to fix no-use-before-define
+    const [loadingStates, setLoadingStates] = useState({
+        chat: false,
+        files: false,
+        podcast: false,
+        mindMap: false,
+        deepSearch: false,
+        listening: false
+    });
+
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [isRagLoading, setIsRagLoading] = useState(false);
-    const [isPodcastLoading, setIsPodcastLoading] = useState(false);
-    const [isMindMapLoading, setIsMindMapLoading] = useState(false);
-    const [isListening, setIsListening] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(''); // Keep error state for displaying UI errors
     const [sessionId, setSessionId] = useState('');
     const [userId, setUserId] = useState('');
     const [username, setUsername] = useState('');
     const [currentSystemPromptId, setCurrentSystemPromptId] = useState('friendly');
     const [editableSystemPromptText, setEditableSystemPromptText] = useState(() => getPromptTextById('friendly'));
-    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [files, setFiles] = useState([]);
-    const [isFileLoading, setIsFileLoading] = useState(false);
     const [fileError, setFileError] = useState('');
-    const [hasFiles, setHasFiles] = useState(false);
     const [isRagEnabled, setIsRagEnabled] = useState(false);
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
-    const [isDeepSearching, setIsDeepSearching] = useState(false);
+    const [activeFileForRag, setActiveFileForRag] = useState(null);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    
+    useEffect(() => {
+        console.log('[Debug] Loading states changed:', loadingStates);
+    }, [loadingStates]);
+
+    useEffect(() => {
+        console.log('[Debug] Messages state changed, new count:', messages.length);
+    }, [messages]);
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
     const navigate = useNavigate();
 
-    const isProcessing = isLoading || isRagLoading || isPodcastLoading || isMindMapLoading || isDeepSearching;
+    const isProcessing = Object.values(loadingStates).some(Boolean);
 
-    // ... (all functions are the same until the return statement)
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -90,9 +101,32 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     }, [messages.length, setIsAuthenticated, navigate, saveAndReset]);
 
+    const hasUserId = !!userId;
+
+    useEffect(() => {
+        const handleStorage = (event) => {
+            if (event.key === 'userId' && !event.newValue) {
+                setIsAuthenticated(false);
+            }
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, [setIsAuthenticated]);
+
     useEffect(() => {
         const storedUserId = localStorage.getItem('userId');
         const storedUsername = localStorage.getItem('username');
+        if (!storedUserId || !storedUsername) {
+            setIsAuthenticated(false);
+        } else {
+            setIsAuthenticated(true);
+        }
+    }, [setIsAuthenticated]);
+
+    useEffect(() => {
+        const storedUserId = String(localStorage.getItem('userId'));
+        const storedUsername = localStorage.getItem('username');
+        console.log('ChatPage: storedUserId:', storedUserId, 'storedUsername:', storedUsername);
         if (!storedUserId || !storedUsername) {
             handleLogout(true);
         } else {
@@ -109,10 +143,10 @@ const ChatPage = ({ setIsAuthenticated }) => {
             recognition.lang = 'en-US';
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
-            recognition.onstart = () => setIsListening(true);
+            recognition.onstart = () => setLoadingStates(prev => ({ ...prev, listening: true }));
             recognition.onresult = (event) => setInputText(event.results[0][0].transcript);
             recognition.onerror = (e) => setError(`STT Error: ${e.error}`);
-            recognition.onend = () => setIsListening(false);
+            recognition.onend = () => setLoadingStates(prev => ({ ...prev, listening: false }));
             recognitionRef.current = recognition;
         } else {
             console.warn('Web Speech API is not supported in this browser.');
@@ -125,22 +159,17 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const fetchFiles = useCallback(async () => {
         if (!userId) return;
-        setIsFileLoading(true);
-        setFileError('');
+        setLoadingStates(prev => ({ ...prev, files: true }));
         try {
             const response = await getUserFiles();
             const filesData = response.data || [];
             setFiles(filesData);
-            setHasFiles(filesData.length > 0);
-            if (filesData.length > 0 && !isRagEnabled) {
-                setIsRagEnabled(true);
-            }
         } catch (err) {
             setFileError('Could not load files.');
         } finally {
-            setIsFileLoading(false);
+            setLoadingStates(prev => ({ ...prev, files: false }));
         }
-    }, [userId, isRagEnabled]);
+    }, [userId]);
 
     useEffect(() => {
         if (userId) {
@@ -152,42 +181,13 @@ const ChatPage = ({ setIsAuthenticated }) => {
         if (!isProcessing) saveAndReset(false);
     }, [isProcessing, saveAndReset]);
 
-    const handleLoadSession = useCallback((sessionData) => {
-        if (isProcessing) return;
-        const doLoad = () => {
-            setMessages(sessionData.messages);
-            setSessionId(sessionData.sessionId);
-            setEditableSystemPromptText(sessionData.systemPrompt || getPromptTextById('friendly'));
-            const matchingPrompt = availablePrompts.find(p => p.prompt === sessionData.systemPrompt);
-            setCurrentSystemPromptId(matchingPrompt ? matchingPrompt.id : 'custom');
-            localStorage.setItem('sessionId', sessionData.sessionId);
-        };
-        if (messages.length > 0) {
-            saveAndReset(false, doLoad);
-        } else {
-            doLoad();
-        }
-    }, [isProcessing, saveAndReset, messages.length]);
-
-    const speak = useCallback((text) => {
-        if (window.speechSynthesis.speaking) {
-            window.speechSynthesis.cancel();
-        }
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.3;
-        window.speechSynthesis.speak(utterance);
-    }, []);
-
-    const handleSpeakMessage = useCallback((messageText) => {
-        speak(messageText);
-    }, [speak]);
-
     const handleSendMessage = useCallback(async (e) => {
         if (e) e.preventDefault();
         const trimmedInput = inputText.trim();
         if (!trimmedInput || isProcessing) return;
 
-        if (isListening) recognitionRef.current?.stop();
+        console.log('[Debug] handleSendMessage triggered.');
+        if (loadingStates.listening) recognitionRef.current?.stop();
 
         const newUserMessage = { role: 'user', parts: [{ text: trimmedInput }], timestamp: new Date() };
         const historyToSend = [...messages, newUserMessage];
@@ -196,46 +196,84 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setError('');
 
         if (isDeepSearchEnabled) {
-            setIsDeepSearching(true);
-            setTimeout(() => {
+            console.log('[Debug] Performing Deep Search with query:', trimmedInput);
+            setLoadingStates(prev => ({ ...prev, deepSearch: true }));
+            try {
+                const response = await performDeepSearch(trimmedInput);
+                console.log('[Debug] Deep Search API Success:', response.data);
                 const deepSearchResult = {
-                    role: 'assistant',
-                    type: 'deep_search',
-                    parts: [{ text: `Here is a deep search result for "${trimmedInput}":\n\n- **Insight 1:** Detailed finding from multiple sources.\n- **Insight 2:** A synthesized conclusion.` }],
-                    timestamp: new Date()
+                    role: 'assistant', type: 'deep_search',
+                    parts: [{ text: response.data.message }],
+                    timestamp: new Date(), metadata: response.data.metadata
                 };
                 setMessages(prev => [...prev, deepSearchResult]);
-                setIsDeepSearching(false);
-            }, 2000);
-        } else {
-            const setLoading = isRagEnabled ? setIsRagLoading : setIsLoading;
-            setLoading(true);
+            } catch (err) {
+                console.error('[Debug] Deep Search API Error:', err.response || err);
+                const errorMessage = err.response?.data?.message || 'Deep search failed.';
+                setError(`Deep Search Error: ${errorMessage}`);
+                setMessages(prev => prev.slice(0, -1));
+                if (err.response?.status === 401) handleLogout(true);
+            } finally {
+                setLoadingStates(prev => ({ ...prev, deepSearch: false }));
+            }
+        } else if (isRagEnabled) {
+            console.log('[Debug] Performing RAG Query with query:', trimmedInput, 'and file:', activeFileForRag?.name);
+            setLoadingStates(prev => ({ ...prev, chat: true }));
             try {
-                const response = isRagEnabled
-                    ? await queryRagService({ history: historyToSend, systemPrompt: editableSystemPromptText })
-                    : await apiSendMessage({ history: historyToSend, systemPrompt: editableSystemPromptText });
-                
-                const assistantMessage = { role: 'assistant', parts: [{ text: response.data.text }], timestamp: new Date() };
+                const ragPayload = { query: trimmedInput, history: historyToSend, sessionId };
+                if (activeFileForRag) ragPayload.fileId = activeFileForRag.id;
+                console.log('[Debug] RAG Payload:', ragPayload);
+                const response = await queryRagService(ragPayload);
+                console.log('[Debug] RAG API Success:', response.data);
+                const assistantMessage = {
+                    role: 'assistant', type: 'rag',
+                    parts: [{ text: response.data.message }],
+                    timestamp: new Date(), metadata: response.data.metadata
+                };
                 setMessages(prev => [...prev, assistantMessage]);
             } catch (err) {
-                const errorMessage = err.response?.data?.message || 'An error occurred.';
+                console.error('[Debug] RAG API Error:', err.response || err);
+                const errorMessage = err.response?.data?.message || 'RAG query failed.';
+                setError(`RAG Error: ${errorMessage}`);
+                setMessages(prev => prev.slice(0, -1));
+                if (err.response?.status === 401) handleLogout(true);
+            } finally {
+                setLoadingStates(prev => ({ ...prev, chat: false }));
+            }
+        } else {
+            console.log('[Debug] Performing standard chat message with query:', trimmedInput);
+            setLoadingStates(prev => ({ ...prev, chat: true }));
+            try {
+                const payload = { query: trimmedInput, history: historyToSend, sessionId, systemPrompt: editableSystemPromptText };
+                console.log('[Debug] Standard Chat Payload:', payload);
+                const response = await apiSendMessage(payload);
+                console.log('[Debug] Standard Chat API Success:', response.data);
+                const assistantMessage = {
+                    role: 'assistant',
+                    parts: [{ text: response.data.message }],
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+            } catch (err) {
+                console.error('[Debug] Standard Chat API Error:', err.response || err);
+                const errorMessage = err.response?.data?.error || 'Chat error.';
                 setError(errorMessage);
                 setMessages(prev => prev.slice(0, -1));
                 if (err.response?.status === 401) handleLogout(true);
             } finally {
-                setLoading(false);
+                setLoadingStates(prev => ({ ...prev, chat: false }));
             }
         }
-    }, [inputText, isProcessing, messages, isRagEnabled, isDeepSearchEnabled, editableSystemPromptText, handleLogout, isListening]);
+    }, [inputText, isProcessing, loadingStates, isDeepSearchEnabled, isRagEnabled, messages, editableSystemPromptText, handleLogout, activeFileForRag, sessionId]);
 
     const handleMicButtonClick = useCallback(() => {
         if (!recognitionRef.current) return;
-        if (isListening) {
+        if (loadingStates.listening) {
             recognitionRef.current.stop();
         } else {
             recognitionRef.current.start();
         }
-    }, [isListening]);
+    }, [loadingStates.listening]);
 
     const handleDeleteFile = async (fileId, fileName) => {
         if (window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
@@ -257,52 +295,77 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     };
 
+    const handleChatWithFile = useCallback((fileId, fileName) => {
+        setActiveFileForRag({ id: fileId, name: fileName });
+        setIsRagEnabled(true);
+        setMessages(prev => [...prev, {
+            role: 'system',
+            parts: [{ text: `Now chatting with file: **${fileName}**` }],
+            timestamp: new Date()
+        }]);
+    }, []);
+
     const handleGeneratePodcast = useCallback(async (fileId, fileName) => {
         if (isProcessing) return;
-        setIsPodcastLoading(true);
+        setLoadingStates(prev => ({ ...prev, podcast: true }));
         setError('');
-        setMessages(prev => [...prev, { role: 'user', parts: [{ text: `Requesting a podcast for the file: ${fileName}` }], timestamp: new Date() }]);
         try {
+            setMessages(prev => [...prev, { role: 'user', parts: [{ text: `Requesting a podcast for "${fileName}"...` }], timestamp: new Date() }]);
             const response = await generatePodcast(fileId);
-            const podcastMessage = { role: 'assistant', type: 'audio', parts: [{ text: `Here is the podcast for "${fileName}":` }], audioUrl: response.data.audioUrl, timestamp: new Date() };
+            const isAudioFile = response.data.podcastUrl && (response.data.podcastUrl.endsWith('.mp3') || response.data.podcastUrl.endsWith('.wav'));
+            if (isAudioFile) {
+            const podcastMessage = { 
+                    role: 'assistant', type: 'audio',
+                    parts: [{ text: `🎧 Podcast generated successfully!` }], 
+                    audioUrl: response.data.podcastUrl, timestamp: new Date()
+            };
             setMessages(prev => [...prev, podcastMessage]);
+                console.log('Audio URL:', response.data.podcastUrl);
+            } else {
+                const errorMessage = { role: 'assistant', parts: [{ text: `❌ Podcast generation failed. Audio could not be generated.` }], timestamp: new Date() };
+                setMessages(prev => [...prev, errorMessage]);
+                setError('Podcast generation failed. Audio could not be generated.');
+            }
         } catch (err) {
-            const errorMessage = err.response?.data?.message || 'Failed to generate podcast.';
-            setError(`Podcast Error: ${errorMessage}`);
+            console.error('Podcast generation error:', err);
+            let errorMessageText = err.response?.data?.message || 'Failed to generate podcast.';
+            // User-friendly error for not enough content
+            if (errorMessageText.includes('Not enough content in file')) {
+                errorMessageText = 'The selected file does not have enough content to generate a podcast. Please upload a longer or more detailed file.';
+            }
+            setError(`Podcast Error: ${errorMessageText}`);
+            setMessages(prev => [...prev, { role: 'assistant', parts: [{ text: `Error generating podcast: ${errorMessageText}` }], timestamp: new Date() }]);
         } finally {
-            setIsPodcastLoading(false);
+            setLoadingStates(prev => ({ ...prev, podcast: false }));
         }
     }, [isProcessing]);
 
-    const handleOpenMindMapFullscreen = useCallback((messageIndex) => {
-        const mindMapContainer = document.getElementById(`mindmap-container-${messageIndex}`);
-        if (mindMapContainer) {
-            if (mindMapContainer.requestFullscreen) {
-                mindMapContainer.requestFullscreen();
-            } else if (mindMapContainer.webkitRequestFullscreen) {
-                mindMapContainer.webkitRequestFullscreen();
-            } else if (mindMapContainer.msRequestFullscreen) {
-                mindMapContainer.msRequestFullscreen();
-            }
-        } else {
-            setError("Could not find the mind map element to make fullscreen.");
-        }
-    }, []);
-
     const handleGenerateMindMap = useCallback(async (fileId, fileName) => {
         if (isProcessing) return;
-        setIsMindMapLoading(true);
+        setLoadingStates(prev => ({ ...prev, mindMap: true }));
         setError('');
-        setMessages(prev => [...prev, { role: 'user', parts: [{ text: `Requesting a mind map for the file: ${fileName}` }], timestamp: new Date() }]);
+        setMessages(prev => [...prev, { role: 'user', parts: [{ text: `Generate a mind map for the file: ${fileName}` }], timestamp: new Date() }]);
         try {
             const response = await generateMindMap(fileId);
-            const mindMapMessage = { role: 'assistant', type: 'mindmap', parts: [{ text: `Here is the mind map for "${fileName}":` }], mindMapData: response.data, timestamp: new Date() };
+            if (response.data && (response.data.nodes || response.data.mindmap)) {
+                const mindMapData = response.data.mindmap || response.data;
+                const mindMapMessage = { 
+                    role: 'assistant', type: 'mindmap',
+                    parts: [{ text: `Here is the mind map for "${fileName}":` }], 
+                    mindMapData: mindMapData, timestamp: new Date()
+                };
             setMessages(prev => [...prev, mindMapMessage]);
+            } else {
+                throw new Error('Invalid mind map data received from server');
+            }
         } catch (err) {
-            const errorMessage = err.response?.data?.message || 'Failed to generate mind map.';
-            setError(`Mind Map Error: ${errorMessage}`);
+            console.error('Mind map generation error:', err);
+            const errorMessageText = err.response?.data?.message || err.message || 'Failed to generate mind map.';
+            setError(`Mind Map Error: ${errorMessageText}`);
+            const errorMsg = { role: 'assistant', parts: [{ text: `❌ Mind Map Error: ${errorMessageText}` }], timestamp: new Date() };
+            setMessages(prev => [...prev, errorMsg]);
         } finally {
-            setIsMindMapLoading(false);
+            setLoadingStates(prev => ({ ...prev, mindMap: false }));
         }
     }, [isProcessing]);
 
@@ -317,8 +380,18 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setCurrentSystemPromptId(matchingPreset ? matchingPreset.id : 'custom');
     }, []);
 
-    const handleHistory = useCallback(() => setIsHistoryModalOpen(true), []);
-    const closeHistoryModal = useCallback(() => setIsHistoryModalOpen(false), []);
+    const handleLoadSession = useCallback((sessionData) => {
+        if (sessionData && sessionData.messages) {
+            setMessages(sessionData.messages);
+            if (sessionData.systemPrompt) {
+                setEditableSystemPromptText(sessionData.systemPrompt);
+            }
+            if (sessionData.sessionId) {
+                setSessionId(sessionData.sessionId);
+                localStorage.setItem('sessionId', sessionData.sessionId);
+            }
+        }
+    }, []);
 
     const handleEnterKey = useCallback((e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -327,7 +400,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     }, [handleSendMessage]);
 
-    if (!userId) {
+    const isInitializing = !userId;
+
+    if (isInitializing) {
         return <div className="loading-indicator"><span>Initializing...</span></div>;
     }
 
@@ -338,12 +413,13 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 <FileUploadWidget onUploadSuccess={fetchFiles} />
                 <FileManagerWidget
                     files={files}
-                    isLoading={isFileLoading}
+                    isLoading={loadingStates.files}
                     error={fileError}
                     onDeleteFile={handleDeleteFile}
                     onRenameFile={handleRenameFile}
                     onGeneratePodcast={handleGeneratePodcast}
                     onGenerateMindMap={handleGenerateMindMap}
+                    onChatWithFile={handleChatWithFile}
                     isProcessing={isProcessing}
                 />
             </div>
@@ -352,121 +428,92 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     <h1>Engineering Tutor</h1>
                     <div className="header-controls">
                         <span className="username-display">Hi, {username}!</span>
-                        <button onClick={handleHistory} className="header-button" disabled={isProcessing}>History</button>
+                        <button onClick={() => setShowHistoryModal(true)} className="header-button" disabled={isProcessing}>History</button>
                         <button onClick={handleNewChat} className="header-button" disabled={isProcessing}>New Chat</button>
                         <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
                     </div>
                 </header>
-                <div className="messages-area">
+                <div className="messages-area" ref={messagesEndRef}>
                     {messages.map((msg, index) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
                         const messageText = msg.parts[0]?.text || '';
                         const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                         
-                        // --- THIS IS THE MODIFIED JSX STRUCTURE ---
                         return (
                             <div key={index} className={`message-wrapper ${msg.role}`}>
-                                <div className={`message ${msg.type === 'deep_search' ? 'deep-search-result' : ''}`}>
-                                    <div className="message-content">
-                                        {msg.type === 'mindmap' ? (
-                                            <>
-                                                <p>{messageText}</p>
-                                                <div id={`mindmap-container-${index}`} className="mindmap-container-for-export">
-                                                    <MindMap mindMapData={msg.mindMapData} />
-                                                </div>
-                                                <div className="mindmap-actions">
-                                                    <button onClick={() => handleOpenMindMapFullscreen(index)} className="mindmap-action-button">
-                                                        View Fullscreen
-                                                    </button>
-                                                </div>
-                                            </>
-                                        ) : msg.type === 'audio' ? (
-                                            <>
-                                                <p>{messageText}</p>
-                                                <audio controls src={msg.audioUrl} style={{ width: '100%', marginTop: '10px' }} />
-                                            </>
-                                        ) : (
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                                        )}
+                                <div className={`message-content ${msg.type || ''}`}>
+                                    <div className="message-header">
+                                        <span className="message-role">{msg.role === 'assistant' ? 'AI Assistant' : username}</span>
+                                        <span className="message-timestamp">{timestamp}</span>
                                     </div>
-                                </div>
-                                <div className="message-footer">
-                                    <span className="message-timestamp">{timestamp}</span>
-                                    {msg.role === 'assistant' && (
-                                        <button onClick={() => handleSpeakMessage(messageText)} className="speaker-icon-button" title="Listen to message">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                                                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                                            </svg>
-                                        </button>
+                                    {msg.type === 'mindmap' && msg.mindMapData ? (
+                                        <div id={`mindmap-container-${index}`} className="mindmap-container">
+                                            <MindMap mindMapData={msg.mindMapData} />
+                                        </div>
+                                    ) : msg.type === 'audio' && msg.audioUrl ? (
+                                        <div className="audio-player-container">
+                                            <p>{messageText}</p>
+                                            <audio controls src={msg.audioUrl} />
+                                        </div>
+                                    ) : (
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
                                     )}
                                 </div>
                             </div>
                         );
-                        // --- END OF MODIFIED JSX STRUCTURE ---
                     })}
-                    <div ref={messagesEndRef} />
                 </div>
-
-                {(isProcessing) && (
-                    <div className="loading-indicator">
-                        <span>
-                            {isDeepSearching ? 'Performing deep search...' :
-                             isMindMapLoading ? 'Generating mind map...' :
-                             isPodcastLoading ? 'Generating podcast...' :
-                             isRagLoading ? 'Searching documents...' : 'Thinking...'}
-                        </span>
-                    </div>
-                )}
-                {!isProcessing && error && <div className="error-indicator">{error}</div>}
-                
-                <footer className="input-area">
+                <form onSubmit={handleSendMessage} className="message-input-form">
                     <textarea
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyDown={handleEnterKey}
-                        placeholder="Ask your tutor..."
-                        rows="1"
-                        disabled={isProcessing || isListening}
+                        placeholder="Type your message, or use the mic..."
+                        className="message-input"
+                        disabled={isProcessing}
                     />
                     <div className="toggle-container" title="Toggle Deep Search">
                         <input 
                             type="checkbox" 
                             id="deep-search-toggle" 
                             checked={isDeepSearchEnabled} 
-                            onChange={(e) => setIsDeepSearchEnabled(e.target.checked)} 
-                            disabled={isProcessing || isListening} 
+                            onChange={e => {
+                                const checked = e.target.checked;
+                                setIsDeepSearchEnabled(checked);
+                                if (checked) setIsRagEnabled(false);
+                            }}
+                            disabled={isProcessing}
                         />
                         <label htmlFor="deep-search-toggle">Deep Search</label>
                     </div>
-                    <div className="toggle-container" title={!hasFiles ? "Upload files to enable RAG" : "Toggle RAG"}>
+                    <div className="toggle-container" title="Toggle RAG">
                         <input 
                             type="checkbox" 
                             id="rag-toggle" 
                             checked={isRagEnabled} 
-                            onChange={(e) => setIsRagEnabled(e.target.checked)} 
-                            disabled={!hasFiles || isProcessing || isListening} 
+                            onChange={e => {
+                                const checked = e.target.checked;
+                                setIsRagEnabled(checked);
+                                if (checked) setIsDeepSearchEnabled(false);
+                            }}
+                            disabled={isProcessing}
                         />
                         <label htmlFor="rag-toggle">RAG</label>
                     </div>
-                    <button
-                        onClick={handleMicButtonClick}
-                        className={`icon-button mic-button ${isListening ? 'listening' : ''}`}
-                        disabled={isProcessing || !recognitionRef.current}
-                        title={isListening ? "Stop Voice Input" : "Start Voice Input"}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                        </svg>
+                    <button type="submit" className="send-button" disabled={isProcessing || !inputText.trim()}>Send</button>
+                    <button type="button" onClick={handleMicButtonClick} className={`mic-button ${loadingStates.listening ? 'listening' : ''}`} disabled={isProcessing}>
+                        🎤
                     </button>
-                    <button onClick={handleSendMessage} disabled={!inputText.trim() || isProcessing || isListening} title="Send Message">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                        </svg>
-                    </button>
-                </footer>
+                </form>
+                {error && <p className="error-message">{error}</p>}
             </div>
-            <HistoryModal isOpen={isHistoryModalOpen} onClose={closeHistoryModal} onLoadSession={handleLoadSession} />
+            {showHistoryModal && (
+                <HistoryModal
+                    isOpen={showHistoryModal}
+                    onClose={() => setShowHistoryModal(false)}
+                    onLoadSession={handleLoadSession}
+                />
+            )}
         </div>
     );
 };

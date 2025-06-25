@@ -195,3 +195,15 @@ npm start
 
 ## Accessing the Application
 Go to: [http://localhost:3000](http://localhost:3000)
+
+## Team Contributions
+
+| Name             | GitHub Username       | Contributions                                                                                  |
+|------------------|----------------------|-----------------------------------------------------------------------------------------------|
+| Maroju Eswari    | EswariMaroju         | Load Balancing, Voice-to-Text, Response Voice, Multi-user Handling  |
+| J. Vijay Tarak   | JANGUMALLIVIJAYTARAK | LLM integration, document analysis, admin panel, chain-of-thought reasoning, API key management and Ollama port optimization and multi-RAG implementation                     |
+| S. Raveendra     | Ravindra5F7          | UI Design, Database Handling & Integration                                                   |
+| T. Vijay         | vijay1turaga         | Feature Suggestions, Document Analysis                                                       |
+| G. Yaswanth      | YASWANTHGEDDA        | Notebook Handling, KG Logic, RAG Enhancements & Integration                                  |
+| Busi Akhil       | Akhil_Busi           | LLM Interaction, Graph Data Analysis & Integration                                           |
+| Tatina Nikhitha  | Nikhitha0206         | Frontend UI/UX, Chat Continuation using restored sessionId, Download entire chat as PDF, Download the FAQ's, Identify topics as PDF, Download mindmap in image format to local storage |

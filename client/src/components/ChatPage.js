@@ -552,29 +552,30 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         }}
                         disabled={isProcessing}
                     >
-                        <FaSearch style={{ marginRight: 6 }} /> Deep Research
+                        DS
                     </button>
                     <button
                         type="button"
                         className={`input-action-btn${isRagEnabled ? ' active' : ''}`}
-                        title="Canvas"
+                        title="RAG"
                         onClick={() => {
                             setIsRagEnabled((v) => { if (!v) setIsDeepSearchEnabled(false); return !v; });
                         }}
                         disabled={isProcessing}
                     >
-                        <FaRegObjectGroup style={{ marginRight: 6 }} /> Canvas
+                        RAG
                     </button>
-                    <input
-                        type="text"
-                        value={inputText}
-                        onChange={e => setInputText(e.target.value)}
-                        onKeyDown={handleEnterKey}
-                        placeholder="Ask Gemini"
-                        className="modern-input"
-                        disabled={isProcessing}
-                        autoComplete="off"
-                    />
+                    <button
+                        type="submit"
+                        className="input-action-btn"
+                        title="Send message"
+                        disabled={isProcessing || !inputText.trim()}
+                        onClick={handleSendMessage}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94l18-9a.75.75 0 0 0 0-1.88l-18-9Z"/>
+                        </svg>
+                    </button>
                     <button
                         type="button"
                         className="input-action-btn"
@@ -584,6 +585,17 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     >
                         <FaMicrophone />
                     </button>
+                    <input
+                        type="text"
+                        value={inputText}
+                        onChange={e => setInputText(e.target.value)}
+                        onKeyDown={handleEnterKey}
+                        placeholder="Type your message, or use the mic..."
+                        className="modern-input"
+                        disabled={isProcessing}
+                        autoComplete="off"
+                        style={{ flex: 1 }}
+                    />
                 </div>
                 {error && <p className="error-message">{error}</p>}
             </div>

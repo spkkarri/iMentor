@@ -1,0 +1,86 @@
+{
+  "summary": "The query \"hi\" likely refers to the common English greeting.\n\nBased on the search results, multiple dictionaries (Cambridge, Merriam-Webster, YourDictionary, Dictionary.com) and vocabulary resources (Vocabulary.com) have definitions for \"hi.\"  While the provided search snippets lack the actual definitions, the sheer number of results from reputable sources strongly suggests that \"hi\" is a recognized and widely used word.\n\nTherefore, the answer to the query \"hi\" is:\n\n**\"Hi\" is a common English greeting used to express acknowledgment or to initiate a conversation. It's a shortened and informal version of \"hello.\"**\n\n**Limitations and Uncertainties:**\n\nWithout the full definitions from the linked pages, a more nuanced understanding of regional variations, specific contexts, or alternative meanings cannot be provided.  The search results only confirm the existence of definitions and resources for the term.",
+  "sources": [
+    {
+      "title": "HI | English meaning - Cambridge Dictionary",
+      "url": ""
+    },
+    {
+      "title": "HI Definition &amp; Meaning - Merriam-Webster",
+      "url": ""
+    },
+    {
+      "title": "Hi Definition &amp; Meaning - YourDictionary",
+      "url": ""
+    },
+    {
+      "title": "HI Definition &amp; Meaning | Dictionary.com",
+      "url": ""
+    },
+    {
+      "title": "Hi - Definition, Meaning &amp; Synonyms | Vocabulary.com",
+      "url": ""
+    }
+  ],
+  "aiGenerated": true,
+  "rawResults": [
+    {
+      "title": "HI | English meaning - Cambridge Dictionary",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "HI | English meaning - Cambridge Dictionary",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 11
+    },
+    {
+      "title": "HI Definition &amp; Meaning - Merriam-Webster",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "HI Definition &amp; Meaning - Merriam-Webster",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 11.4
+    },
+    {
+      "title": "Hi Definition &amp; Meaning - YourDictionary",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "Hi Definition &amp; Meaning - YourDictionary",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 11.200000000000001
+    },
+    {
+      "title": "HI Definition &amp; Meaning | Dictionary.com",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "HI Definition &amp; Meaning | Dictionary.com",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 11.200000000000001
+    },
+    {
+      "title": "Hi - Definition, Meaning &amp; Synonyms | Vocabulary.com",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "Hi - Definition, Meaning &amp; Synonyms | Vocabulary.com",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 13.600000000000001
+    }
+  ],
+  "query": "hi",
+  "timestamp": "2025-06-25T09:53:01.205Z",
+  "userId": "685bc6c6ceb7c183f75ff4a1"
+}

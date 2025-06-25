@@ -13,15 +13,12 @@ import { v4 as uuidv4 } from 'uuid';
 import SystemPromptWidget, { availablePrompts, getPromptTextById } from './SystemPromptWidget';
 import FileUploadWidget from './FileUploadWidget';
 import FileManagerWidget from './FileManagerWidget';
-import MindMap from './MindMap'; // Restored for mind map rendering
+import MindMap from './MindMap';
 import HistoryModal from './HistoryModal';
 
 import './ChatPage.css';
 
 const ChatPage = ({ setIsAuthenticated }) => {
-    console.log('--- ChatPage Component Re-rendered ---');
-
-    // Moved loadingStates definition before its use to fix no-use-before-define
     const [loadingStates, setLoadingStates] = useState({
         chat: false,
         files: false,
@@ -33,7 +30,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
-    const [error, setError] = useState(''); // Keep error state for displaying UI errors
+    const [error, setError] = useState('');
     const [sessionId, setSessionId] = useState('');
     const [userId, setUserId] = useState('');
     const [username, setUsername] = useState('');
@@ -45,14 +42,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
     const [activeFileForRag, setActiveFileForRag] = useState(null);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
-    
-    useEffect(() => {
-        console.log('[Debug] Loading states changed:', loadingStates);
-    }, [loadingStates]);
-
-    useEffect(() => {
-        console.log('[Debug] Messages state changed, new count:', messages.length);
-    }, [messages]);
+    const [currentlySpeakingIndex, setCurrentlySpeakingIndex] = useState(null);
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
@@ -90,6 +80,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const handleLogout = useCallback((skipSave = false) => {
         const performCleanup = () => {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
             localStorage.clear();
             setIsAuthenticated(false);
             navigate('/login', { replace: true });
@@ -100,8 +93,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
             performCleanup();
         }
     }, [messages.length, setIsAuthenticated, navigate, saveAndReset]);
-
-    const hasUserId = !!userId;
 
     useEffect(() => {
         const handleStorage = (event) => {
@@ -126,7 +117,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
     useEffect(() => {
         const storedUserId = String(localStorage.getItem('userId'));
         const storedUsername = localStorage.getItem('username');
-        console.log('ChatPage: storedUserId:', storedUserId, 'storedUsername:', storedUsername);
         if (!storedUserId || !storedUsername) {
             handleLogout(true);
         } else {
@@ -162,8 +152,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setLoadingStates(prev => ({ ...prev, files: true }));
         try {
             const response = await getUserFiles();
-            const filesData = response.data || [];
-            setFiles(filesData);
+            setFiles(response.data || []);
         } catch (err) {
             setFileError('Could not load files.');
         } finally {
@@ -186,21 +175,19 @@ const ChatPage = ({ setIsAuthenticated }) => {
         const trimmedInput = inputText.trim();
         if (!trimmedInput || isProcessing) return;
 
-        console.log('[Debug] handleSendMessage triggered.');
         if (loadingStates.listening) recognitionRef.current?.stop();
 
         const newUserMessage = { role: 'user', parts: [{ text: trimmedInput }], timestamp: new Date() };
-        const historyToSend = [...messages, newUserMessage];
-        setMessages(historyToSend);
+        setMessages(prev => [...prev, newUserMessage]);
         setInputText('');
         setError('');
 
+        const historyToSend = [...messages, newUserMessage];
+
         if (isDeepSearchEnabled) {
-            console.log('[Debug] Performing Deep Search with query:', trimmedInput);
             setLoadingStates(prev => ({ ...prev, deepSearch: true }));
             try {
                 const response = await performDeepSearch(trimmedInput);
-                console.log('[Debug] Deep Search API Success:', response.data);
                 const deepSearchResult = {
                     role: 'assistant', type: 'deep_search',
                     parts: [{ text: response.data.message }],
@@ -208,23 +195,17 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 };
                 setMessages(prev => [...prev, deepSearchResult]);
             } catch (err) {
-                console.error('[Debug] Deep Search API Error:', err.response || err);
-                const errorMessage = err.response?.data?.message || 'Deep search failed.';
-                setError(`Deep Search Error: ${errorMessage}`);
+                setError(`Deep Search Error: ${err.response?.data?.message || 'Deep search failed.'}`);
                 setMessages(prev => prev.slice(0, -1));
                 if (err.response?.status === 401) handleLogout(true);
             } finally {
                 setLoadingStates(prev => ({ ...prev, deepSearch: false }));
             }
         } else if (isRagEnabled) {
-            console.log('[Debug] Performing RAG Query with query:', trimmedInput, 'and file:', activeFileForRag?.name);
             setLoadingStates(prev => ({ ...prev, chat: true }));
             try {
-                const ragPayload = { query: trimmedInput, history: historyToSend, sessionId };
-                if (activeFileForRag) ragPayload.fileId = activeFileForRag.id;
-                console.log('[Debug] RAG Payload:', ragPayload);
+                const ragPayload = { query: trimmedInput, history: historyToSend, sessionId, fileId: activeFileForRag?.id };
                 const response = await queryRagService(ragPayload);
-                console.log('[Debug] RAG API Success:', response.data);
                 const assistantMessage = {
                     role: 'assistant', type: 'rag',
                     parts: [{ text: response.data.message }],
@@ -232,22 +213,17 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 };
                 setMessages(prev => [...prev, assistantMessage]);
             } catch (err) {
-                console.error('[Debug] RAG API Error:', err.response || err);
-                const errorMessage = err.response?.data?.message || 'RAG query failed.';
-                setError(`RAG Error: ${errorMessage}`);
+                setError(`RAG Error: ${err.response?.data?.message || 'RAG query failed.'}`);
                 setMessages(prev => prev.slice(0, -1));
                 if (err.response?.status === 401) handleLogout(true);
             } finally {
                 setLoadingStates(prev => ({ ...prev, chat: false }));
             }
         } else {
-            console.log('[Debug] Performing standard chat message with query:', trimmedInput);
             setLoadingStates(prev => ({ ...prev, chat: true }));
             try {
                 const payload = { query: trimmedInput, history: historyToSend, sessionId, systemPrompt: editableSystemPromptText };
-                console.log('[Debug] Standard Chat Payload:', payload);
                 const response = await apiSendMessage(payload);
-                console.log('[Debug] Standard Chat API Success:', response.data);
                 const assistantMessage = {
                     role: 'assistant',
                     parts: [{ text: response.data.message }],
@@ -255,16 +231,14 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 };
                 setMessages(prev => [...prev, assistantMessage]);
             } catch (err) {
-                console.error('[Debug] Standard Chat API Error:', err.response || err);
-                const errorMessage = err.response?.data?.error || 'Chat error.';
-                setError(errorMessage);
+                setError(err.response?.data?.error || 'Chat error.');
                 setMessages(prev => prev.slice(0, -1));
                 if (err.response?.status === 401) handleLogout(true);
             } finally {
                 setLoadingStates(prev => ({ ...prev, chat: false }));
             }
         }
-    }, [inputText, isProcessing, loadingStates, isDeepSearchEnabled, isRagEnabled, messages, editableSystemPromptText, handleLogout, activeFileForRag, sessionId]);
+    }, [inputText, isProcessing, loadingStates, messages, isDeepSearchEnabled, isRagEnabled, activeFileForRag, sessionId, editableSystemPromptText, handleLogout]);
 
     const handleMicButtonClick = useCallback(() => {
         if (!recognitionRef.current) return;
@@ -274,6 +248,26 @@ const ChatPage = ({ setIsAuthenticated }) => {
             recognitionRef.current.start();
         }
     }, [loadingStates.listening]);
+
+    const handleTextToSpeech = useCallback((text, index) => {
+        if (!('speechSynthesis' in window)) {
+            setError('Sorry, your browser does not support text-to-speech.');
+            return;
+        }
+        window.speechSynthesis.cancel();
+        if (currentlySpeakingIndex === index) {
+            setCurrentlySpeakingIndex(null);
+            return;
+        }
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = () => setCurrentlySpeakingIndex(null);
+        utterance.onerror = () => {
+            setError('An error occurred during speech synthesis.');
+            setCurrentlySpeakingIndex(null);
+        };
+        setCurrentlySpeakingIndex(index);
+        window.speechSynthesis.speak(utterance);
+    }, [currentlySpeakingIndex]);
 
     const handleDeleteFile = async (fileId, fileName) => {
         if (window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
@@ -309,27 +303,22 @@ const ChatPage = ({ setIsAuthenticated }) => {
         if (isProcessing) return;
         setLoadingStates(prev => ({ ...prev, podcast: true }));
         setError('');
+        setMessages(prev => [...prev, { role: 'user', parts: [{ text: `Requesting a podcast for "${fileName}"...` }], timestamp: new Date() }]);
         try {
-            setMessages(prev => [...prev, { role: 'user', parts: [{ text: `Requesting a podcast for "${fileName}"...` }], timestamp: new Date() }]);
             const response = await generatePodcast(fileId);
-            const isAudioFile = response.data.podcastUrl && (response.data.podcastUrl.endsWith('.mp3') || response.data.podcastUrl.endsWith('.wav'));
+            const isAudioFile = response.data.podcastUrl?.endsWith('.mp3') || response.data.podcastUrl?.endsWith('.wav');
             if (isAudioFile) {
-            const podcastMessage = { 
+                const podcastMessage = {
                     role: 'assistant', type: 'audio',
-                    parts: [{ text: `🎧 Podcast generated successfully!` }], 
+                    parts: [{ text: `🎧 Podcast generated successfully!` }],
                     audioUrl: response.data.podcastUrl, timestamp: new Date()
-            };
-            setMessages(prev => [...prev, podcastMessage]);
-                console.log('Audio URL:', response.data.podcastUrl);
+                };
+                setMessages(prev => [...prev, podcastMessage]);
             } else {
-                const errorMessage = { role: 'assistant', parts: [{ text: `❌ Podcast generation failed. Audio could not be generated.` }], timestamp: new Date() };
-                setMessages(prev => [...prev, errorMessage]);
-                setError('Podcast generation failed. Audio could not be generated.');
+                throw new Error('Podcast generation failed. Audio could not be generated.');
             }
         } catch (err) {
-            console.error('Podcast generation error:', err);
-            let errorMessageText = err.response?.data?.message || 'Failed to generate podcast.';
-            // User-friendly error for not enough content
+            let errorMessageText = err.response?.data?.message || err.message || 'Failed to generate podcast.';
             if (errorMessageText.includes('Not enough content in file')) {
                 errorMessageText = 'The selected file does not have enough content to generate a podcast. Please upload a longer or more detailed file.';
             }
@@ -347,23 +336,21 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setMessages(prev => [...prev, { role: 'user', parts: [{ text: `Generate a mind map for the file: ${fileName}` }], timestamp: new Date() }]);
         try {
             const response = await generateMindMap(fileId);
-            if (response.data && (response.data.nodes || response.data.mindmap)) {
-                const mindMapData = response.data.mindmap || response.data;
-                const mindMapMessage = { 
+            const mindMapData = response.data?.mindmap || response.data;
+            if (mindMapData?.nodes) {
+                const mindMapMessage = {
                     role: 'assistant', type: 'mindmap',
-                    parts: [{ text: `Here is the mind map for "${fileName}":` }], 
+                    parts: [{ text: `Here is the mind map for "${fileName}":` }],
                     mindMapData: mindMapData, timestamp: new Date()
                 };
-            setMessages(prev => [...prev, mindMapMessage]);
+                setMessages(prev => [...prev, mindMapMessage]);
             } else {
                 throw new Error('Invalid mind map data received from server');
             }
         } catch (err) {
-            console.error('Mind map generation error:', err);
             const errorMessageText = err.response?.data?.message || err.message || 'Failed to generate mind map.';
             setError(`Mind Map Error: ${errorMessageText}`);
-            const errorMsg = { role: 'assistant', parts: [{ text: `❌ Mind Map Error: ${errorMessageText}` }], timestamp: new Date() };
-            setMessages(prev => [...prev, errorMsg]);
+            setMessages(prev => [...prev, { role: 'assistant', parts: [{ text: `❌ Mind Map Error: ${errorMessageText}` }], timestamp: new Date() }]);
         } finally {
             setLoadingStates(prev => ({ ...prev, mindMap: false }));
         }
@@ -381,11 +368,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
     }, []);
 
     const handleLoadSession = useCallback((sessionData) => {
-        if (sessionData && sessionData.messages) {
+        if (sessionData?.messages) {
             setMessages(sessionData.messages);
-            if (sessionData.systemPrompt) {
-                setEditableSystemPromptText(sessionData.systemPrompt);
-            }
+            setEditableSystemPromptText(sessionData.systemPrompt || getPromptTextById('friendly'));
             if (sessionData.sessionId) {
                 setSessionId(sessionData.sessionId);
                 localStorage.setItem('sessionId', sessionData.sessionId);
@@ -400,9 +385,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     }, [handleSendMessage]);
 
-    const isInitializing = !userId;
-
-    if (isInitializing) {
+    if (!userId) {
         return <div className="loading-indicator"><span>Initializing...</span></div>;
     }
 
@@ -444,8 +427,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                 <div className={`message-content ${msg.type || ''}`}>
                                     <div className="message-header">
                                         <span className="message-role">{msg.role === 'assistant' ? 'AI Assistant' : username}</span>
-                                        <span className="message-timestamp">{timestamp}</span>
                                     </div>
+                                    
+                                    {/* Main message body */}
                                     {msg.type === 'mindmap' && msg.mindMapData ? (
                                         <div id={`mindmap-container-${index}`} className="mindmap-container">
                                             <MindMap mindMapData={msg.mindMapData} />
@@ -458,6 +442,25 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                     ) : (
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
                                     )}
+
+                                    {/* ✅ MODIFIED: Footer is now below the content */}
+                                    <div className="message-footer">
+                                        {msg.role === 'assistant' && (
+                                            <button
+                                                onClick={() => handleTextToSpeech(messageText, index)}
+                                                className={`tts-button ${currentlySpeakingIndex === index ? 'speaking' : ''}`}
+                                                title="Read aloud"
+                                                disabled={isProcessing}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
+                                                    <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
+                                                    <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
+                                                </svg>
+                                            </button>
+                                        )}
+                                        <span className="message-timestamp">{timestamp}</span>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -500,9 +503,16 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         />
                         <label htmlFor="rag-toggle">RAG</label>
                     </div>
-                    <button type="submit" className="send-button" disabled={isProcessing || !inputText.trim()}>Send</button>
-                    <button type="button" onClick={handleMicButtonClick} className={`mic-button ${loadingStates.listening ? 'listening' : ''}`} disabled={isProcessing}>
-                        🎤
+                    <button type="submit" className="send-button" title="Send message" disabled={isProcessing || !inputText.trim()}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                           <path d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94l18-9a.75.75 0 0 0 0-1.88l-18-9Z"/>
+                        </svg>
+                    </button>
+                    <button type="button" onClick={handleMicButtonClick} className={`mic-button ${loadingStates.listening ? 'listening' : ''}`} title="Use microphone" disabled={isProcessing}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a8 8 0 0 0 7 7.93V22h2v-2.07A8 8 0 0 0 21 12v-2h-2z"/>
+                        </svg>
                     </button>
                 </form>
                 {error && <p className="error-message">{error}</p>}

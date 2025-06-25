@@ -101,31 +101,112 @@ cp server/.env.example server/.env
 
 ### 3. Install Dependencies
 
-#### 🔹 Root (for concurrently)
+This step installs all required dependencies for the Node.js/React applications and the Python microservices.
+
+---
+
+#### 🔹 Root & Node.js/React (npm)
+
+Run the following commands from the **root** directory of the project:
+
 ```bash
+# 1. Install root-level dependencies (e.g., concurrently)
 npm install
-```
 
-#### 🔹 Backend (Node.js)
-```bash
+# 2. Install backend (Node.js) dependencies
 npm install --prefix server
-```
 
-#### 🔹 Frontend (React)
-```bash
+# 3. Install frontend (React) dependencies
 npm install --prefix client
 ```
 
-#### 🔹 Python Microservices
-Repeat the following steps for each service:  
-`Notebook/backend`, `server/rag_service/`, `server/search_service/`, and `server/audio_service/`.
+---
+
+#### 🔹 Python Microservices (pip)
+
+It is recommended to create and activate a virtual environment (`.venv`) inside each Python microservice directory.
+
+**Directories to configure:**
+
+- `Notebook/backend`
+- `server/rag_service`
+- `server/search_service`
+- `server/audio_service`
+
+Instructions differ slightly based on your operating system:
+
+---
+
+##### ▶ On Windows (PowerShell)
+
+```powershell
+# Notebook Service
+cd Notebook/backend
+python -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+cd ../..
+
+# RAG Service
+cd server/rag_services
+python -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+cd ../..
+
+# Search Service
+cd server/search_service
+python -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+cd ../..
+
+# Audio Service
+cd server/audio_service
+python -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+cd ../..
+```
+
+---
+
+##### ▶ On Linux / macOS (Bash or Zsh)
 
 ```bash
-cd path/to/service
-python -m venv .venv         # Create virtual environment (optional)
-source .venv/bin/activate    # Activate it (use .venv\Scripts\activate on Windows)
+# Notebook Service
+cd Notebook/backend
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+cd ../..
+
+# RAG Service
+cd server/rag_service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ../..
+
+# Search Service
+cd server/search_service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ../..
+
+# Audio Service
+cd server/audio_service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ../..
 ```
+
+---
+
+> ✅ **Tip:** Always activate the correct virtual environment before running or developing each Python service.
+
 
 ---
 
@@ -150,6 +231,55 @@ This will use `concurrently` to spin up:
 **http://localhost:3000**
 
 ---
+
+---
+
+## 💡 Important Notes & Troubleshooting
+
+#### 📁 Run from the Root
+Ensure all `npm` and `git` commands are executed from the **project's root directory** (`chatbot-academics-project/`). This guarantees that paths and script references resolve correctly.
+
+---
+
+#### 🐍 Virtual Environments are Key
+Each Python microservice (`Notebook`, `rag_service`, `search_service`, `audio_service`) must have its **own virtual environment** (`.venv`).  
+
+The `npm run start-all` script is configured to **automatically activate** these environments.  
+If you skip creating them, you'll likely encounter errors like:
+
+```
+ModuleNotFoundError: No module named '...'
+```
+
+---
+
+#### 🚀 Why Use `npm run start-all`?
+
+**Do not manually run Python files** like `python app.py`.  
+
+The unified `start-all` script:
+- Handles complex `cd` (change directory) operations
+- Uses Python's `-m` module execution to ensure packages and paths resolve correctly
+- Enables seamless communication between services (especially for the RAG pipeline)
+
+> ✅ This is crucial for cross-service imports and shared data handling to work reliably.
+
+---
+
+#### ⚠️ `KMP_DUPLICATE_LIB_OK` Error (Windows)
+
+On Windows, if you encounter errors related to **libiomp5md.dll** (common with PyTorch or NumPy), set the following environment variable **before running the start command**:
+
+```powershell
+$env:KMP_DUPLICATE_LIB_OK="TRUE"
+npm run start-all
+```
+
+> This bypasses Intel MKL library conflicts that may crash your process.
+
+---
+
+
 
 ## 🧪 Example Use Cases
 

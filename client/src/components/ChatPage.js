@@ -533,69 +533,20 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     })}
                     <div ref={messagesEndRef} />
                 </div>
+                {/* Modern input bar for desktop */}
                 <div className="modern-input-bar">
-                    <button
-                        type="button"
-                        className="input-action-btn"
-                        title="Upload file"
-                        onClick={() => setIsDrawerOpen(true)}
-                        disabled={isProcessing}
-                    >
-                        <FaPlus />
+                  <div className="input-bar-left">
+                    <button type="button" className="input-action-btn" title="Upload file" onClick={() => setIsDrawerOpen(true)} disabled={isProcessing}><FaPlus /></button>
+                    <button type="button" className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''}`} title="Deep Research" onClick={() => { setIsDeepSearchEnabled((v) => { if (!v) setIsRagEnabled(false); return !v; }); }} disabled={isProcessing}>DS</button>
+                    <button type="button" className={`input-action-btn${isRagEnabled ? ' active' : ''}`} title="RAG" onClick={() => { setIsRagEnabled((v) => { if (!v) setIsDeepSearchEnabled(false); return !v; }); }} disabled={isProcessing}>RAG</button>
+                  </div>
+                  <input type="text" value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleEnterKey} placeholder="Type your message, or use the mic..." className="modern-input" disabled={isProcessing} autoComplete="off" style={{ flex: 1 }} />
+                  <div className="input-bar-right">
+                    <button type="button" className="input-action-btn" title="Use microphone" onClick={handleMicButtonClick} disabled={isProcessing}><FaMicrophone /></button>
+                    <button type="submit" className="input-action-btn" title="Send message" disabled={isProcessing || !inputText.trim()} onClick={handleSendMessage}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94l18-9a.75.75 0 0 0 0-1.88l-18-9Z"/></svg>
                     </button>
-                    <button
-                        type="button"
-                        className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''}`}
-                        title="Deep Research"
-                        onClick={() => {
-                            setIsDeepSearchEnabled((v) => { if (!v) setIsRagEnabled(false); return !v; });
-                        }}
-                        disabled={isProcessing}
-                    >
-                        DS
-                    </button>
-                    <button
-                        type="button"
-                        className={`input-action-btn${isRagEnabled ? ' active' : ''}`}
-                        title="RAG"
-                        onClick={() => {
-                            setIsRagEnabled((v) => { if (!v) setIsDeepSearchEnabled(false); return !v; });
-                        }}
-                        disabled={isProcessing}
-                    >
-                        RAG
-                    </button>
-                    <button
-                        type="submit"
-                        className="input-action-btn"
-                        title="Send message"
-                        disabled={isProcessing || !inputText.trim()}
-                        onClick={handleSendMessage}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94l18-9a.75.75 0 0 0 0-1.88l-18-9Z"/>
-                        </svg>
-                    </button>
-                    <button
-                        type="button"
-                        className="input-action-btn"
-                        title="Use microphone"
-                        onClick={handleMicButtonClick}
-                        disabled={isProcessing}
-                    >
-                        <FaMicrophone />
-                    </button>
-                    <input
-                        type="text"
-                        value={inputText}
-                        onChange={e => setInputText(e.target.value)}
-                        onKeyDown={handleEnterKey}
-                        placeholder="Type your message, or use the mic..."
-                        className="modern-input"
-                        disabled={isProcessing}
-                        autoComplete="off"
-                        style={{ flex: 1 }}
-                    />
+                  </div>
                 </div>
                 {error && <p className="error-message">{error}</p>}
             </div>

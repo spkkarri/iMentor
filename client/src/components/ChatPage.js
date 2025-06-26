@@ -206,10 +206,15 @@ const ChatPage = ({ setIsAuthenticated }) => {
             } finally {
                 setLoadingStates(prev => ({ ...prev, deepSearch: false }));
             }
-        } else if (isRagEnabled) {
+        }
+        let fileIdForRag = activeFileForRag?.id;
+        if (!fileIdForRag && files.length === 1) {
+            fileIdForRag = files[0]._id || files[0].id;
+        }
+        if (isRagEnabled) {
             setLoadingStates(prev => ({ ...prev, chat: true }));
             try {
-                const ragPayload = { query: trimmedInput, history: historyToSend, sessionId, fileId: activeFileForRag?.id };
+                const ragPayload = { query: trimmedInput, history: historyToSend, sessionId, fileId: fileIdForRag };
                 const response = await queryRagService(ragPayload);
                 const assistantMessage = {
                     role: 'assistant', type: 'rag',
@@ -243,7 +248,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 setLoadingStates(prev => ({ ...prev, chat: false }));
             }
         }
-    }, [inputText, isProcessing, loadingStates, messages, isDeepSearchEnabled, isRagEnabled, activeFileForRag, sessionId, editableSystemPromptText, handleLogout]);
+    }, [inputText, isProcessing, loadingStates, messages, isDeepSearchEnabled, isRagEnabled, activeFileForRag, sessionId, editableSystemPromptText, handleLogout, files]);
 
     const handleMicButtonClick = useCallback(() => {
         if (!recognitionRef.current) return;

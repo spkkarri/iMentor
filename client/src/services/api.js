@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const getApiBaseUrl = () => {
-    const backendPort = process.env.REACT_APP_BACKEND_PORT || 5001;
+    const backendPort = process.env.REACT_APP_BACKEND_PORT || 5005;
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
     return `${protocol}//${hostname}:${backendPort}/api`;

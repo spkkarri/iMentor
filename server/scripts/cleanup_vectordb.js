@@ -6,7 +6,7 @@ const VectorStore = require('../services/vectorStore');
 const LangchainVectorStore = require('../services/LangchainVectorStore');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
 
 // Helper to connect to the database
 async function connectToDB() {

@@ -152,8 +152,8 @@ npm install
 Create `.env` in `/server`:
 
 ```
-PORT=5001
-MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB
+PORT=5005
+MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
 PYTHON_RAG_SERVICE_URL=http://127.0.0.1:5002
 GEMINI_API_KEY=your_api_key
 JWT_SECRET=random_secret

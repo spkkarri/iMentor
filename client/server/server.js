@@ -20,8 +20,8 @@ const File = require('./models/File');
 const serviceManager = require('./services/serviceManager');
 
 // Configuration
-const PORT = process.env.PORT || 5001;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB';
+const PORT = process.env.PORT || 5005;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Check for required environment variables but don't exit
@@ -248,7 +248,7 @@ const startServer = async () => {
             console.log('\n=== Server Ready ===');
             console.log(`🚀 Server listening on port ${PORT}`);
             console.log('Access URLs:');
-            const frontendPorts = [3000, 3001, 8080, 5173];
+            const frontendPorts = [3005, 3001, 8080, 5173];
             availableIPs.forEach(ip => {
                  frontendPorts.forEach(fp => {
                     console.log(`   - http://${ip}:${fp} (Frontend) -> Backend: http://${ip}:${PORT}`);

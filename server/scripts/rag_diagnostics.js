@@ -4,7 +4,7 @@ const path = require('path');
 const File = require('../models/File');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
 
 async function main() {
     console.log('=== RAG Diagnostics ===\n');

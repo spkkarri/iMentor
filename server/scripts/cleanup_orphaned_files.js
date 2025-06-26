@@ -3,7 +3,7 @@ const fs = require('fs');
 const File = require('../models/File');
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
 
 async function cleanupOrphanedFiles() {
     await mongoose.connect(MONGO_URI);

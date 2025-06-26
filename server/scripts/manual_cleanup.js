@@ -5,7 +5,7 @@ const File = require('../models/File');
 const { performManualBackup } = require('../utils/assetCleanup');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
 
 async function manualCleanup() {
     console.log('🧹 Manual Cleanup Script');

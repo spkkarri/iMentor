@@ -6,7 +6,7 @@ const documentProcessor = require('../services/documentProcessor');
 const pLimit = require('p-limit');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
 const limit = pLimit(3); // Limit to 3 concurrent file processes
 
 async function processExistingFiles() {

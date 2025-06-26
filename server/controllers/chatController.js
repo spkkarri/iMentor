@@ -138,6 +138,14 @@ const handleRagMessage = async (req, res) => {
         }
         const sources = [...new Set(relevantChunks.map(chunk => chunk.metadata?.source))];
 
+        // --- PATCH: If no relevant chunks, return a clear error ---
+        if (relevantChunks.length === 0) {
+            return res.status(404).json({
+                message: 'No content found for the selected document. Please try re-uploading the file or check if the file format is supported.',
+                metadata: { sources, documentsFound: 0 }
+            });
+        }
+
         // Find or create the chat session
         let session;
         try {

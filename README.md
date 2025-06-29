@@ -17,14 +17,24 @@ A smart, interactive platform to revolutionize engineering education using Retri
 - Converts technical documents into a two-person dialogue script.
 - Uses TTS (Text-to-Speech) to generate natural MP3 audio.
 - FFmpeg integration for professional audio processing and export.
+- **eSpeak** integration for high-quality speech synthesis.
+
+> **Required Software**:
+- [FFmpeg](https://ffmpeg.org/download.html) - Audio/video processing
+- [eSpeak](http://espeak.sourceforge.net/download.html) - Text-to-speech synthesis
 
 > **Packages**:
 
 ```bash
-npm install @ffmpeg/ffmpeg @ffmpeg/core @ffmpeg-installer/ffmpeg fluent-ffmpeg
+npm install @ffmpeg/ffmpeg @ffmpeg/core @ffmpeg-installer/ffmpeg fluent-ffmpeg say
 ```
 
-> **System**: [FFmpeg](https://ffmpeg.org/) must be installed and added to system PATH.
+> **System Setup**: 
+- Install FFmpeg and add to system PATH
+- Install eSpeak for enhanced TTS quality
+- Windows: Download from [eSpeak Windows](http://espeak.sourceforge.net/download.html)
+- macOS: `brew install espeak`
+- Linux: `sudo apt-get install espeak` or `sudo yum install espeak`
 
 ---
 
@@ -87,9 +97,26 @@ npm install @google-cloud/text-to-speech say
 
 ### 7. 🔍 Deep Search Integration
 
-- Web search capabilities using DuckDuckGo API.
-- Intelligent query decomposition and result synthesis.
-- Cached search results for improved performance.
+- **Intelligent Web Search**: Advanced search capabilities using DuckDuckGo API with intelligent query decomposition.
+- **Query Optimization**: Automatically breaks down complex queries into sub-questions for better results.
+- **Result Synthesis**: AI-powered synthesis of multiple search results into comprehensive answers.
+- **Smart Caching**: Intelligent caching system with user-specific search result storage.
+- **Educational Content**: Enhanced with educational knowledge base for academic queries.
+- **Fallback Mechanisms**: Graceful degradation when external APIs are unavailable.
+
+> **Packages**:
+
+```bash
+npm install duck-duck-scrape axios node-cache
+```
+
+> **Features**:
+- Query decomposition and optimization
+- Multi-source result aggregation
+- Intelligent result scoring and ranking
+- User-specific search history caching
+- Educational content enhancement
+- Rate limiting and error handling
 
 ---
 
@@ -97,9 +124,10 @@ npm install @google-cloud/text-to-speech say
 
 ### 🔧 Prerequisites
 
-- Node.js (v16 or later)
+- Node.js (v18 or later)
 - MongoDB
 - FFmpeg
+- eSpeak (for enhanced TTS)
 - Gemini API Key from [Google AI Studio](https://makersuite.google.com/)
 
 ---
@@ -113,7 +141,19 @@ git clone https://github.com/AswanthAllu/intern_project.git
 cd intern_project
 ```
 
-#### 2. Terminal 1: Start MongoDB
+#### 2. Install System Dependencies
+
+**FFmpeg Installation:**
+- **Windows**: Download from [FFmpeg Official](https://ffmpeg.org/download.html#build-windows)
+- **macOS**: `brew install ffmpeg`
+- **Linux**: `sudo apt-get install ffmpeg` or `sudo yum install ffmpeg`
+
+**eSpeak Installation:**
+- **Windows**: Download from [eSpeak Windows](http://espeak.sourceforge.net/download.html)
+- **macOS**: `brew install espeak`
+- **Linux**: `sudo apt-get install espeak` or `sudo yum install espeak`
+
+#### 3. Terminal 1: Start MongoDB
 
 Make sure MongoDB is running locally:
 
@@ -121,7 +161,7 @@ Make sure MongoDB is running locally:
 mongod
 ```
 
-#### 3. Terminal 2: Start Node.js Backend
+#### 4. Terminal 2: Start Node.js Backend
 
 ```bash
 cd server
@@ -133,8 +173,9 @@ Create `.env` in `/server`:
 ```
 PORT=5005
 MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
-GEMINI_API_KEY=your_gemini_api_key
-JWT_SECRET=random_secret
+GEMINI_API_KEY=your_key
+JWT_SECRET=random_secret1234
+HF_API_KEY=your_huggingface_api_key
 ```
 
 Start backend:
@@ -143,7 +184,7 @@ Start backend:
 npm start
 ```
 
-#### 4. Terminal 3: Start React Frontend
+#### 5. Terminal 3: Start React Frontend
 
 ```bash
 cd client
@@ -159,14 +200,16 @@ npm start
 - **RAG Pipeline**: Document processing with vector embeddings
 - **AI Services**: Gemini AI integration for chat and content generation
 - **File Management**: Multi-format document upload and processing
-- **Audio Processing**: Podcast generation with FFmpeg
-- **Search Services**: Deep search with DuckDuckGo integration
+- **Audio Processing**: Podcast generation with FFmpeg + eSpeak
+- **Search Services**: Deep search with DuckDuckGo integration and intelligent caching
+- **Deep Search Engine**: Query decomposition, result synthesis, and educational content enhancement
 
 ### Frontend (React)
 - **Chat Interface**: Real-time messaging with RAG support
 - **File Manager**: Drag-and-drop upload with progress tracking
 - **Mind Map Viewer**: Interactive graph visualization
 - **Audio Player**: Podcast playback with controls
+- **Deep Search Interface**: Advanced search with query suggestions
 - **Responsive Design**: Mobile-friendly interface
 
 ### Database (MongoDB)
@@ -174,6 +217,7 @@ npm start
 - **Chat History**: Persistent conversation storage
 - **File Metadata**: Document information and processing status
 - **Vector Store**: FAISS indices for document search
+- **Search Cache**: User-specific search result caching
 
 ---
 
@@ -183,14 +227,11 @@ npm start
 ```
 PORT=5005
 MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
-GEMINI_API_KEY=your_gemini_api_key
-JWT_SECRET=your_jwt_secret
+GEMINI_API_KEY=your_key
+JWT_SECRET=random_secret1234
+HF_API_KEY=your_huggingface_api_key
 ```
 
-### Client (.env)
-```
-REACT_APP_API_URL=http://localhost:5005
-```
 
 ---
 
@@ -204,6 +245,9 @@ REACT_APP_API_URL=http://localhost:5005
 - `express`: Web framework
 - `multer`: File upload handling
 - `fluent-ffmpeg`: Audio processing
+- `duck-duck-scrape`: Web search integration
+- `node-cache`: Intelligent caching system
+- `say`: TTS integration with eSpeak
 
 ### Frontend Dependencies
 - `react`: UI framework
@@ -244,12 +288,10 @@ npm test
 
 | Name     | GitHub Username | Contribution Areas                                                                 |
 |----------|------------------|------------------------------------------------------------------------------------|
-| Jaya Aswanth Allu | [AswanthAllu](https://github.com/AswanthAllu) | Chain of Thought, Persistent Chat History (MongoDB), STT/TTS, Podcast Generation, Mind Map Generation, RAG Pipeline, Chat & File Deletion Features, Multiple File Upload, UI/UX Design |
+| Jaya Aswanth Allu | [AswanthAllu](https://github.com/AswanthAllu) | Chain of Thought, Persistent Chat History (MongoDB), STT/TTS, Podcast Generation, Mind Map Generation, RAG Pipeline, Deep Search Engine, Chat & File Deletion Features, Multiple File Upload, UI/UX Design |
+| Solomon Matthews | [7nos](https://github.com/7nos) | Deep Search |
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 

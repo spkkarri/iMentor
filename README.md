@@ -16,12 +16,12 @@ A smart, interactive platform to revolutionize engineering education using Retri
 
 - Converts technical documents into a two-person dialogue script.
 - Uses TTS (Text-to-Speech) to generate natural MP3 audio.
-- Pydub + FFmpeg process and export professional audio files.
+- FFmpeg integration for professional audio processing and export.
 
 > **Packages**:
 
 ```bash
-pip install gtts pydub
+npm install @ffmpeg/ffmpeg @ffmpeg/core @ffmpeg-installer/ffmpeg fluent-ffmpeg
 ```
 
 > **System**: [FFmpeg](https://ffmpeg.org/) must be installed and added to system PATH.
@@ -37,7 +37,7 @@ pip install gtts pydub
 > **Packages**:
 
 ```bash
-npm install dagre react-flow-renderer react-icons react-tiny-popover
+npm install dagre reactflow react-icons react-tiny-popover
 ```
 
 ---
@@ -54,11 +54,12 @@ npm install dagre react-flow-renderer react-icons react-tiny-popover
 
 - AI answers are context-aware, pulling knowledge directly from uploaded files.
 - Falls back to general Gemini model only when document data is insufficient.
+- Vector-based document search using FAISS for efficient retrieval.
 
 > **Packages**:
 
 ```bash
-pip install langchain sentence-transformers faiss-cpu google-generativeai
+npm install @langchain/community @langchain/core @langchain/google-genai faiss-node
 ```
 
 ---
@@ -73,14 +74,22 @@ pip install langchain sentence-transformers faiss-cpu google-generativeai
 
 ### 6. 🎤 STT & TTS Interaction
 
-- STT: Convert voice queries to text.
+- STT: Convert voice queries to text using browser APIs.
 - TTS: Read AI replies aloud using real-time speech engines.
 
 > **Packages**:
 
 ```bash
-pip install pyttsx3 gtts
+npm install @google-cloud/text-to-speech say
 ```
+
+---
+
+### 7. 🔍 Deep Search Integration
+
+- Web search capabilities using DuckDuckGo API.
+- Intelligent query decomposition and result synthesis.
+- Cached search results for improved performance.
 
 ---
 
@@ -89,7 +98,6 @@ pip install pyttsx3 gtts
 ### 🔧 Prerequisites
 
 - Node.js (v16 or later)
-- Python (v3.9 or later)
 - MongoDB
 - FFmpeg
 - Gemini API Key from [Google AI Studio](https://makersuite.google.com/)
@@ -113,36 +121,7 @@ Make sure MongoDB is running locally:
 mongod
 ```
 
-#### 3. Terminal 2: Start Python AI Microservice
-
-```bash
-cd server/rag_service
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-If missing, create `requirements.txt` with:
-
-```
-flask
-google-generativeai
-pyttsx3
-gtts
-pydub
-langchain
-faiss-cpu
-sentence-transformers
-```
-
-Start service:
-
-```bash
-export GEMINI_API_KEY=your_api_key
-python app.py
-```
-
-#### 4. Terminal 3: Start Node.js Backend
+#### 3. Terminal 2: Start Node.js Backend
 
 ```bash
 cd server
@@ -154,8 +133,7 @@ Create `.env` in `/server`:
 ```
 PORT=5005
 MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
-PYTHON_RAG_SERVICE_URL=http://127.0.0.1:5002
-GEMINI_API_KEY=your_api_key
+GEMINI_API_KEY=your_gemini_api_key
 JWT_SECRET=random_secret
 ```
 
@@ -165,18 +143,113 @@ Start backend:
 npm start
 ```
 
-#### 5. Terminal 4: Start React Frontend
+#### 4. Terminal 3: Start React Frontend
 
 ```bash
 cd client
 npm install
-npm install dagre react-flow-renderer react-icons react-tiny-popover
 npm start
 ```
-### 👥My  Contribution
+
+---
+
+## 🏗️ Architecture
+
+### Backend (Node.js/Express)
+- **RAG Pipeline**: Document processing with vector embeddings
+- **AI Services**: Gemini AI integration for chat and content generation
+- **File Management**: Multi-format document upload and processing
+- **Audio Processing**: Podcast generation with FFmpeg
+- **Search Services**: Deep search with DuckDuckGo integration
+
+### Frontend (React)
+- **Chat Interface**: Real-time messaging with RAG support
+- **File Manager**: Drag-and-drop upload with progress tracking
+- **Mind Map Viewer**: Interactive graph visualization
+- **Audio Player**: Podcast playback with controls
+- **Responsive Design**: Mobile-friendly interface
+
+### Database (MongoDB)
+- **User Management**: Authentication and session storage
+- **Chat History**: Persistent conversation storage
+- **File Metadata**: Document information and processing status
+- **Vector Store**: FAISS indices for document search
+
+---
+
+## 🔧 Environment Variables
+
+### Server (.env)
+```
+PORT=5005
+MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
+GEMINI_API_KEY=your_gemini_api_key
+JWT_SECRET=your_jwt_secret
+```
+
+### Client (.env)
+```
+REACT_APP_API_URL=http://localhost:5005
+```
+
+---
+
+## 📦 Key Dependencies
+
+### Backend Dependencies
+- `@google/generative-ai`: Gemini AI integration
+- `@langchain/community`: LangChain for RAG
+- `faiss-node`: Vector similarity search
+- `mongoose`: MongoDB ODM
+- `express`: Web framework
+- `multer`: File upload handling
+- `fluent-ffmpeg`: Audio processing
+
+### Frontend Dependencies
+- `react`: UI framework
+- `reactflow`: Mind map visualization
+- `dagre`: Graph layout algorithms
+- `axios`: HTTP client
+- `react-markdown`: Markdown rendering
+
+---
+
+## 🚀 Development
+
+### Running in Development Mode
+```bash
+# Backend
+cd server
+npm run dev
+
+# Frontend
+cd client
+npm start
+```
+
+### Testing
+```bash
+# Backend tests
+cd server
+npm test
+
+# Frontend tests
+cd client
+npm test
+```
+
+---
+
+## 👥 My Contribution
 
 | Name     | GitHub Username | Contribution Areas                                                                 |
 |----------|------------------|------------------------------------------------------------------------------------|
-|Jaya Aswanth Allu | [AswanthAllu](https://github.com/AswanthAllu) | Chain of Thought, Persistent Chat History (MongoDB),STT/TTS, Podcast Generation, Mind Map Generation, RAG Pipeline,Chat & File Deletion Features,  Multiple File Upload, UI/UX Design |
+| Jaya Aswanth Allu | [AswanthAllu](https://github.com/AswanthAllu) | Chain of Thought, Persistent Chat History (MongoDB), STT/TTS, Podcast Generation, Mind Map Generation, RAG Pipeline, Chat & File Deletion Features, Multiple File Upload, UI/UX Design |
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 

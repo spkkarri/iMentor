@@ -10,6 +10,79 @@ A smart, interactive platform to revolutionize engineering education using Retri
 
 ---
 
+## ⚙️ Setup & Installation Guide
+
+### 🔧 Prerequisites
+
+- Node.js (v18 or later)
+- MongoDB
+- FFmpeg
+- eSpeak (for enhanced TTS)
+
+
+---
+
+### 🧪 Step-by-Step Installation
+
+#### 1. Clone the Repo
+
+```bash
+git clone https://github.com/AswanthAllu/intern_project.git
+cd intern_project
+```
+
+#### 2. Install System Dependencies
+
+**FFmpeg Installation:**
+- **Windows**: Download from [FFmpeg Official](https://ffmpeg.org/download.html#build-windows)
+- **macOS**: `brew install ffmpeg`
+- **Linux**: `sudo apt-get install ffmpeg` or `sudo yum install ffmpeg`
+
+**eSpeak Installation:**
+- **Windows**: Download from [eSpeak Windows](http://espeak.sourceforge.net/download.html)
+- **macOS**: `brew install espeak`
+- **Linux**: `sudo apt-get install espeak` or `sudo yum install espeak`
+
+#### 3. Terminal 1: Start MongoDB
+
+Make sure MongoDB is running locally:
+
+```bash
+mongod
+```
+
+#### 4. Terminal 2: Start Node.js Backend
+
+```bash
+cd server
+npm install
+```
+
+Create `.env` in `/server`:
+
+```
+PORT=5005
+MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
+GEMINI_API_KEY=your_key
+JWT_SECRET=random_secret1234
+HF_API_KEY=your_huggingface_api_key
+```
+
+Start backend:
+
+```bash
+npm start
+```
+
+#### 5. Terminal 3: Start React Frontend
+
+```bash
+cd client
+npm install
+npm start
+```
+
+---
 ## 🧠 Key Features
 
 ### 1. 🗣️ Conversational Podcast Generator
@@ -120,79 +193,7 @@ npm install duck-duck-scrape axios node-cache
 
 ---
 
-## ⚙️ Setup & Installation Guide
 
-### 🔧 Prerequisites
-
-- Node.js (v18 or later)
-- MongoDB
-- FFmpeg
-- eSpeak (for enhanced TTS)
-- Gemini API Key from [Google AI Studio](https://makersuite.google.com/)
-
----
-
-### 🧪 Step-by-Step Installation
-
-#### 1. Clone the Repo
-
-```bash
-git clone https://github.com/AswanthAllu/intern_project.git
-cd intern_project
-```
-
-#### 2. Install System Dependencies
-
-**FFmpeg Installation:**
-- **Windows**: Download from [FFmpeg Official](https://ffmpeg.org/download.html#build-windows)
-- **macOS**: `brew install ffmpeg`
-- **Linux**: `sudo apt-get install ffmpeg` or `sudo yum install ffmpeg`
-
-**eSpeak Installation:**
-- **Windows**: Download from [eSpeak Windows](http://espeak.sourceforge.net/download.html)
-- **macOS**: `brew install espeak`
-- **Linux**: `sudo apt-get install espeak` or `sudo yum install espeak`
-
-#### 3. Terminal 1: Start MongoDB
-
-Make sure MongoDB is running locally:
-
-```bash
-mongod
-```
-
-#### 4. Terminal 2: Start Node.js Backend
-
-```bash
-cd server
-npm install
-```
-
-Create `.env` in `/server`:
-
-```
-PORT=5005
-MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
-GEMINI_API_KEY=your_key
-JWT_SECRET=random_secret1234
-HF_API_KEY=your_huggingface_api_key
-```
-
-Start backend:
-
-```bash
-npm start
-```
-
-#### 5. Terminal 3: Start React Frontend
-
-```bash
-cd client
-npm install
-npm start
-```
-
----
 
 ## 🏗️ Architecture
 

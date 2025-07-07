@@ -1,118 +1,121 @@
- ### **1. Project Blueprint: NIRF Innovation Data Portal** 
+### **Project Blueprint: Locally Deployed NIRF Portal with Faculty Authentication**
 
- **Objective:** To build a centralized web portal for faculty to submit data for the National Institutional Ranking Framework (NIRF) Innovation category. The system will automate the collection and scoring of data, and provide analytics for individual, departmental, and institutional performance. 
+**Objective:** To build a self-contained web portal, running on a local server, for your institute's faculty to log in and submit their individual data for the NIRF Innovation Rankings. The system will then collate the data, calculate scores, and provide departmental and institutional overviews for the NIRF coordinator.
 
- **Key Features:** 
- *   **Microservices-based:** The portal will be developed using a collection of independent services for easier management and scalability. 
- *   **API-Centric:** All portal functions will be accessible through APIs. 
- *   **Open-Source Foundation:** The project will utilize a modern, open-source technology stack. 
- *   **Automated Information Retrieval:** The portal will automatically pull publication data from Google Scholar and ORCID. 
- *   **Dynamic Scoring:** The system will calculate scores based on the latest NIRF methodology. 
- *   **Intuitive User Interface:** The portal will be designed for ease of use by faculty members with varying technical skills. 
+**Core Philosophy:** "An appliance-like" model. The entire application stack (frontend, backend, database) will be containerized. This means the institute's IT team only needs to install Docker and run a simple command to start the entire portal.
 
- ### **2. Phase 1: Groundwork and Design (Week 1)** 
+---
 
- This initial phase is crucial for establishing a solid foundation for the project. 
+### **Phase 1: Architecture and Design (Week 1)**
 
- #### **2.1. In-Depth Analysis of Requirements** 
+This phase is about creating a solid plan before writing any code.
 
- *   **User Roles and Access Levels:** 
-    *   **Faculty:** Can log in, manage their profile, submit and edit their innovation data, and view their individual scores. 
-    *   **Head of Department (HOD):** Can view aggregated data and scores for their department and monitor submission progress. 
-    *   **NIRF Coordinator (Admin):** Possesses full control over the system, including managing user accounts, overseeing all data, generating institutional reports, and configuring ranking parameters. 
- *   **Data Collection Forms:** Create detailed online forms based on the NIRF Innovation Ranking parameters outlined in the provided document. 
+#### **1.1. Technology Stack (Optimized for Local Deployment)**
 
- #### **2.2. Technology Stack Selection** 
+*   **Containerization:** **Docker & Docker Compose**. This is the most critical part of the plan. It bundles every part of the application into portable containers, making local setup trivial.
+*   **Frontend:** **React** or **Vue.js**. These compile to static files that are easy to serve.
+*   **Backend Microservices:** **Python with FastAPI**. It's extremely fast, has automatic API documentation (crucial for student developers), and is perfect for building secure, data-focused APIs.
+*   **Database:** **PostgreSQL**. A robust, open-source database that runs perfectly in a Docker container.
+*   **Web Server / Reverse Proxy:** **Nginx**. It will serve the frontend application and act as a secure gateway, directing traffic to the correct backend microservice.
+*   **Version Control:** **Git** (using a local GitLab instance or a private GitHub repository).
 
- *   **Frontend (User Interface):** 
-    *   **Framework:** **React** or **Vue.js**. Both are excellent choices for building interactive and responsive user interfaces. 
- *   **Backend (Microservices):** 
-    *   **Language/Framework:** **Python with FastAPI** is highly recommended due to its high performance, automatic API documentation, and strong data validation capabilities. Node.js with Express.js is a viable alternative. 
-    *   **Microservices Breakdown:** 
-        1.  **Authentication Service:** Manages user accounts, login, and access rights. 
-        2.  **Faculty Profile Service:** Handles faculty and department information. 
-        3.  **NIRF Data Service:** Manages the submission, storage, and retrieval of data for all innovation parameters. 
-        4.  **Scoring Engine Service:** Implements the logic for calculating scores as per the NIRF guidelines. 
-        5.  **External API Integration Service:** Connects with Google Scholar and ORCID. 
-        6.  **Reporting and Analytics Service:** Generates reports and visualizations. 
- *   **Database:** 
-    *   **Primary Database:** **PostgreSQL** is a robust and reliable open-source relational database. 
-    *   **Caching Layer:** **Redis** can be used to cache frequently accessed data to enhance performance. 
- *   **API Gateway:** 
-    *   **Kong** or **Tyk** can be implemented to manage and secure the flow of API requests. 
- *   **Deployment and Version Control:** 
-    *   **Containerization:** **Docker** will be used to package each microservice into a container. 
-    *   **Orchestration:** **Docker Compose** will manage the multi-container application during development. 
-    *   **Version Control:** **Git**, hosted on a platform like **GitHub** or **GitLab**, is essential for collaborative development. 
+#### **1.2. Local Architecture**
 
- #### **2.3. API and Database Design** 
+The system will run in a collection of connected Docker containers on a single local server:
 
- *   **API Specification:** Define the API endpoints, request formats, and response structures for each microservice using the OpenAPI Specification. 
- *   **Database Schema:** Design the database tables to store user information, departmental data, and all the specific fields required for the NIRF Innovation Ranking parameters. 
+1.  **User's Browser:** A faculty member accesses the portal via a local URL (e.g., `http://nirf-portal.local` or `http://192.168.1.100`).
+2.  **Nginx Container:** Receives all requests.
+    *   If it's a request for the main page, it serves the React/Vue frontend.
+    *   If it's an API request (e.g., `/api/...`), it forwards it to the appropriate backend microservice.
+3.  **Backend Microservice Containers:**
+    *   **Auth Service:** Handles `POST /api/auth/login`, `GET /api/auth/me`. Manages usernames, hashed passwords, and issues JWT (JSON Web Tokens) to authenticated users.
+    *   **Data Service:** Handles all NIRF data operations like `GET /api/data/ia` (Innovation Achievements) or `POST /api/data/rio` (Research & Innovation Output). It will always check for a valid JWT to ensure the user is logged in.
+    *   **Scoring Service:** Provides endpoints like `GET /api/scores/faculty/{id}` or `GET /api/scores/department/{id}`.
+4.  **PostgreSQL Container:** The central database where all user credentials and NIRF data are securely stored.
+5.  **(Optional) Redis Container:** Can be used for caching scores to improve dashboard loading times.
 
- ### **3. Phase 2: Building the Portal (Weeks 2 & 3)** 
+#### **1.3. Database and API Design**
 
- This phase involves the parallel development of the backend microservices and the frontend interface. 
+*   **Database Schema:**
+    *   `users` table: `id`, `username` (e.g., employee ID), `password` (hashed using a strong algorithm like bcrypt), `full_name`, `email`, `department_id`, `role` ('faculty', 'hod', 'admin').
+    *   `departments` table: `id`, `name`.
+    *   Data Tables: Create a separate table for each of the 6 main NIRF parameters (e.g., `financial_support_fsi`, `innovation_achievements_ia`). Each row must be linked to a `faculty_id` to show who submitted it.
+*   **API Design (using OpenAPI Specification):**
+    *   Define all endpoints. Every endpoint under `/api/data/` and `/api/scores/` MUST be protected and require an authentication token.
+    *   The frontend will send the token in the `Authorization` header of every API request after the user logs in. The backend will validate this token before processing the request.
 
- #### **3.1. Backend Development** 
+---
 
- **Week 2: Foundational Services** 
- 1.  **Set up the Development Environment:** Install all necessary tools and set up the Git repository. 
- 2.  **Develop the Authentication Service:** Implement user registration, login functionality using JSON Web Tokens (JWT), and role-based access control. 
- 3.  **Build the NIRF Data Service:** Begin by creating the data models and API endpoints for the initial set of NIRF parameters. 
+### **Phase 2: Core Development (Weeks 2 & 3)**
 
- **Week 3: Advanced Functionality and Integration** 
- 4.  **Complete NIRF Data Services:** Implement the remaining data models and APIs. 
- 5.  **Develop the Scoring Engine:** Translate the scoring formulas from the NIRF document into functional code. 
- 6.  **Build the External API Integration Service:** 
-    *   **Google Scholar:** As there is no official API, you will need to use third-party services or develop a web scraper to retrieve publication data. 
-    *   **ORCID:** Utilize the official ORCID API to allow users to connect their profiles and import their publication data. 
+The team should split into frontend and backend developers and work in parallel.
 
- #### **3.2. Frontend Development** 
+#### **2.1. Backend Development Tasks**
 
- **Week 2: User Interface Basics** 
- 1.  **Set up the Frontend Project:** Initialize a new React or Vue.js project. 
- 2.  **Implement User Authentication:** Create the login and registration pages and manage user sessions. 
- 3.  **Design the Main Dashboard:** Develop the primary layout and navigation for the portal. 
- 4.  **Create Initial Data Entry Forms:** Build the forms for the first set of NIRF parameters. 
+1.  **Setup Docker Compose:** Create the `docker-compose.yml` file that defines all the services (nginx, backend, postgres). This is the master file for the entire project.
+2.  **Develop the Authentication Service (Priority 1):**
+    *   Create the `users` and `departments` models.
+    *   Implement user registration (can be an admin-only feature or a signup page).
+    *   Implement the `/api/auth/login` endpoint. It should take a username and password, check them against the database, and return a JWT if successful.
+    *   Create a security dependency that other endpoints can use to verify the JWT and identify the logged-in user.
+3.  **Develop the NIRF Data Services:**
+    *   Create the data models and API endpoints for each NIRF parameter. For example, for "Financial Support for Innovation (FSI)", create endpoints to `CREATE`, `READ`, `UPDATE`, and `DELETE` FSI entries for the logged-in faculty member.
+4.  **Develop the Scoring Engine:**
+    *   Implement the scoring logic from the NIRF document. Create functions that take faculty or department data and return a calculated score.
+5.  **Develop External Integrations (Google Scholar/ORCID):**
+    *   Build the service that takes a faculty member's ID and fetches data. **Note:** Google Scholar does not have an official API, so you will need to use a third-party library (like `scholarly`) which performs web scraping. This can be fragile and might break if Google changes its layout. The ORCID integration is more stable as it has an official API.
 
- **Week 3: Full Functionality and Data Visualization** 
- 5.  **Complete All Data Entry Forms:** Develop the remaining forms for all NIRF parameters. 
- 6.  **Develop Dashboards:** Create views for faculty to see their submitted data and for HODs and Admins to view aggregated data. 
- 7.  **Integrate the Scoring Engine:** Display the calculated scores on the dashboards. 
- 8.  **Enable External API Integration:** Add functionality for users to link their Google Scholar and ORCID accounts. 
+#### **2.2. Frontend Development Tasks**
 
- ### **4. Phase 3: Testing and Launch (Week 4)** 
+1.  **Setup Frontend Project:** Initialize React/Vue project.
+2.  **Create the Login Page:** A simple form with username and password fields. On successful login, store the received JWT securely in the browser (e.g., in `localStorage` or a cookie).
+3.  **Create a "Layout" for Authenticated Users:** This will include a navigation bar (with a logout button) and a main content area. The application should redirect to the login page if a user tries to access this layout without being authenticated.
+4.  **Build the Faculty Dashboard:**
+    *   This is the main page after login.
+    *   Create data entry forms for each of the 6 NIRF parameters. The forms should be intuitive and match the fields in the document.
+    *   Display a table of already submitted data, with options to edit or delete.
+    *   Show the faculty member's individual calculated score.
+5.  **Build HOD/Admin Dashboards:**
+    *   Create separate views (visible only to users with the 'hod' or 'admin' role) that show aggregated data and scores for their department or the entire institute.
 
- This final phase focuses on ensuring the quality and stability of the portal before deployment. 
+---
 
- #### **4.1. Automated Testing** 
+### **Phase 3: Testing, Deployment, and Handoff (Week 4)**
 
- *   **Backend:** 
-    *   **Unit Tests:** Write tests for individual functions and logic within each microservice. 
-    *   **Integration Tests:** Test the interactions between different microservices and the database. 
- *   **Frontend:** 
-    *   **Component Tests:** Test individual UI components in isolation. 
-    *   **End-to-End (E2E) Tests:** Use tools like **Cypress** or **Playwright** to automate user scenarios from login to data submission. 
+This phase is about making the portal stable and easy to use.
 
- #### **4.2. Deployment** 
+#### **3.1. Automated Testing**
 
- *   **Infrastructure:** A cloud provider like AWS, Google Cloud, or DigitalOcean is recommended. 
- *   **Deployment Process:** 
-    1.  Containerize each microservice using Docker. 
-    2.  Use a CI/CD pipeline (e.g., GitHub Actions) to automate testing and deployment. 
-    3.  Configure the API Gateway to route traffic to the appropriate services. 
+*   **Backend:** Use `pytest` to write unit tests for the scoring logic and integration tests for the API endpoints (e.g., test that a protected endpoint correctly rejects a request with no token).
+*   **Frontend:** Use a tool like **Cypress** to write end-to-end tests that simulate a user's entire journey:
+    1.  Visit the login page.
+    2.  Fail to log in with bad credentials.
+    3.  Successfully log in.
+    4.  Navigate to a data entry form.
+    5.  Fill out and submit the form.
+    6.  Verify the data appears in the dashboard.
+    7.  Log out.
 
- #### **4.3. User Acceptance Testing (UAT)** 
+#### **3.2. Local Deployment and Handoff Instructions**
 
- *   Engage a pilot group of faculty and administrators to use the portal and provide feedback. 
- *   Address any identified bugs or usability issues before the official launch. 
+Create a `README.md` file with clear instructions for the institute's IT administrator.
 
- ### **5. Instructions for the Development Team** 
+**Prerequisites on the Server:**
+*   A machine running a modern OS (e.g., Ubuntu Server 22.04, Windows Server).
+*   Docker and Docker Compose installed.
+*   Git installed.
 
- *   **Thoroughly Understand the NIRF Framework:** Every team member should be familiar with the ranking parameters and scoring methodology. 
- *   **Adopt Agile Practices:** Use a project management tool like Trello or Jira to manage tasks in short sprints. 
- *   **Prioritize Communication:** Maintain open communication through regular meetings and a dedicated messaging channel. 
- *   **Follow Git Best Practices:** Use feature branches for new development and conduct code reviews before merging to the main branch. 
+**One-Time Setup Steps:**
+1.  Clone the project repository: `git clone <your-repo-url>`.
+2.  Navigate into the project directory: `cd nirf-portal`.
+3.  Create the environment configuration file: `cp .env.example .env`.
+4.  Edit the `.env` file to set a secure database password.
+5.  Build and start all services in the background: `docker-compose up --build -d`.
 
- By adhering to this structured plan, your team of student developers can successfully build a cutting-edge NIRF Innovation Data Portal within the specified one-month timeframe.
+**Portal is now running!** It can be accessed at `http://<server-ip-address>`.
+
+**Initial Admin User Setup:**
+You must provide a way to create the first administrator. A simple way is to add a custom command to your backend service.
+1.  Create a script that allows creating a user from the command line.
+2.  The IT admin can run this with Docker: `docker-compose exec backend python create_admin_user.py --username admin --password <secure_password> --role admin`.
+3.  The admin can then log in to the portal and create accounts for HODs and faculty through the UI.

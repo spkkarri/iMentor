@@ -2,7 +2,8 @@
 const axios = require('axios');
 
 const CORE_API_BASE_URL = 'https://api.core.ac.uk/v3/search/works';
-const YOUR_CORE_API_KEY = 'yRoTaHXFAbpCGzB7tSm34nOixgjuv5Q0'; // <<< IMPORTANT: Replace with your real CORE API key
+// In server/coreService.js
+const YOUR_CORE_API_KEY = process.env.CORE_API_KEY; // <<< IMPORTANT: Replace with your real CORE API key
 
 /**
  * Searches CORE for academic works with pagination.

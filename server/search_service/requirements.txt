@@ -1,0 +1,3 @@
+duckduckgo-search
+Flask
+waitress

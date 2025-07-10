@@ -1,0 +1,94 @@
+/* client/src/components/SystemPromptWidget.css */
+
+/* 
+   The root element of SystemPromptWidget in JS now has className="widget-container system-prompt-widget".
+   General container styles (padding, background, border-bottom) come from .widget-container in ChatPage.css.
+   The .system-prompt-widget class here is for any *additional* styling specific ONLY to this widget's container,
+   or for more specific targeting of its children if needed.
+*/
+.system-prompt-widget {
+    box-sizing: border-box; 
+    /* Add any unique container-level styles for THIS widget here, if any.
+       For example, if this widget had a different internal flex layout for its header and content.
+       Most likely, this rule can be very minimal or even empty if ChatPage.css handles all common aspects. */
+}
+
+/* 
+   The <h3> title element in SystemPromptWidget.js now has className="widget-title".
+   Its styling (font-size, color, margins, etc.) should primarily come from 
+   the .widget-title rule in ChatPage.css.
+   This ensures all widget titles look consistent.
+   You would only add a rule like ".system-prompt-widget .widget-title { ... }" here
+   if you needed to *override* the general .widget-title style specifically for this widget.
+   For now, let's assume ChatPage.css handles it, so the old ".system-prompt-widget h3" rule is removed.
+*/
+
+/* --- Styles for elements specific to the content OF THIS WIDGET --- */
+
+.prompt-select {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 15px; /* Space below the dropdown */
+    background-color: #2a2a30; /* Consider var(--bg-input-alt) or var(--bg-input) */
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    appearance: none; /* Remove default system appearance */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    /* Custom dropdown arrow */
+    background-image: url('data:image/svg+xml;utf8,<svg fill="%23b0b3b8" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 18px;
+}
+
+.prompt-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(0, 132, 255, 0.3); /* Consider var(--focus-shadow-color) */
+}
+
+.prompt-label {
+    display: block;
+    margin-bottom: 8px; /* Space below the label, above the textarea */
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.prompt-textarea {
+    width: 100%;
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    box-sizing: border-box;
+    font-family: inherit;
+    resize: vertical;   /* Allow user to resize textarea vertically */
+    min-height: 80px;   /* Set a minimum height */
+    overflow-y: auto;   /* Add scrollbar if content exceeds height */
+}
+
+.prompt-textarea:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(0, 132, 255, 0.3); /* Consider var(--focus-shadow-color) */
+}
+
+.prompt-textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.char-count { /* If you re-enable this in JSX in SystemPromptWidget.js */
+    text-align: right;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 5px;
+}

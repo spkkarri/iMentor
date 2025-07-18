@@ -119,7 +119,7 @@ const generatePodcastAudio = async (podcastScript, filename) => {
         console.log(`✅ Podcast generated: ${path.basename(outputPath)} (${stats.size} bytes)`);
         
         // Return the full URL for the frontend
-        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5005';
+        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5007';
         return `${baseUrl}/podcasts/${path.basename(outputPath)}`;
 
     } catch (error) {

@@ -178,7 +178,7 @@ const startServer = async () => {
             console.log('\n=== Server Ready ===');
             console.log(`🚀 Server listening on port ${PORT}`);
             console.log('Access URLs:');
-            const frontendPorts = [3005, 3001, 8080, 5173];
+            const frontendPorts = [3004];
             availableIPs.forEach(ip => {
                 frontendPorts.forEach(fp => {
                     console.log(`   - http://${ip}:${fp} (Frontend) -> Backend: http://${ip}:${PORT}`);

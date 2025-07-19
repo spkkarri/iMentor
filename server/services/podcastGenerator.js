@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const os = require('os');
 
 const execAsync = promisify(exec);
 
@@ -33,95 +34,55 @@ const escapeForPowerShell = (text) => {
 };
 
 /**
- * Generate podcast audio using Windows SAPI with multiple voices
+ * Generate podcast audio using eSpeak for TTS and FFmpeg for combining segments
  * @param {Array} podcastScript - Array of segments with speaker and text properties
  * @param {string} filename - Base filename for output
  * @returns {Promise<string>} Path to generated audio file
  */
 const generatePodcastAudio = async (podcastScript, filename) => {
     try {
-        // Validate input
         if (!podcastScript || !Array.isArray(podcastScript)) {
             throw new Error('Podcast script array is required');
         }
-        
-        // Create directory if it doesn't exist
         await createAudioDir();
-
-        // Generate a unique filename with timestamp
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const safeFilename = filename.replace(/[^a-zA-Z0-9]/g, '_');
         const outputPath = path.join(AUDIO_DIR, `${safeFilename}_podcast_${timestamp}.wav`);
-
-        console.log(`Generating podcast audio with ${podcastScript.length} segments...`);
-
-        // Get available voices and select two different ones
-        const voicesCommand = `powershell -Command "Add-Type –AssemblyName System.speech; $synthesizer = New-Object System.Speech.Synthesis.SpeechSynthesizer; $voices = $synthesizer.GetInstalledVoices(); $voiceNames = @(); foreach($voice in $voices) { $voiceNames += $voice.VoiceInfo.Name; } $voiceNames -join ','; $synthesizer.Dispose();"`;
-        
-        const { stdout: voicesOutput } = await execAsync(voicesCommand);
-        const availableVoices = voicesOutput.trim().split(',');
-        
-        // Simple voice selection - first two available voices
-        const voice1 = availableVoices[0] || 'Microsoft David Desktop';
-        const voice2 = availableVoices[1] || 'Microsoft Zira Desktop';
-
-        console.log(`Using voices: ${voice1} and ${voice2}`);
-
+        console.log(`Generating podcast audio with ${podcastScript.length} segments using eSpeak...`);
         // Create temporary directory for individual segments
         const tempDir = path.join(AUDIO_DIR, 'temp');
         await fs.mkdir(tempDir, { recursive: true });
-
         const segmentFiles = [];
-
-        // Generate audio for each segment with appropriate voice
         for (let i = 0; i < podcastScript.length; i++) {
             const segment = podcastScript[i];
-            const speaker = segment.speaker;
             const text = segment.text;
-            
-            // Determine which voice to use based on speaker
-            const voiceToUse = (speaker.toLowerCase().includes('b') || speaker.toLowerCase().includes('host b')) 
-                ? voice2 
-                : voice1;
-
             const segmentFile = path.join(tempDir, `segment_${i}.wav`);
-            const escapedText = escapeForPowerShell(text);
-            
-            const segmentCommand = `powershell -Command "Add-Type –AssemblyName System.speech; $speak = New-Object System.Speech.Synthesis.SpeechSynthesizer; $speak.Rate = 0; $speak.Volume = 100; $speak.SelectVoice('${voiceToUse}'); $speak.SetOutputToWaveFile('${segmentFile}'); $speak.Speak('${escapedText}'); $speak.Dispose();"`;
-            
+            // Use eSpeak for TTS (voice selection can be improved if needed)
+            // You can customize voice/language with -v option if desired
+            const segmentCommand = `espeak -w "${segmentFile}" "${text.replace(/"/g, '\"')}"`;
             await execAsync(segmentCommand);
             segmentFiles.push(segmentFile);
         }
-
-        console.log(`Generated ${segmentFiles.length} segments, combining into final podcast...`);
-            
+        console.log(`Generated ${segmentFiles.length} segments, combining into final podcast with FFmpeg...`);
         // Combine all segments into one file using FFmpeg
         const fileList = path.join(tempDir, 'filelist.txt');
         const fileListContent = segmentFiles.map(file => `file '${file}'`).join('\n');
         await fs.writeFile(fileList, fileListContent);
-
         const combineCommand = `ffmpeg -f concat -safe 0 -i "${fileList}" -c copy "${outputPath}" -y`;
         await execAsync(combineCommand);
-
         // Clean up temporary files
         await Promise.allSettled([
             ...segmentFiles.map(file => fs.unlink(file)),
             fs.unlink(fileList),
             fs.rmdir(tempDir)
         ]);
-
-        // Verify the file was created and has content
         const stats = await fs.stat(outputPath);
         if (stats.size === 0) {
             throw new Error('Generated audio file is empty (0 bytes)');
         }
-        
         console.log(`✅ Podcast generated: ${path.basename(outputPath)} (${stats.size} bytes)`);
-        
-        // Return the full URL for the frontend
         const baseUrl = process.env.BACKEND_URL || 'http://localhost:5007';
         return `${baseUrl}/podcasts/${path.basename(outputPath)}`;
-
     } catch (error) {
         console.error('Error in generatePodcastAudio:', error);
         throw new Error(`Audio generation failed: ${error.message}`);

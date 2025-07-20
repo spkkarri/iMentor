@@ -2,13 +2,24 @@ const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const fetch = require('node-fetch');
 const os = require('os');
+require('dotenv').config();
 
 const execAsync = promisify(exec);
 
 // Audio directory
 const AUDIO_DIR = path.join(__dirname, '..', 'public', 'podcasts');
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+// ElevenLabs API key (should be stored securely in production)
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+if (!ELEVENLABS_API_KEY) {
+    throw new Error('Missing ElevenLabs API key. Set ELEVENLABS_API_KEY in your environment.');
+}
+// Default English voices (can be customized)
+const ELEVENLABS_MALE_VOICE = 'pNInz6obpgDQGcFmaJgB'; // Example: Adam
+const ELEVENLABS_FEMALE_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Example: Rachel
 
 /**
  * Create audio directory if it doesn't exist
@@ -18,23 +29,46 @@ const createAudioDir = async () => {
         await fs.mkdir(AUDIO_DIR, { recursive: true });
     } catch (error) {
         console.error('Failed to create audio directory:', error);
-        throw error; // Re-throw the error to be handled by the caller
+        throw error;
     }
 };
 
-// Helper to escape text for PowerShell
-const escapeForPowerShell = (text) => {
-    return text
-        .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'") // curly/special single quotes to straight
-        .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"') // curly/special double quotes to straight
-        .replace(/[\u2013\u2014\u2015]/g, '-') // dashes to hyphen
-        .replace(/'/g, "''") // escape single quotes for PowerShell
-        .replace(/[\r\n]+/g, ' ') // newlines to space
-        .replace(/[^ -~]/g, ''); // remove non-ASCII
-};
+/**
+ * Generate TTS audio for a segment using ElevenLabs
+ * @param {string} text - The text to synthesize
+ * @param {string} voiceId - ElevenLabs voice ID
+ * @param {string} outputPath - Path to save the audio file
+ */
+async function generateTTSWithElevenLabs(text, voiceId, outputPath) {
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    const body = {
+        text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.7,
+            style: 0.5,
+            use_speaker_boost: true
+        }
+    };
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'xi-api-key': ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'audio/mpeg'
+        },
+        body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+        throw new Error(`ElevenLabs TTS failed: ${response.status} ${response.statusText}`);
+    }
+    const buffer = await response.buffer();
+    await fs.writeFile(outputPath, buffer);
+}
 
 /**
- * Generate podcast audio using eSpeak for TTS and FFmpeg for combining segments
+ * Generate podcast audio using ElevenLabs for TTS and FFmpeg for combining segments
  * @param {Array} podcastScript - Array of segments with speaker and text properties
  * @param {string} filename - Base filename for output
  * @returns {Promise<string>} Path to generated audio file
@@ -47,8 +81,8 @@ const generatePodcastAudio = async (podcastScript, filename) => {
         await createAudioDir();
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const safeFilename = filename.replace(/[^a-zA-Z0-9]/g, '_');
-        const outputPath = path.join(AUDIO_DIR, `${safeFilename}_podcast_${timestamp}.wav`);
-        console.log(`Generating podcast audio with ${podcastScript.length} segments using eSpeak...`);
+        const outputPath = path.join(AUDIO_DIR, `${safeFilename}_podcast_${timestamp}.mp3`);
+        console.log(`Generating podcast audio with ${podcastScript.length} segments using ElevenLabs...`);
         // Create temporary directory for individual segments
         const tempDir = path.join(AUDIO_DIR, 'temp');
         await fs.mkdir(tempDir, { recursive: true });
@@ -56,11 +90,14 @@ const generatePodcastAudio = async (podcastScript, filename) => {
         for (let i = 0; i < podcastScript.length; i++) {
             const segment = podcastScript[i];
             const text = segment.text;
-            const segmentFile = path.join(tempDir, `segment_${i}.wav`);
-            // Use eSpeak for TTS (voice selection can be improved if needed)
-            // You can customize voice/language with -v option if desired
-            const segmentCommand = `espeak -w "${segmentFile}" "${text.replace(/"/g, '\"')}"`;
-            await execAsync(segmentCommand);
+            // Choose voice based on speaker
+            let speaker = segment.speaker || 'male';
+            let voiceId = ELEVENLABS_MALE_VOICE;
+            if (speaker.toLowerCase().includes('female') || speaker.toLowerCase().includes('host b')) {
+                voiceId = ELEVENLABS_FEMALE_VOICE;
+            }
+            const segmentFile = path.join(tempDir, `segment_${i}.mp3`);
+            await generateTTSWithElevenLabs(text, voiceId, segmentFile);
             segmentFiles.push(segmentFile);
         }
         console.log(`Generated ${segmentFiles.length} segments, combining into final podcast with FFmpeg...`);

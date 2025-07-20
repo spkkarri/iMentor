@@ -5,7 +5,9 @@ import { Popover } from 'react-tiny-popover';
 import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV } from 'react-icons/fa';
 import './index.css';
 
-const FileManagerWidget = ({
+// Remove SUPPORTED_LANGUAGES, LanguageModal, and all language modal logic
+
+function FileManagerWidget({
     files,
     isLoading,
     error,
@@ -15,9 +17,10 @@ const FileManagerWidget = ({
     onGenerateMindMap,
     onChatWithFile,
     isProcessing
-}) => {
+}) {
     // State to track which file's menu is currently open
     const [openMenuId, setOpenMenuId] = useState(null);
+    // Remove languageModalOpen, pendingFile, handleGeneratePodcastClick, handleLanguageSelect
 
     const handleRename = (fileId, currentName) => {
         setOpenMenuId(null); // Close the menu first
@@ -31,6 +34,8 @@ const FileManagerWidget = ({
         setOpenMenuId(null); // Close the menu after any action
         action(fileId, fileName);
     };
+
+    // Remove languageModalOpen, pendingFile, handleGeneratePodcastClick, handleLanguageSelect
 
     return (
         <div className="file-manager-widget">

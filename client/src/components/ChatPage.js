@@ -309,6 +309,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }]);
     }, []);
 
+    // Update handleGeneratePodcast to remove language parameter
     const handleGeneratePodcast = useCallback(async (fileId, fileName) => {
         if (isProcessing) return;
         setLoadingStates(prev => ({ ...prev, podcast: true }));
@@ -334,9 +335,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
             }
             setError(`Podcast Error: ${errorMessageText}`);
             setMessages(prev => [...prev, { role: 'assistant', parts: [{ text: `Error generating podcast: ${errorMessageText}` }], timestamp: new Date() }]);
-        } finally {
-            setLoadingStates(prev => ({ ...prev, podcast: false }));
         }
+        setLoadingStates(prev => ({ ...prev, podcast: false }));
     }, [isProcessing]);
 
     const handleGenerateMindMap = useCallback(async (fileId, fileName) => {

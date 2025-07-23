@@ -1,6 +1,7 @@
 // server/services/serviceManager.js
 
-const VectorStore = require('./vectorStore');
+// --- MODIFIED: Import the correct vector store ---
+const langchainVectorStore = require('./LangchainVectorStore');
 const DocumentProcessor = require('./documentProcessor');
 const GeminiService = require('./geminiService');
 const { GeminiAI } = require('./geminiAI');
@@ -18,11 +19,11 @@ class ServiceManager {
   }
 
   async initialize() {
-    // Instantiate services in the correct order
-    this.vectorStore = new VectorStore();
+    // --- MODIFIED: Use the correct vector store instance ---
+    this.vectorStore = langchainVectorStore; 
     await this.vectorStore.initialize();
 
-    // Pass dependencies via constructor (Dependency Injection)
+    // Pass the correct dependency via constructor
     this.documentProcessor = new DocumentProcessor(this.vectorStore);
     
     this.geminiService = new GeminiService();
@@ -34,7 +35,7 @@ class ServiceManager {
     // Initialize DuckDuckGo service
     this.duckDuckGo = new DuckDuckGoService();
 
-    console.log('✅ All services initialized successfully');
+    console.log('✅ All services initialized successfully with LangchainVectorStore.');
   }
 
   getDeepSearchService(userId) {
@@ -42,7 +43,6 @@ class ServiceManager {
       throw new Error('userId is required for DeepSearchService');
     }
     
-    // Create new instance if it doesn't exist for this user
     if (!this.deepSearchServices.has(userId)) {
       const deepSearchService = new DeepSearchService(userId, this.geminiAI, this.duckDuckGo);
       this.deepSearchServices.set(userId, deepSearchService);
@@ -63,8 +63,5 @@ class ServiceManager {
   }
 }
 
-// Create a single, shared instance of the ServiceManager
 const serviceManager = new ServiceManager();
-
-// Export the manager instance, not the class
 module.exports = serviceManager;

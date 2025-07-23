@@ -1,11 +1,8 @@
-// client/src/components/FileManagerWidget.js
-
 import React, { useState } from 'react';
 import { Popover } from 'react-tiny-popover';
-import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV } from 'react-icons/fa';
+// Import a new icon for the chat option
+import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots } from 'react-icons/fa';
 import './index.css';
-
-// Remove SUPPORTED_LANGUAGES, LanguageModal, and all language modal logic
 
 function FileManagerWidget({
     files,
@@ -18,12 +15,10 @@ function FileManagerWidget({
     onChatWithFile,
     isProcessing
 }) {
-    // State to track which file's menu is currently open
     const [openMenuId, setOpenMenuId] = useState(null);
-    // Remove languageModalOpen, pendingFile, handleGeneratePodcastClick, handleLanguageSelect
 
     const handleRename = (fileId, currentName) => {
-        setOpenMenuId(null); // Close the menu first
+        setOpenMenuId(null);
         const newName = prompt("Enter new file name:", currentName);
         if (newName && newName !== currentName) {
             onRenameFile(fileId, newName);
@@ -31,11 +26,9 @@ function FileManagerWidget({
     };
 
     const handleActionClick = (action, fileId, fileName) => {
-        setOpenMenuId(null); // Close the menu after any action
+        setOpenMenuId(null);
         action(fileId, fileName);
     };
-
-    // Remove languageModalOpen, pendingFile, handleGeneratePodcastClick, handleLanguageSelect
 
     return (
         <div className="file-manager-widget">
@@ -60,6 +53,11 @@ function FileManagerWidget({
                                 onClickOutside={() => setOpenMenuId(null)}
                                 content={
                                     <div className="popover-menu">
+                                        {/* --- NEW BUTTON ADDED HERE --- */}
+                                        <button onClick={() => handleActionClick(onChatWithFile, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
+                                            <FaCommentDots /> Chat with this File
+                                        </button>
+                                        <div className="popover-divider" />
                                         <button onClick={() => handleActionClick(onGeneratePodcast, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
                                             <FaFileAudio /> Generate Podcast
                                         </button>

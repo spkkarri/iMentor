@@ -1,3 +1,4 @@
+// src/services/api.js
 import axios from 'axios';
 
 const getApiBaseUrl = () => {
@@ -16,26 +17,18 @@ const api = axios.create({
 
 api.interceptors.request.use(
     (config) => {
-        // Add the auth token to every request
         const token = localStorage.getItem('token');
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
-        // Add user ID for specific routes that might need it (optional, can be derived from token on backend)
         const userId = localStorage.getItem('userId');
         if (userId) {
             config.headers['x-user-id'] = userId;
-            console.log('API Interceptor: Adding x-user-id header:', userId);
-        } else {
-            console.warn('API Interceptor: No userId found in localStorage');
         }
-        
-        console.log('API Interceptor: Request headers:', config.headers);
-        
         if (config.data instanceof FormData) {
             delete config.headers['Content-Type'];
         } else if (!config.headers['Content-Type']) {
-             config.headers['Content-Type'] = 'application/json';
+            config.headers['Content-Type'] = 'application/json';
         }
         return config;
     },
@@ -60,14 +53,15 @@ export const saveChatHistory = (historyData) => api.post('/chat/history', histor
 export const queryRagService = (queryData) => api.post('/chat/rag', queryData);
 export const getChatSessions = () => api.get('/chat/sessions');
 export const getSessionDetails = (sessionId) => api.get(`/chat/session/${sessionId}`);
+export const deleteChatSession = (sessionId) => api.delete(`/chat/session/${sessionId}`);
 export const uploadFile = (formData) => api.post('/upload', formData);
 export const getUserFiles = () => api.get('/files');
 export const deleteUserFile = (fileId) => api.delete(`/files/${fileId}`);
 export const generatePodcast = (fileId) => api.post('/podcast/generate', { fileId });
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
 export const performDeepSearch = (query, history = []) => api.post('/chat/deep-search', { query, history });
-
-// --- FIX: Removed the duplicate declaration ---
 export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${fileId}`, { newOriginalName });
+export const getCurrentUser = () => api.get('/auth/me');
 
-export const getCurrentUser = () => api.get('/auth/me'); 
+// NEW FUNCTION FOR HYBRID RAG
+export const queryHybridRagService = (queryData) => api.post('/chat/rag-v2', queryData);

@@ -1,12 +1,12 @@
-// client/src/components/HistoryModal.js
-
+// src/components/HistoryModal.js
 import React, { useState, useEffect } from 'react';
-import { getChatSessions, getSessionDetails } from '../services/api';
+import { getChatSessions, getSessionDetails, deleteChatSession } from '../services/api';
 import {
     Dialog, DialogTitle, DialogContent, List, ListItem, ListItemText,
-    CircularProgress, Typography, Box, IconButton
+    CircularProgress, Typography, Box, IconButton, ListItemSecondaryAction
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { formatDistanceToNow } from 'date-fns';
 
 const HistoryModal = ({ isOpen, onClose, onLoadSession }) => {
@@ -14,21 +14,22 @@ const HistoryModal = ({ isOpen, onClose, onLoadSession }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const fetchSessions = async () => {
+        setIsLoading(true);
+        setError('');
+        try {
+            const response = await getChatSessions();
+            setSessions(response.data);
+        } catch (err) {
+            setError('Failed to load chat history.');
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (isOpen) {
-            const fetchSessions = async () => {
-                setIsLoading(true);
-                setError('');
-                try {
-                    const response = await getChatSessions();
-                    setSessions(response.data);
-                } catch (err) {
-                    setError('Failed to load chat history.');
-                    console.error(err);
-                } finally {
-                    setIsLoading(false);
-                }
-            };
             fetchSessions();
         }
     }, [isOpen]);
@@ -40,6 +41,20 @@ const HistoryModal = ({ isOpen, onClose, onLoadSession }) => {
             onClose();
         } catch (err) {
             setError(`Failed to load session ${sessionId}.`);
+            console.error(err);
+        }
+    };
+
+    const handleDeleteSession = async (sessionIdToDelete, sessionTitle) => {
+        if (!window.confirm(`Are you sure you want to delete the chat titled "${sessionTitle}"?`)) {
+            return;
+        }
+
+        try {
+            await deleteChatSession(sessionIdToDelete);
+            setSessions(prevSessions => prevSessions.filter(session => session.sessionId !== sessionIdToDelete));
+        } catch (err) {
+            setError(`Failed to delete session.`);
             console.error(err);
         }
     };
@@ -67,11 +82,28 @@ const HistoryModal = ({ isOpen, onClose, onLoadSession }) => {
                     <List>
                         {sessions.length > 0 ? (
                             sessions.map((session) => (
-                                <ListItem button key={session.sessionId} onClick={() => handleLoadSession(session.sessionId)}>
+                                <ListItem
+                                    key={session.sessionId}
+                                    button
+                                    onClick={() => handleLoadSession(session.sessionId)}
+                                >
                                     <ListItemText
                                         primary={session.title}
                                         secondary={`Last updated: ${formatDistanceToNow(new Date(session.updatedAt), { addSuffix: true })}`}
                                     />
+                                    <ListItemSecondaryAction>
+                                        <IconButton
+                                            edge="end"
+                                            aria-label="delete"
+                                            title="Delete chat"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteSession(session.sessionId, session.title);
+                                            }}
+                                        >
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </ListItemSecondaryAction>
                                 </ListItem>
                             ))
                         ) : (

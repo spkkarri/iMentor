@@ -1,18 +1,18 @@
-// client/src/components/ChatPage.js
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    sendMessage as apiSendMessage, saveChatHistory, queryRagService, generatePodcast, generateMindMap,
+    sendMessage as apiSendMessage, saveChatHistory, generatePodcast, generateMindMap,
     getUserFiles, deleteUserFile, renameUserFile, performDeepSearch,
+    queryHybridRagService,
 } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
-import { FaBars, FaPlus, FaTools, FaMicrophone, FaSearch, FaRegObjectGroup } from 'react-icons/fa';
+import { FaBars, FaPlus, FaTools, FaMicrophone, FaPaperPlane } from 'react-icons/fa';
 import { Popover } from 'react-tiny-popover';
 
-import SystemPromptWidget, { availablePrompts, getPromptTextById } from './SystemPromptWidget';
+import SystemPromptWidget from './SystemPromptWidget';
+import { availablePrompts, getPromptTextById } from '../utils/prompts'; 
 import FileUploadWidget from './FileUploadWidget';
 import FileManagerWidget from './FileManagerWidget';
 import MindMap from './MindMap';
@@ -41,6 +41,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [files, setFiles] = useState([]);
     const [fileError, setFileError] = useState('');
     const [isRagEnabled, setIsRagEnabled] = useState(false);
+    const [allowRagDeepSearch, setAllowRagDeepSearch] = useState(true);
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
     const [activeFileForRag, setActiveFileForRag] = useState(null);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -54,7 +55,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const isProcessing = Object.values(loadingStates).some(Boolean);
 
-    // This useEffect is correct and will now work with the modified JSX
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -85,9 +85,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const handleLogout = useCallback((skipSave = false) => {
         const performCleanup = () => {
-            if (window.speechSynthesis) {
-                window.speechSynthesis.cancel();
-            }
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
             localStorage.clear();
             setIsAuthenticated(false);
             navigate('/login', { replace: true });
@@ -98,26 +96,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
             performCleanup();
         }
     }, [messages.length, setIsAuthenticated, navigate, saveAndReset]);
-
-    useEffect(() => {
-        const handleStorage = (event) => {
-            if (event.key === 'userId' && !event.newValue) {
-                setIsAuthenticated(false);
-            }
-        };
-        window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
-    }, [setIsAuthenticated]);
-
-    useEffect(() => {
-        const storedUserId = localStorage.getItem('userId');
-        const storedUsername = localStorage.getItem('username');
-        if (!storedUserId || !storedUsername) {
-            setIsAuthenticated(false);
-        } else {
-            setIsAuthenticated(true);
-        }
-    }, [setIsAuthenticated]);
 
     useEffect(() => {
         const storedUserId = String(localStorage.getItem('userId'));
@@ -155,9 +133,12 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const fetchFiles = useCallback(async () => {
         if (!userId) return;
         setLoadingStates(prev => ({ ...prev, files: true }));
+        setFileError('');
         try {
             const response = await getUserFiles();
-            setFiles(response.data || []);
+            // --- THIS IS THE FINAL FIX ---
+            // The API returns a direct array, so we use response.data
+            setFiles(response.data || []); 
         } catch (err) {
             setFileError('Could not load files.');
         } finally {
@@ -206,20 +187,21 @@ const ChatPage = ({ setIsAuthenticated }) => {
             } finally {
                 setLoadingStates(prev => ({ ...prev, deepSearch: false }));
             }
-        }
-        let fileIdForRag = activeFileForRag?.id;
-        if (!fileIdForRag && files.length === 1) {
-            fileIdForRag = files[0]._id || files[0].id;
-        }
-        if (isRagEnabled) {
+        } else if (isRagEnabled) {
             setLoadingStates(prev => ({ ...prev, chat: true }));
             try {
-                const ragPayload = { query: trimmedInput, history: historyToSend, sessionId, fileId: fileIdForRag };
-                const response = await queryRagService(ragPayload);
+                const ragPayload = {
+                    query: trimmedInput,
+                    fileId: activeFileForRag?.id,
+                    allowDeepSearch: allowRagDeepSearch
+                };
+                const response = await queryHybridRagService(ragPayload);
                 const assistantMessage = {
-                    role: 'assistant', type: 'rag',
+                    role: 'assistant',
+                    type: response.data.metadata.searchType,
                     parts: [{ text: response.data.message }],
-                    timestamp: new Date(), metadata: response.data.metadata
+                    timestamp: new Date(),
+                    metadata: response.data.metadata
                 };
                 setMessages(prev => [...prev, assistantMessage]);
             } catch (err) {
@@ -248,8 +230,18 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 setLoadingStates(prev => ({ ...prev, chat: false }));
             }
         }
-    }, [inputText, isProcessing, loadingStates, messages, isDeepSearchEnabled, isRagEnabled, activeFileForRag, sessionId, editableSystemPromptText, handleLogout, files]);
+    }, [
+        inputText, isProcessing, loadingStates.listening, messages, isDeepSearchEnabled,
+        isRagEnabled, allowRagDeepSearch, sessionId, editableSystemPromptText, handleLogout, activeFileForRag
+    ]);
 
+    const handleEnterKey = useCallback((e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    }, [handleSendMessage]);
+    
     const handleMicButtonClick = useCallback(() => {
         if (!recognitionRef.current) return;
         if (loadingStates.listening) {
@@ -258,6 +250,17 @@ const ChatPage = ({ setIsAuthenticated }) => {
             recognitionRef.current.start();
         }
     }, [loadingStates.listening]);
+    
+    const handleLoadSession = useCallback((sessionData) => {
+        if (sessionData?.messages) {
+            setMessages(sessionData.messages);
+            setEditableSystemPromptText(sessionData.systemPrompt || getPromptTextById('friendly'));
+            if (sessionData.sessionId) {
+                setSessionId(sessionData.sessionId);
+                localStorage.setItem('sessionId', sessionData.sessionId);
+            }
+        }
+    }, []);
 
     const handleTextToSpeech = useCallback((text, index) => {
         if (!('speechSynthesis' in window)) {
@@ -302,6 +305,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const handleChatWithFile = useCallback((fileId, fileName) => {
         setActiveFileForRag({ id: fileId, name: fileName });
         setIsRagEnabled(true);
+        setIsDeepSearchEnabled(false);
         setMessages(prev => [...prev, {
             role: 'system',
             parts: [{ text: `Now chatting with file: **${fileName}**` }],
@@ -309,7 +313,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }]);
     }, []);
 
-    // Update handleGeneratePodcast to remove language parameter
     const handleGeneratePodcast = useCallback(async (fileId, fileName) => {
         if (isProcessing) return;
         setLoadingStates(prev => ({ ...prev, podcast: true }));
@@ -377,51 +380,19 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setCurrentSystemPromptId(matchingPreset ? matchingPreset.id : 'custom');
     }, []);
 
-    const handleLoadSession = useCallback((sessionData) => {
-        if (sessionData?.messages) {
-            setMessages(sessionData.messages);
-            setEditableSystemPromptText(sessionData.systemPrompt || getPromptTextById('friendly'));
-            if (sessionData.sessionId) {
-                setSessionId(sessionData.sessionId);
-                localStorage.setItem('sessionId', sessionData.sessionId);
-            }
-        }
-    }, []);
-
-    const handleEnterKey = useCallback((e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendMessage();
-        }
-    }, [handleSendMessage]);
-
     if (!userId) {
         return <div className="loading-indicator"><span>Initializing...</span></div>;
     }
 
     return (
         <div className="chat-page-container">
-            {/* Hamburger icon for mobile */}
-            <button
-                className="mobile-hamburger"
-                onClick={() => setIsDrawerOpen(true)}
-                aria-label="Open menu"
-                style={{ display: 'none' }}
-            >
-                <FaBars size={24} />
-            </button>
-            {/* Sidebar for desktop, Drawer for mobile */}
             <div className={`sidebar-area${isDrawerOpen ? ' mobile-drawer-open' : ''}`}>
-                {/* Drawer close button for mobile */}
-                <button
-                    className="mobile-drawer-close"
-                    onClick={() => setIsDrawerOpen(false)}
-                    aria-label="Close menu"
-                    style={{ display: 'none' }}
-                >
-                    ✕
-                </button>
-                <SystemPromptWidget selectedPromptId={currentSystemPromptId} promptText={editableSystemPromptText} onSelectChange={handlePromptSelectChange} onTextChange={handlePromptTextChange} />
+                <SystemPromptWidget 
+                    selectedPromptId={currentSystemPromptId} 
+                    promptText={editableSystemPromptText} 
+                    onSelectChange={handlePromptSelectChange} 
+                    onTextChange={handlePromptTextChange}
+                />
                 <FileUploadWidget onUploadSuccess={fetchFiles} />
                 <FileManagerWidget
                     files={files}
@@ -434,75 +405,27 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     onChatWithFile={handleChatWithFile}
                     isProcessing={isProcessing}
                 />
-                {/* Tools button with popover (mobile only) */}
-                <Popover
-                    isOpen={isToolsPopoverOpen}
-                    positions={["bottom", "top"]}
-                    align="center"
-                    padding={10}
-                    onClickOutside={() => setIsToolsPopoverOpen(false)}
-                    content={
-                        <div className="popover-menu">
-                            <button className="popover-menu-item"><FaTools /> Tool 1</button>
-                            <button className="popover-menu-item"><FaTools /> Tool 2</button>
-                        </div>
-                    }
-                >
-                    <button
-                        className="tools-btn"
-                        onClick={() => setIsToolsPopoverOpen((v) => !v)}
-                        style={{ display: 'none' }}
-                    >
-                        <FaTools /> Tools
-                    </button>
-                </Popover>
             </div>
-            {/* FAB for file upload (mobile only) */}
-            <button
-                className="mobile-fab"
-                onClick={() => {
-                    // Scroll to or open upload section
-                    if (isDrawerOpen) return;
-                    setIsDrawerOpen(true);
-                }}
-                aria-label="Upload file"
-                style={{ display: 'none' }}
-            >
-                <FaPlus size={28} />
-            </button>
-            {/* Overlay for drawer (mobile only) */}
-            {isDrawerOpen && <div className="mobile-drawer-overlay" onClick={() => setIsDrawerOpen(false)}></div>}
             <div className="chat-container">
                 <header className="chat-header">
-                    {/* Hamburger icon for mobile (visible only on mobile) */}
-                    <button
-                        className="mobile-hamburger"
-                        onClick={() => setIsDrawerOpen(true)}
-                        aria-label="Open menu"
-                        style={{ display: 'none' }}
-                    >
-                        <FaBars size={24} />
-                    </button>
-                    <h1>Engineering Tutor</h1>
-                    <div className="header-controls">
-                        <span className="username-display">Hi, {username}!</span>
-                        <button onClick={() => setShowHistoryModal(true)} className="header-button" disabled={isProcessing}>History</button>
-                        <button onClick={handleNewChat} className="header-button" disabled={isProcessing}>New Chat</button>
-                        <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
-                    </div>
-                </header>
+                     <h1>Engineering Tutor</h1>
+                     <div className="header-controls">
+                         <span className="username-display">Hi, {username}!</span>
+                         <button onClick={() => setShowHistoryModal(true)} className="header-button" disabled={isProcessing}>History</button>
+                         <button onClick={handleNewChat} className="header-button" disabled={isProcessing}>New Chat</button>
+                         <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
+                     </div>
+                 </header>
                 <div className="messages-area">
                     {messages.map((msg, index) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
                         const messageText = msg.parts[0]?.text || '';
                         const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                        
                         return (
                             <div key={index} className={`message-wrapper ${msg.role}`}>
                                 <div className={`message-content ${msg.type || ''}`}>
-                                    {/* Main message body */}
                                     {msg.type === 'mindmap' && msg.mindMapData ? (
-                                        <div id={`mindmap-container-${index}`} className="mindmap-container">
+                                        <div className="mindmap-container">
                                             <MindMap mindMapData={msg.mindMapData} />
                                         </div>
                                     ) : msg.type === 'audio' && msg.audioUrl ? (
@@ -513,8 +436,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                     ) : (
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
                                     )}
-
-                                    {/* Footer with timestamp and TTS button */}
                                     <div className="message-footer">
                                         {msg.role === 'assistant' && (
                                             <button
@@ -523,11 +444,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                                 title="Read aloud"
                                                 disabled={isProcessing}
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                                    <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
-                                                    <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
-                                                    <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
-                                                </svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/><path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/><path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/></svg>
                                             </button>
                                         )}
                                         <span className="message-timestamp">{timestamp}</span>
@@ -538,20 +455,31 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     })}
                     <div ref={messagesEndRef} />
                 </div>
-                {/* Modern input bar for desktop */}
                 <div className="modern-input-bar">
-                  <div className="input-bar-left">
-                    <button type="button" className="input-action-btn" title="Upload file" onClick={() => setIsDrawerOpen(true)} disabled={isProcessing}><FaPlus /></button>
-                    <button type="button" className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''}`} title="Deep Research" onClick={() => { setIsDeepSearchEnabled((v) => { if (!v) setIsRagEnabled(false); return !v; }); }} disabled={isProcessing}>DS</button>
-                    <button type="button" className={`input-action-btn${isRagEnabled ? ' active' : ''}`} title="RAG" onClick={() => { setIsRagEnabled((v) => { if (!v) setIsDeepSearchEnabled(false); return !v; }); }} disabled={isProcessing}>RAG</button>
-                  </div>
-                  <input type="text" value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleEnterKey} placeholder="Type your message, or use the mic..." className="modern-input" disabled={isProcessing} autoComplete="off" style={{ flex: 1 }} />
-                  <div className="input-bar-right">
-                    <button type="button" className="input-action-btn" title="Use microphone" onClick={handleMicButtonClick} disabled={isProcessing}><FaMicrophone /></button>
-                    <button type="submit" className="input-action-btn" title="Send message" disabled={isProcessing || !inputText.trim()} onClick={handleSendMessage}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94l18-9a.75.75 0 0 0 0-1.88l-18-9Z"/></svg>
-                    </button>
-                  </div>
+                    <div className="input-bar-left">
+                        <button type="button" className="input-action-btn" title="Upload file" onClick={() => setIsDrawerOpen(true)} disabled={isProcessing}><FaPlus /></button>
+                        <button type="button" className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''}`} title="Deep Research" onClick={() => { setIsDeepSearchEnabled(v => !v); setIsRagEnabled(false); }} disabled={isProcessing}>DS</button>
+                        <button type="button" className={`input-action-btn${isRagEnabled ? ' active' : ''}`} title="Chat with your documents" onClick={() => { setIsRagEnabled(v => !v); setIsDeepSearchEnabled(false); }} disabled={isProcessing}>RAG</button>
+                        {isRagEnabled && (
+                            <div className="toggle-container" title="Allow web search if answer is not in your documents">
+                                <input 
+                                    type="checkbox" 
+                                    id="rag-deep-search-toggle"
+                                    checked={allowRagDeepSearch} 
+                                    onChange={(e) => setAllowRagDeepSearch(e.target.checked)}
+                                    disabled={isProcessing}
+                                />
+                                <label htmlFor="rag-deep-search-toggle">DS</label>
+                            </div>
+                        )}
+                    </div>
+                    <input type="text" value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleEnterKey} placeholder="Type your message, or use the mic..." className="modern-input" disabled={isProcessing} autoComplete="off" style={{ flex: 1 }} />
+                    <div className="input-bar-right">
+                        <button type="button" className="input-action-btn" title="Use microphone" onClick={handleMicButtonClick} disabled={isProcessing}><FaMicrophone /></button>
+                        <button type="submit" className="input-action-btn" title="Send message" disabled={isProcessing || !inputText.trim()} onClick={handleSendMessage}>
+                            <FaPaperPlane />
+                        </button>
+                    </div>
                 </div>
                 {error && <p className="error-message">{error}</p>}
             </div>

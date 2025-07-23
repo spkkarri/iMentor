@@ -136,8 +136,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setFileError('');
         try {
             const response = await getUserFiles();
-            // --- THIS IS THE FINAL FIX ---
-            // The API returns a direct array, so we use response.data
             setFiles(response.data || []); 
         } catch (err) {
             setFileError('Could not load files.');
@@ -408,14 +406,14 @@ const ChatPage = ({ setIsAuthenticated }) => {
             </div>
             <div className="chat-container">
                 <header className="chat-header">
-                     <h1>Engineering Tutor</h1>
-                     <div className="header-controls">
-                         <span className="username-display">Hi, {username}!</span>
-                         <button onClick={() => setShowHistoryModal(true)} className="header-button" disabled={isProcessing}>History</button>
-                         <button onClick={handleNewChat} className="header-button" disabled={isProcessing}>New Chat</button>
-                         <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
-                     </div>
-                 </header>
+                        <h1>Engineering Tutor</h1>
+                        <div className="header-controls">
+                            <span className="username-display">Hi, {username}!</span>
+                            <button onClick={() => setShowHistoryModal(true)} className="header-button" disabled={isProcessing}>History</button>
+                            <button onClick={handleNewChat} className="header-button" disabled={isProcessing}>New Chat</button>
+                            <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
+                        </div>
+                    </header>
                 <div className="messages-area">
                     {messages.map((msg, index) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
@@ -460,18 +458,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         <button type="button" className="input-action-btn" title="Upload file" onClick={() => setIsDrawerOpen(true)} disabled={isProcessing}><FaPlus /></button>
                         <button type="button" className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''}`} title="Deep Research" onClick={() => { setIsDeepSearchEnabled(v => !v); setIsRagEnabled(false); }} disabled={isProcessing}>DS</button>
                         <button type="button" className={`input-action-btn${isRagEnabled ? ' active' : ''}`} title="Chat with your documents" onClick={() => { setIsRagEnabled(v => !v); setIsDeepSearchEnabled(false); }} disabled={isProcessing}>RAG</button>
-                        {isRagEnabled && (
-                            <div className="toggle-container" title="Allow web search if answer is not in your documents">
-                                <input 
-                                    type="checkbox" 
-                                    id="rag-deep-search-toggle"
-                                    checked={allowRagDeepSearch} 
-                                    onChange={(e) => setAllowRagDeepSearch(e.target.checked)}
-                                    disabled={isProcessing}
-                                />
-                                <label htmlFor="rag-deep-search-toggle">DS</label>
-                            </div>
-                        )}
+                        {/* The checkbox for enabling Deep Search within RAG has been removed. */}
                     </div>
                     <input type="text" value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleEnterKey} placeholder="Type your message, or use the mic..." className="modern-input" disabled={isProcessing} autoComplete="off" style={{ flex: 1 }} />
                     <div className="input-bar-right">

@@ -1,6 +1,5 @@
-// src/components/HistoryModal.js
 import React, { useState, useEffect } from 'react';
-import { getChatSessions, getSessionDetails, deleteChatSession } from '../services/api';
+import { getChatSessions, getSessionDetails } from '../services/api';
 import {
     Dialog, DialogTitle, DialogContent, List, ListItem, ListItemText,
     CircularProgress, Typography, Box, IconButton, ListItemSecondaryAction
@@ -8,6 +7,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { formatDistanceToNow } from 'date-fns';
+import { deleteChatSession } from '../services/api';
 
 const HistoryModal = ({ isOpen, onClose, onLoadSession }) => {
     const [sessions, setSessions] = useState([]);
@@ -49,7 +49,6 @@ const HistoryModal = ({ isOpen, onClose, onLoadSession }) => {
         if (!window.confirm(`Are you sure you want to delete the chat titled "${sessionTitle}"?`)) {
             return;
         }
-
         try {
             await deleteChatSession(sessionIdToDelete);
             setSessions(prevSessions => prevSessions.filter(session => session.sessionId !== sessionIdToDelete));
@@ -89,7 +88,7 @@ const HistoryModal = ({ isOpen, onClose, onLoadSession }) => {
                                 >
                                     <ListItemText
                                         primary={session.title}
-                                        secondary={`Last updated: ${formatDistanceToNow(new Date(session.updatedAt), { addSuffix: true })}`}
+                                        secondary={`Last updated: ${formatDistanceToNow(new Date(session.updatedAt || session.createdAt), { addSuffix: true })}`}
                                     />
                                     <ListItemSecondaryAction>
                                         <IconButton

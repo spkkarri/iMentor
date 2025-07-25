@@ -1,0 +1,62 @@
+.sidebar-widget {
+  background-color: var(--background-secondary);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.sidebar-widget h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+}
+
+.sidebar-button {
+  width: 100%;
+  padding: 10px 15px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background-color: var(--background-tertiary);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.sidebar-button:hover:not(:disabled) {
+  background-color: #3c3c3c;
+  border-color: #555;
+}
+
+.sidebar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidebar-button.primary {
+  background-color: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: var(--background-dark);
+}
+
+.sidebar-button.primary:hover:not(:disabled) {
+  background-color: var(--accent-blue-hover);
+  border-color: var(--accent-blue-hover);
+}
+
+.sidebar-select {
+    width: 100%;
+    background-color: var(--background-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: var(--font-family);
+    font-size: 0.9rem;
+}

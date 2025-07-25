@@ -1,5 +1,3 @@
-// server/routes/files.js
-
 const express = require('express');
 const router = express.Router();
 const fs = require('fs');
@@ -11,7 +9,7 @@ const vectorStore = require('../services/LangchainVectorStore');
 router.get('/', tempAuth, async (req, res) => {
     try {
         const files = await File.find({ user: req.user.id }).sort({ createdAt: -1 });
-        // --- FIX: Always wrap the response in an object for consistency ---
+        // --- This format is crucial for the frontend to work correctly ---
         res.status(200).json({ files: files });
     } catch (err) {
         console.error(err.message);

@@ -1,8 +1,7 @@
-// server/controllers/chatController.js
-
 const { ChatSession } = require('../models/ChatSession');
 const { v4: uuidv4 } = require('uuid');
 const HybridRagService = require('../services/HybridRagService');
+const serviceManager = require('../services/serviceManager');
 
 const getSessions = async (req, res) => {
     try {
@@ -69,15 +68,45 @@ const saveChatHistory = async (req, res) => {
 };
 
 const handleStandardMessage = async (req, res) => {
-    res.json({ message: 'Standard message received' });
+    const { query, history = [], systemPrompt } = req.body;
+    
+    if (!query) {
+        return res.status(400).json({ message: 'Query is required.' });
+    }
+
+    try {
+        const { geminiAI } = serviceManager.getServices();
+        const responseText = await geminiAI.generateChatResponse(query, [], history, systemPrompt);
+        res.json({ message: responseText });
+    } catch (error) {
+        console.error("Standard chat error:", error);
+        res.status(500).json({ message: "Failed to get a response from the AI." });
+    }
 };
 
 const handleRagMessage = async (req, res) => {
-    res.json({ message: 'Legacy RAG message received' });
+    res.status(404).json({ message: 'This endpoint is deprecated. Please use /api/chat/rag-v2' });
 };
 
 const handleDeepSearch = async (req, res) => {
-    res.json({ message: 'Deep search received' });
+    const { query, history = [] } = req.body;
+    if (!query) {
+        return res.status(400).json({ message: 'Query is required' });
+    }
+    try {
+        const deepSearchService = serviceManager.getDeepSearchService(req.user.id);
+        const result = await deepSearchService.performSearch(query, history);
+        res.status(200).json({
+            message: result.summary,
+            metadata: {
+                sources: result.sources,
+                searchType: 'deep_search'
+            }
+        });
+    } catch (error) {
+        console.error('Deep search controller error:', error);
+        res.status(500).json({ message: 'Deep search failed.' });
+    }
 };
 
 const deleteSession = async (req, res) => {

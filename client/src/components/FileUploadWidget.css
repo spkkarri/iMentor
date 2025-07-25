@@ -1,0 +1,52 @@
+.selected-files-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    max-height: 150px; 
+    overflow-y: auto; 
+    padding: 5px 0;
+    margin: 12px 0;
+}
+
+.file-preview-item { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    padding: 8px; 
+    background-color: var(--background-tertiary); 
+    border: 1px solid var(--border-color); 
+    border-radius: 4px; 
+    font-size: 0.85rem; 
+}
+
+.file-preview-name { 
+    flex-grow: 1; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    color: var(--text-secondary);
+}
+
+.file-preview-status { 
+    font-style: italic; 
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.remove-file-btn { 
+    background: none; 
+    border: none; 
+    color: var(--text-secondary); 
+    cursor: pointer; 
+    padding: 0; 
+    display: flex; 
+}
+
+.remove-file-btn:hover { 
+    color: #f44336; 
+}
+
+.file-preview-item.success { border-left: 3px solid #52c41a; }
+.file-preview-item.success .file-preview-status { color: #52c41a; }
+.file-preview-item.error { border-left: 3px solid #f44336; }
+.file-preview-item.error .file-preview-status { color: #f44336; }

@@ -1,0 +1,8 @@
+/* client/src/components/SettingsWidget/index.css */
+.settings-widget h3 {
+    margin: 0 0 16px 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--primary-text-color);
+    flex-shrink: 0;
+}

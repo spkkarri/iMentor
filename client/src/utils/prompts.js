@@ -26,11 +26,12 @@ export const availablePrompts = [
     {
         id: 'custom',
         label: 'Custom',
-        prompt: ''
+        prompt: '' // This can be used as a base for user-defined prompts
     }
 ];
 
 export const getPromptTextById = (id) => {
     const prompt = availablePrompts.find(p => p.id === id);
+    // Default to the 'friendly' prompt if the id is not found
     return prompt ? prompt.prompt : availablePrompts[0].prompt;
 };

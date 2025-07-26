@@ -1,47 +1,46 @@
 // client/src/App.js
 import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CircularProgress } from '@mui/material';
+import { ThemeProvider, createTheme, CircularProgress, CssBaseline } from '@mui/material';
 import { getCurrentUser } from './services/api';
 
 // Lazy load components to reduce initial bundle size
 const AuthPage = React.lazy(() => import('./components/AuthPage'));
 const ChatPage = React.lazy(() => import('./components/ChatPage'));
-const LandingPage = React.lazy(() => import('./components/LandingPage')); // Ensure LandingPage is lazy loaded too
+const LandingPage = React.lazy(() => import('./components/LandingPage'));
 
 const darkTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    background: {
-      default: '#1a1a1a',
-      paper: '#2d2d2d',
-    },
-    primary: {
-      main: '#90caf9',
-    },
-    text: {
-      primary: '#ffffff',
-      secondary: '#b3b3b3',
-    }
-  },
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          backgroundColor: '#2d2d2d',
-          color: '#ffffff',
+    palette: {
+        mode: 'dark',
+        background: {
+            default: '#131314', // Main background from your CSS
+            paper: '#1e1f20',   // Surface color from your CSS
+        },
+        primary: {
+            main: '#8ab4f8', // A common Google blue
+        },
+        text: {
+            primary: '#e3e3e3',
+            secondary: '#9aa0a6',
         }
-      }
     },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundColor: '#2d2d2d',
-          color: '#ffffff',
+    components: {
+        MuiPopover: {
+            styleOverrides: {
+                paper: {
+                    backgroundColor: '#282a2c',
+                    border: '1px solid #3c4043',
+                }
+            }
+        },
+        MuiButton: {
+            styleOverrides: {
+                root: {
+                    textTransform: 'none',
+                }
+            }
         }
-      }
     }
-  }
 });
 
 const LoadingFallback = () => (
@@ -50,112 +49,75 @@ const LoadingFallback = () => (
         justifyContent: 'center',
         alignItems: 'center',
         height: '100vh',
-        backgroundColor: '#121212'
+        backgroundColor: '#131314'
     }}>
         <CircularProgress />
     </div>
 );
 
+
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-    // Keep isAuthenticated in sync with localStorage userId (for multi-tab logout)
-    useEffect(() => {
-        const handleStorage = (event) => {
-            if (event.key === 'userId' && !event.newValue) {
-                setIsAuthenticated(false);
-            }
-        };
-        window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
-    }, []);
-
-    // On mount, set isAuthenticated based on userId and username
-    useEffect(() => {
-        const storedUserId = localStorage.getItem('userId');
-        const storedUsername = localStorage.getItem('username');
-        if (!storedUserId || !storedUsername) {
-            setIsAuthenticated(false);
-        } else {
-            setIsAuthenticated(true);
-        }
-    }, []);
+    const [isAuthLoading, setIsAuthLoading] = useState(true);
 
     useEffect(() => {
         const checkAuth = async () => {
             const token = localStorage.getItem('token');
             if (!token) {
-                console.log('[Auth Debug] No token in localStorage');
                 setIsAuthenticated(false);
+                setIsAuthLoading(false);
                 return;
             }
             try {
                 const response = await getCurrentUser();
-                console.log('[Auth Debug] /api/auth/me success:', response.data);
                 const userId = response.data.user.id || response.data.user._id;
-                console.log('Setting userId:', userId);
                 localStorage.setItem('userId', String(userId));
                 localStorage.setItem('username', response.data.user.username);
                 setIsAuthenticated(true);
             } catch (err) {
-                if (err.response) {
-                    // Server responded with a status code outside 2xx
-                    console.error('[Auth Debug] /api/auth/me error:', err.response.status, err.response.data);
-                } else if (err.request) {
-                    // No response received
-                    console.error('[Auth Debug] /api/auth/me no response:', err.request);
-                } else {
-                    // Something else happened
-                    console.error('[Auth Debug] /api/auth/me error:', err.message);
-                }
                 localStorage.clear();
                 setIsAuthenticated(false);
+            } finally {
+                setIsAuthLoading(false);
             }
         };
         checkAuth();
     }, []);
 
+    if (isAuthLoading) {
+        return <LoadingFallback />;
+    }
+
     return (
         <ThemeProvider theme={darkTheme}>
+            <CssBaseline /> {/* Ensures MUI uses the theme's background color */}
             <Router>
-                <div style={{
-                    minHeight: '100vh',
-                    backgroundColor: '#1a1a1a',
-                    color: '#ffffff',
-                    padding: '20px'
-                }}>
-                    <Suspense fallback={<LoadingFallback />}>
-                        <Routes>
-                            {/* Landing Page is now the default root */}
-                            <Route path="/" element={<LandingPage />} />
-
-                            <Route
-                                path="/login"
-                                element={
-                                    !isAuthenticated ? (
-                                        <AuthPage setIsAuthenticated={setIsAuthenticated} />
-                                    ) : (
-                                        <Navigate to="/chat" replace />
-                                    )
-                                }
-                            />
-
-                            <Route
-                                path="/chat"
-                                element={
-                                    isAuthenticated ? (
-                                        <ChatPage setIsAuthenticated={setIsAuthenticated} />
-                                    ) : (
-                                        <Navigate to="/login" replace />
-                                    )
-                                }
-                            />
-
-                            {/* Fallback for any unmatched routes */}
-                            <Route path="*" element={<Navigate to="/" replace />} />
-                        </Routes>
-                    </Suspense>
-                </div>
+                <Suspense fallback={<LoadingFallback />}>
+                    <Routes>
+                        <Route path="/" element={<LandingPage />} />
+                        <Route
+                            path="/login"
+                            element={
+                                !isAuthenticated ? (
+                                    <AuthPage setIsAuthenticated={setIsAuthenticated} />
+                                ) : (
+                                    <Navigate to="/chat" replace />
+                                )
+                            }
+                        />
+                        <Route
+                            path="/chat"
+                            element={
+                                isAuthenticated ? (
+                                    <ChatPage setIsAuthenticated={setIsAuthenticated} />
+                                ) : (
+                                    <Navigate to="/login" replace />
+                                )
+                            }
+                        />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </Suspense>
             </Router>
         </ThemeProvider>
     );

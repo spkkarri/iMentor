@@ -15,7 +15,7 @@ const LandingPage = () => {
 
   return (
     <div className="landing-wrapper">
-      <h1 className="gemlama-logo">Engineering Tutor</h1>
+      <h1 className="gemlama-logo">TutorAI</h1>
     </div>
   );
 };

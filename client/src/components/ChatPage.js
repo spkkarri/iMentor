@@ -471,7 +471,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         <button onClick={() => setIsSidebarExpanded(p => !p)} className="header-button hamburger-button-mobile" title="Toggle Menu">
                             <FaBars />
                         </button>
-                        <h1>Engineering Tutor</h1>
+                        <h1>TutorAI</h1>
                     </div>
                     <div className="header-right">
                         <MuiIconButton onClick={handleProfileClick} title="Profile">

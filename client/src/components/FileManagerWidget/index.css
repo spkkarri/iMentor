@@ -1,159 +1,106 @@
-/* client/src/components/FileManagerWidget.css */
-
+/* FileManagerWidget/index.css */
 .file-manager-widget {
-  background-color: #2d2d2d;
-  border-radius: 8px;
-  padding: 15px;
-  margin-top: 20px;
+    background-color: transparent; /* Updated to blend with sidebar */
+    border-radius: 8px;
+    padding: 0; /* Updated */
 }
 
-.file-manager-widget h3 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  color: #e0e0e0;
-  border-bottom: 1px solid #444;
-  padding-bottom: 10px;
-}
+/* No change to h3, as it's handled by the parent ChatPage.css */
 
 .file-list {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  max-height: 200px;
-  overflow-y: auto;
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .file-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px;
-  background-color: #f0f0f0;
-  border-radius: 5px;
-  margin-bottom: 8px;
-  color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    background-color: var(--hover-color);
+    border-radius: 5px;
+    margin-bottom: 8px;
+    color: var(--primary-text-color);
+    transition: background-color 0.2s;
+}
+
+.file-item:hover {
+    background-color: #3c4043;
 }
 
 .file-name {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-right: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 10px;
 }
 
-/* --- Menu Button (Three Dots) Styling --- */
 .menu-button {
-  background: none;
-  border: none;
-  color: #1a1a1a;
-  cursor: pointer;
-  padding: 5px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s;
+    background: none;
+    border: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
 }
-
 .menu-button:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* --- Popover Menu Styling --- */
 .popover-menu {
-  background-color: #3c3c3c;
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-  padding: 8px 0;
-  width: 220px;
-  display: flex;
-  flex-direction: column;
+    background-color: #282a2c;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    padding: 8px 0;
+    width: 220px;
+    display: flex;
+    flex-direction: column;
 }
-
 .popover-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: none;
-  border: none;
-  color: #e0e0e0;
-  padding: 10px 15px;
-  text-align: left;
-  width: 100%;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: none;
+    color: var(--primary-text-color);
+    padding: 10px 15px;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
 }
-
 .popover-menu-item:hover {
-  background-color: #555;
+    background-color: #3c4043;
 }
-
 .popover-menu-item:disabled {
-  color: #777;
-  cursor: not-allowed;
+    color: #777;
+    cursor: not-allowed;
 }
-
 .popover-menu-item.danger {
-  color: #f44336;
+    color: #f48fb1;
 }
-
 .popover-menu-item.danger:hover {
-  background-color: rgba(244, 67, 54, 0.2);
+    background-color: rgba(244, 67, 54, 0.2);
 }
-
 .popover-divider {
-  height: 1px;
-  background-color: #555;
-  margin: 8px 0;
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 8px 0;
 }
-
-/* --- Loading and Error States --- */
 .file-manager-loading,
 .file-manager-error {
-  text-align: center;
-  color: #a0a0a0;
-  padding: 20px;
-  font-style: italic;
-}
-
-@media (max-width: 600px) {
-  .file-manager-widget {
-    padding: 8px 2vw;
-    margin-top: 10px;
-    width: 100vw;
-    box-sizing: border-box;
-  }
-  .file-manager-widget h3 {
-    font-size: 1.1rem;
-    padding-bottom: 6px;
-    width: 100%;
-  }
-  .file-list {
-    max-height: 120px;
-    width: 100%;
-  }
-  .file-item {
-    font-size: 0.98rem;
-    padding: 7px;
-    width: 100%;
-    box-sizing: border-box;
-    margin-bottom: 8px;
-  }
-  .popover-menu {
-    width: 98vw;
-    min-width: 0;
-    max-width: 98vw;
-  }
-  .menu-button, .popover-menu-item, .popover-menu-item.danger {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-  .file-manager-loading,
-  .file-manager-error {
-    width: 100%;
-    box-sizing: border-box;
-  }
+    text-align: center;
+    color: var(--secondary-text-color);
+    padding: 20px;
+    font-style: italic;
 }

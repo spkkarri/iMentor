@@ -1,6 +1,6 @@
+// src/components/FileManagerWidget/index.js
 import React, { useState } from 'react';
 import { Popover } from 'react-tiny-popover';
-// Import a new icon for the chat option
 import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots } from 'react-icons/fa';
 import './index.css';
 
@@ -13,21 +13,18 @@ function FileManagerWidget({
     onGeneratePodcast,
     onGenerateMindMap,
     onChatWithFile,
-    isProcessing
+    isProcessing,
+    onActionTaken // New prop to notify parent of an action
 }) {
     const [openMenuId, setOpenMenuId] = useState(null);
 
-    const handleRename = (fileId, currentName) => {
-        setOpenMenuId(null);
-        const newName = prompt("Enter new file name:", currentName);
-        if (newName && newName !== currentName) {
-            onRenameFile(fileId, newName);
-        }
-    };
-
+    // This function now wraps all actions to ensure the sidebar can be closed
     const handleActionClick = (action, fileId, fileName) => {
         setOpenMenuId(null);
         action(fileId, fileName);
+        if (onActionTaken) {
+            onActionTaken();
+        }
     };
 
     return (
@@ -51,9 +48,9 @@ function FileManagerWidget({
                                 align="center"
                                 padding={10}
                                 onClickOutside={() => setOpenMenuId(null)}
+                                containerStyle={{ zIndex: 1100 }}
                                 content={
                                     <div className="popover-menu">
-                                        {/* --- NEW BUTTON ADDED HERE --- */}
                                         <button onClick={() => handleActionClick(onChatWithFile, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
                                             <FaCommentDots /> Chat with this File
                                         </button>
@@ -64,7 +61,7 @@ function FileManagerWidget({
                                         <button onClick={() => handleActionClick(onGenerateMindMap, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
                                             <FaProjectDiagram /> Generate Mind Map
                                         </button>
-                                        <button onClick={() => handleRename(file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
+                                        <button onClick={() => handleActionClick(onRenameFile, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
                                             <FaEdit /> Rename
                                         </button>
                                         <div className="popover-divider" />

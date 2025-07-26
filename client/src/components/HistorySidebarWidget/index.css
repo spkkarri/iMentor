@@ -1,0 +1,97 @@
+/* client/src/components/HistorySidebarWidget/index.css */
+
+.history-widget {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.history-widget h3 {
+    margin: 0 0 16px 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--primary-text-color);
+    flex-shrink: 0;
+}
+
+.history-status {
+    text-align: center;
+    color: var(--secondary-text-color);
+    font-style: italic;
+    padding: 20px 0;
+}
+
+.history-status.error {
+    color: #f48fb1;
+}
+
+.history-status .spin {
+    animation: spin 1.5s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.history-item:hover {
+    background-color: var(--hover-color);
+}
+
+.history-item-content {
+    overflow: hidden;
+}
+
+.history-title {
+    margin: 0 0 4px 0;
+    color: var(--primary-text-color);
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-date {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+}
+
+.delete-btn {
+    background: none;
+    border: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    transition: color 0.2s, background-color 0.2s;
+    margin-left: 10px;
+    flex-shrink: 0;
+}
+
+.delete-btn:hover {
+    color: #f48fb1;
+    background-color: rgba(244, 143, 177, 0.1);
+}

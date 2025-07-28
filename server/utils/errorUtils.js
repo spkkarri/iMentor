@@ -1,4 +1,7 @@
-const { Error } = require('http-errors');
+// server/utils/errorUtils.js
+
+// --- FIX: Import createHttpError instead of destructuring Error ---
+const createHttpError = require('http-errors');
 
 /**
  * Create a standardized error object
@@ -8,8 +11,8 @@ const { Error } = require('http-errors');
  * @returns {Error} Standardized error object
  */
 function createError(status, message, details = null) {
-    const error = new Error(message);
-    error.status = status;
+    // --- FIX: Use the imported function correctly ---
+    const error = new createHttpError(status, message);
     error.details = details;
     return error;
 }

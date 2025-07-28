@@ -2,6 +2,8 @@
 
 const serviceManager = require('./serviceManager');
 const File = require('../models/File');
+const personalizationService = require('./personalizationService');
+const User = require('../models/User'); // <-- Import User model
 
 const loadedFilesCache = new Set();
 const RAG_CONFIDENCE_THRESHOLD = 0.65; 
@@ -41,7 +43,7 @@ class HybridRagService {
     }
 
     async processQuery(query, userId, fileId) {
-        const { vectorStore } = serviceManager.getServices();
+        const { vectorStore, geminiAI } = serviceManager.getServices();
 
         if (!fileId) {
             return {
@@ -63,14 +65,18 @@ class HybridRagService {
         if (isContextSufficient) {
             console.log('[RAG Service] Context sufficient. Answering from document.');
             const context = relevantChunks.map(chunk => chunk.content).join('\n\n');
-            const prompt = this.buildStandardRagPrompt(correctedQuery, context);
-            const answer = await serviceManager.geminiAI.generateText(prompt);
+            
+            // --- MODIFICATION: Fetch user profile and use new RAG prompt builder ---
+            const user = await User.findById(userId);
+            const personalizationProfile = user ? user.personalizationProfile : '';
+            const prompt = geminiAI.buildRagPrompt(correctedQuery, context, personalizationProfile);
+            
+            const answer = await geminiAI.generateText(prompt);
             return {
                 message: answer,
                 metadata: { searchType: 'rag', sources: this.formatSources(relevantChunks) }
             };
         } else {
-            // --- UPDATED LOGIC: No more web search. Just give a fallback message. ---
             console.log('[RAG Service] Context insufficient. Returning fallback message.');
             return {
                 message: "I couldn't find a confident answer for that in your document. Please try rephrasing your question or asking something else about the file.",
@@ -79,10 +85,6 @@ class HybridRagService {
         }
     }
     
-    buildStandardRagPrompt(query, context) {
-        return `You are an expert assistant. Answer the user's question based ONLY on the following context. If the answer is not in the context, say "I could not find an answer in the provided documents." Context: --- ${context} --- Question: "${query}" Answer:`;
-    }
-
     formatSources(chunks) {
         const uniqueSources = [...new Set(chunks.map(chunk => chunk.metadata.source))];
         return uniqueSources.map(source => ({ title: source, type: 'document' }));

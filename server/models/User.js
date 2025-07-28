@@ -1,7 +1,6 @@
 // server/models/User.js
 
 const mongoose = require('mongoose');
-// --- FIX: Ensure bcryptjs is imported here ---
 const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
@@ -14,6 +13,11 @@ const UserSchema = new mongoose.Schema({
     password: {
         type: String,
         required: true
+    },
+    // --- NEW: Field to store the evolving user profile ---
+    personalizationProfile: {
+        type: String,
+        default: ''
     },
     createdAt: {
         type: Date,

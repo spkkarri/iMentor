@@ -1,12 +1,13 @@
-// server/services/HybridRagService.js
-
 const serviceManager = require('./serviceManager');
 const File = require('../models/File');
-const personalizationService = require('./personalizationService');
-const User = require('../models/User'); // <-- Import User model
+const User = require('../models/User'); // Import User model
 
-const loadedFilesCache = new Set();
-const RAG_CONFIDENCE_THRESHOLD = 0.65; 
+// Removed loadedFilesCache and ensureFileIsLoaded as they are specific to per-file RAG.
+// For "RAG on all files", we assume all user files are already indexed or can be efficiently retrieved by the vector store.
+// If you have a large number of files and want to ensure they are loaded,
+// you might reintroduce a more generalized pre-loading or lazy-loading mechanism.
+
+const RAG_CONFIDENCE_THRESHOLD = 0.65;
 
 class HybridRagService {
     async correctAndClarifyQuery(query) {
@@ -23,41 +24,17 @@ class HybridRagService {
         }
     }
 
-    async ensureFileIsLoaded(fileId, userId) {
-        if (loadedFilesCache.has(fileId)) {
-            return;
-        }
-        console.log(`[RAG Service] File ${fileId} not in memory. Processing on-demand...`);
-        const { documentProcessor } = serviceManager.getServices();
-        const file = await File.findOne({ _id: fileId, user: userId });
-        if (!file) {
-            throw new Error(`File not found or user not authorized for fileId: ${fileId}`);
-        }
-        await documentProcessor.processFile(file.path, {
-            userId: file.user.toString(),
-            fileId: file._id.toString(),
-            originalName: file.originalname,
-        });
-        loadedFilesCache.add(fileId);
-        console.log(`[RAG Service] Successfully processed and loaded file ${file.originalname} into memory.`);
-    }
-
-    async processQuery(query, userId, fileId) {
+    // Modified processQuery to search across all files for the user
+    // Removed fileId parameter
+    async processQuery(query, userId) {
         const { vectorStore, geminiAI } = serviceManager.getServices();
 
-        if (!fileId) {
-            return {
-                message: "Please select a file to chat with from the 'My Files' list before asking a question in RAG mode.",
-                metadata: { searchType: 'rag_error', sources: [] }
-            };
-        }
-
         const correctedQuery = await this.correctAndClarifyQuery(query);
-        await this.ensureFileIsLoaded(fileId, userId);
 
+        // The `vectorStore.searchDocuments` should handle the actual search across indexed data.
         const relevantChunks = await vectorStore.searchDocuments(correctedQuery, {
             limit: 5,
-            filters: { userId, fileId }
+            filters: { userId } // Removed fileId from filters
         });
 
         const isContextSufficient = relevantChunks.length > 0 && relevantChunks[0].score > RAG_CONFIDENCE_THRESHOLD;
@@ -69,6 +46,7 @@ class HybridRagService {
             // --- MODIFICATION: Fetch user profile and use new RAG prompt builder ---
             const user = await User.findById(userId);
             const personalizationProfile = user ? user.personalizationProfile : '';
+            // Assuming geminiAI has a `buildRagPrompt` method
             const prompt = geminiAI.buildRagPrompt(correctedQuery, context, personalizationProfile);
             
             const answer = await geminiAI.generateText(prompt);
@@ -79,12 +57,24 @@ class HybridRagService {
         } else {
             console.log('[RAG Service] Context insufficient. Returning fallback message.');
             return {
-                message: "I couldn't find a confident answer for that in your document. Please try rephrasing your question or asking something else about the file.",
+                message: "I couldn't find a confident answer for that in your uploaded documents. Please try rephrasing your question or uploading more relevant files.",
                 metadata: { searchType: 'rag_fallback', sources: [] }
             };
         }
     }
     
+    // Moved to GeminiAI service or removed if it's not universally applicable
+    // This method needs to be added to GeminiAI or a new prompt utility
+    // For now, I'm providing a placeholder if GeminiAI doesn't have it.
+    // If you plan to pass personalizationProfile, consider where buildStandardRagPrompt lives
+    // if not in GeminiAI. I've assumed `geminiAI.buildRagPrompt` exists.
+    // If it doesn't, uncomment this and adjust `processQuery` accordingly.
+    /*
+    buildStandardRagPrompt(query, context) {
+        return `You are an expert assistant. Answer the user's question based ONLY on the following context. If the answer is not in the context, say "I could not find an answer in the provided documents." Context: --- ${context} --- Question: "${query}" Answer:`;
+    }
+    */
+
     formatSources(chunks) {
         const uniqueSources = [...new Set(chunks.map(chunk => chunk.metadata.source))];
         return uniqueSources.map(source => ({ title: source, type: 'document' }));

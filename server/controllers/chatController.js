@@ -190,14 +190,16 @@ const deleteSession = async (req, res) => {
  */
 const handleHybridRagMessage = async (req, res) => {
     try {
-        const { query, fileId, allowDeepSearch } = req.body;
+        // Removed fileId from destructuring, as it's no longer mandatory
+        const { query, allowDeepSearch } = req.body;
         const userId = req.user.id;
 
         if (!query) {
             return res.status(400).json({ message: 'Query is required.' });
         }
 
-        const result = await HybridRagService.processQuery(query, userId, fileId, allowDeepSearch);
+        // Pass undefined for fileId to processQuery, so it knows to search all files for the user.
+        const result = await HybridRagService.processQuery(query, userId, undefined, allowDeepSearch); 
         res.status(200).json(result);
 
     } catch (error) {

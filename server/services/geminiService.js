@@ -1,4 +1,3 @@
-// server/services/geminiService.js
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const { handleGeminiError, handleRAGError } = require('../utils/errorUtils');
 
@@ -82,7 +81,7 @@ class GeminiService {
             const responseText = candidate.content?.parts?.[0]?.text;
             if (typeof responseText === 'string') return responseText;
         }
-             const finishReason = candidate?.finishReason || 'Unknown';
+            const finishReason = candidate?.finishReason || 'Unknown';
         const blockedCategories = candidate?.safetyRatings?.filter(r => r.blocked).map(r => r.category).join(', ');
         let blockMessage = `AI response generation failed. Reason: ${finishReason}.`;
         if (blockedCategories) blockMessage += ` Blocked Categories: ${blockedCategories}.`;
@@ -114,8 +113,8 @@ class GeminiService {
         try {
             let fullSystemPrompt = systemPrompt || "You are a helpful AI assistant.";
             if (documentChunks && documentChunks.length > 0) {
-                const context = documentChunks.map(chunk => chunk.pageContent).join('\\n\\n');
-                fullSystemPrompt += `\\n\\n## Context from Documents:\\n${context}`;
+                const context = documentChunks.map(chunk => chunk.pageContent).join('\n\n');
+                fullSystemPrompt += `\n\n## Context from Documents:\n${context}`;
             }
 
             const model = this._configureModel(fullSystemPrompt.trim());

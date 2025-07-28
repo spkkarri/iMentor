@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "pdfmake": "^0.2.20"
+  }
+}

@@ -19,6 +19,7 @@ import SettingsWidget from './SettingsWidget';
 import MindMap from './MindMap';
 import { getPromptTextById, availablePrompts } from '../utils/prompts';
 
+
 import './ChatPage.css';
 
 const GeminiIcon = () => (
@@ -56,6 +57,15 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
     const [activeFileForRag, setActiveFileForRag] = useState(null);
     const [currentlySpeakingIndex, setCurrentlySpeakingIndex] = useState(null);
+<<<<<<< HEAD
+=======
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isToolsPopoverOpen, setIsToolsPopoverOpen] = useState(false);
+    const [question, setQuestion] = useState('');
+    const [isJoining, setIsJoining] = useState(false);
+    const [podcastAudioUrl, setPodcastAudioUrl] = useState('');
+    const [podcastTranscript, setPodcastTranscript] = useState([]);
+>>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
@@ -397,6 +407,42 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setCurrentSystemPromptId(matchingPreset ? matchingPreset.id : 'custom');
     }, []);
 
+<<<<<<< HEAD
+=======
+    const handleLoadSession = useCallback((sessionData) => {
+        if (sessionData?.messages) {
+            setMessages(sessionData.messages);
+            setEditableSystemPromptText(sessionData.systemPrompt || getPromptTextById('friendly'));
+            if (sessionData.sessionId) {
+                setSessionId(sessionData.sessionId);
+                localStorage.setItem('sessionId', sessionData.sessionId);
+            }
+        }
+    }, []);
+
+    const handleEnterKey = useCallback((e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    }, [handleSendMessage]);
+
+    const handleJoinClick = () => setIsJoining(true);
+
+    const handleAsk = async () => {
+        const res = await fetch('/api/podcast/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question }),
+        });
+        const data = await res.json();
+        // Update podcast transcript and audio
+        setPodcastTranscript(data.transcript);
+        setPodcastAudioUrl(data.audioUrl);
+        setQuestion('');
+    };
+
+>>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
     if (!userId) {
         return <div className="loading-indicator"><span>Initializing...</span></div>;
     }
@@ -518,6 +564,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         </div>
                     )}
                     {messages.map((msg, index) => {
+<<<<<<< HEAD
                          if (!msg?.role || !msg?.parts?.length) return null;
                          const messageText = msg.parts[0]?.text || '';
                          return (
@@ -555,6 +602,51 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                  </div>
                              </div>
                          );
+=======
+                        if (!msg?.role || !msg?.parts?.length) return null;
+                        const messageText = msg.parts[0]?.text || '';
+                        const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                        
+                        return (
+                            <div key={index} className={`message-wrapper ${msg.role}`}>
+                                <div className={`message-content ${msg.type || ''}`}>
+                                    {/* Main message body */}
+                                    {msg.type === 'mindmap' && msg.mindMapData ? (
+                                        <div id={`mindmap-container-${index}`} className="mindmap-container">
+                                            <MindMap mindMapData={msg.mindMapData} />
+                                        </div>
+                                    ) : msg.type === 'audio' && msg.audioUrl ? (
+                                        <div className="audio-player-container">
+                                            <p>{messageText}</p>
+                                            <audio controls src={msg.audioUrl} />
+                                            {/* Removed Join Now button as per user request */}
+                                        </div>
+                                    ) : (
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                                    )}
+
+                                    {/* Footer with timestamp and TTS button */}
+                                    <div className="message-footer">
+                                        {msg.role === 'assistant' && (
+                                            <button
+                                                onClick={() => handleTextToSpeech(messageText, index)}
+                                                className={`tts-button ${currentlySpeakingIndex === index ? 'speaking' : ''}`}
+                                                title="Read aloud"
+                                                disabled={isProcessing}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
+                                                    <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
+                                                    <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
+                                                </svg>
+                                            </button>
+                                        )}
+                                        <span className="message-timestamp">{timestamp}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+>>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
                     })}
                     <div ref={messagesEndRef} />
                 </main>

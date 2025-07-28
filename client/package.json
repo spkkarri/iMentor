@@ -26,7 +26,12 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+<<<<<<< HEAD
     "start": "set PORT=3004 && react-scripts start",
+=======
+    "start": "PORT=3005 react-scripts start"
+,
+>>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

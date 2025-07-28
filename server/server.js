@@ -57,7 +57,11 @@ const startServer = async () => {
         app.use('/api/mindmap', require('./routes/mindmap'));
 
         const availableIPs = getLocalIPs();
+<<<<<<< HEAD
         app.listen(PORT, '0.0.0.0', () => {
+=======
+        server = app.listen(PORT, '127.0.0.1', () => {
+>>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
             console.log('\n=== Server Ready ===');
             console.log(`🚀 Server listening on port ${PORT}`);
             console.log('Access URLs:');

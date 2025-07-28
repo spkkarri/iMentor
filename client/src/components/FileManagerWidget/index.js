@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Popover } from 'react-tiny-popover';
 import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots } from 'react-icons/fa';
 import './index.css';
+import PPTGenerator from '../PPTGenerator';
 
 function FileManagerWidget({
     files,
@@ -35,6 +36,7 @@ function FileManagerWidget({
             ) : error ? (
                 <div className="file-manager-error">{error}</div>
             ) : (
+<<<<<<< HEAD
                 <ul className="file-list">
                     {files.map(file => (
                         <li key={file._id} className="file-item">
@@ -75,13 +77,55 @@ function FileManagerWidget({
                                     onClick={() => setOpenMenuId(openMenuId === file._id ? null : file._id)} 
                                     className="icon-button menu-button"
                                     title="More options"
+=======
+                <>
+                    <ul className="file-list">
+                        {files.map(file => (
+                            <li key={file._id} className="file-item">
+                                <span className="file-name" title={file.originalname}>
+                                    {file.originalname}
+                                </span>
+                                
+                                <Popover
+                                    isOpen={openMenuId === file._id}
+                                    positions={['right', 'left', 'bottom', 'top']} 
+                                    align="center"
+                                    padding={10}
+                                    onClickOutside={() => setOpenMenuId(null)}
+                                    content={
+                                        <div className="popover-menu">
+                                            <button onClick={() => handleActionClick(onGeneratePodcast, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
+                                                <FaFileAudio /> Generate Podcast
+                                            </button>
+                                            <button onClick={() => handleActionClick(onGenerateMindMap, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
+                                                <FaProjectDiagram /> Generate Mind Map
+                                            </button>
+                                            <button onClick={() => handleRename(file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
+                                                <FaEdit /> Rename
+                                            </button>
+                                            <div className="popover-divider" />
+                                            <button onClick={() => handleActionClick(onDeleteFile, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item danger">
+                                                <FaTrash /> Delete
+                                            </button>
+                                        </div>
+                                    }
+>>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
                                 >
-                                    <FaEllipsisV />
-                                </button>
-                            </Popover>
-                        </li>
-                    ))}
-                </ul>
+                                    <button 
+                                        onClick={() => setOpenMenuId(openMenuId === file._id ? null : file._id)} 
+                                        className="icon-button menu-button"
+                                        title="More options"
+                                    >
+                                        <FaEllipsisV />
+                                    </button>
+                                </Popover>
+                            </li>
+                        ))}
+                    </ul>
+                    <div style={{ marginTop: 20 }}>
+                        <PPTGenerator />
+                    </div>
+                </>
             )}
         </div>
     );

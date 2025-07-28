@@ -436,27 +436,22 @@ class DeepSearchService {
 
             // Step 6: Generate AI synthesis
             this.updateProgress(7, 'Generating AI synthesis...');
-            const context = topResults.map(result => 
-                `Title: ${result.title}\nURL: ${result.url}\nDescription: ${result.description || result.snippet || ''}`
-            ).join('\n\n');
 
-            const synthesisPrompt = `Based on the following search results, provide a comprehensive and accurate answer to the query: "${query}"
+            // Extract subtopics from top results titles (limit to 3 for brevity)
+            const subtopics = topResults.slice(0, 3).map(r => r.title);
 
-Search Results:
-${context}
+            let combinedReport = `Comprehensive report on "${query}":\n\n`;
 
-Please provide a well-structured response that:
-1. Directly answers the query
-2. Cites relevant sources when possible
-3. Acknowledges any limitations or uncertainties
-4. Is informative and helpful`;
-
-            const aiResponse = await this.callGeminiWithRetry(synthesisPrompt, context);
+            for (const subtopic of subtopics) {
+                const sectionPrompt = `Write a detailed section for a report on the topic: "${subtopic}". Include explanations, examples, and relevant data. Make it informative and suitable for a professional report.`;
+                const sectionResponse = await this.callGeminiWithRetry(sectionPrompt, '');
+                combinedReport += `Section: ${subtopic}\n${sectionResponse}\n\n`;
+            }
 
             // Step 7: Prepare final result
             this.updateProgress(8, 'Preparing final result...');
             const result = {
-                summary: aiResponse,
+                summary: combinedReport,
                 sources: topResults.map(r => ({ title: r.title, url: r.url })),
                 aiGenerated: true,
                 rawResults: topResults,

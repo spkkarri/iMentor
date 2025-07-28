@@ -2,13 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
-<<<<<<< HEAD
-const fetch = require('node-fetch');
-const os = require('os');
-require('dotenv').config();
-=======
 const say = require('say');
->>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
 
 const execAsync = promisify(exec);
 
@@ -83,45 +77,19 @@ const generatePodcastAudio = async (podcastScript, filename) => {
             throw new Error('Podcast script array is required');
         }
         await createAudioDir();
-<<<<<<< HEAD
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const safeFilename = filename.replace(/[^a-zA-Z0-9]/g, '_');
-        const outputPath = path.join(AUDIO_DIR, `${safeFilename}_podcast_${timestamp}.mp3`);
-        console.log(`Generating podcast audio with ${podcastScript.length} segments using ElevenLabs...`);
-        // Create temporary directory for individual segments
-        const tempDir = path.join(AUDIO_DIR, 'temp');
-=======
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const safeFilename = filename.replace(/[^a-zA-Z0-9]/g, '_');
         const tempDir = path.join(AUDIO_DIR, 'temp_' + timestamp);
->>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
         await fs.mkdir(tempDir, { recursive: true });
         const segmentFiles = [];
-<<<<<<< HEAD
-=======
         // List available voices on your Mac with: say -v '?'
         const voiceA = 'Samantha'; // Change to a valid macOS voice
         const voiceB = 'Daniel';   // Change to a valid macOS voice
 
->>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
         for (let i = 0; i < podcastScript.length; i++) {
             const segment = podcastScript[i];
             const text = segment.text;
-<<<<<<< HEAD
-            // Choose voice based on speaker
-            let speaker = segment.speaker || 'male';
-            let voiceId = ELEVENLABS_MALE_VOICE;
-            if (speaker.toLowerCase().includes('female') || speaker.toLowerCase().includes('host b')) {
-                voiceId = ELEVENLABS_FEMALE_VOICE;
-            }
-            const segmentFile = path.join(tempDir, `segment_${i}.mp3`);
-            await generateTTSWithElevenLabs(text, voiceId, segmentFile);
-            segmentFiles.push(segmentFile);
-        }
-        console.log(`Generated ${segmentFiles.length} segments, combining into final podcast with FFmpeg...`);
-        // Combine all segments into one file using FFmpeg
-=======
             const voiceToUse = (speaker.toLowerCase().includes('b') || speaker.toLowerCase().includes('host b')) 
                 ? voiceB 
                 : voiceA;
@@ -137,7 +105,6 @@ const generatePodcastAudio = async (podcastScript, filename) => {
 
         // Combine segments into one file using ffmpeg
         const outputPath = path.join(AUDIO_DIR, `${safeFilename}_podcast_${timestamp}.wav`);
->>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
         const fileList = path.join(tempDir, 'filelist.txt');
         const fileListContent = segmentFiles.map(file => `file '${file}'`).join('\n');
         await fs.writeFile(fileList, fileListContent);
@@ -149,21 +116,12 @@ const generatePodcastAudio = async (podcastScript, filename) => {
             fs.unlink(fileList),
             fs.rmdir(tempDir)
         ]);
-<<<<<<< HEAD
-=======
-
->>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
         const stats = await fs.stat(outputPath);
         if (stats.size === 0) {
             throw new Error('Generated audio file is empty (0 bytes)');
         }
-<<<<<<< HEAD
-        console.log(`✅ Podcast generated: ${path.basename(outputPath)} (${stats.size} bytes)`);
-        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5007';
-=======
 
         const baseUrl = process.env.BACKEND_URL || 'http://localhost:5005';
->>>>>>> e0bb51d (Updated podcast with no extra software ,PPT generation,Report generation)
         return `${baseUrl}/podcasts/${path.basename(outputPath)}`;
     } catch (error) {
         console.error('Error in generatePodcastAudio:', error);

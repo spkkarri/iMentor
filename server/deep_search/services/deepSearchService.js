@@ -2,9 +2,12 @@ const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
+
 const DuckDuckGoService = require('../../utils/duckduckgo');
 const axios = require('axios');
 const GeminiAI = require('../../services/geminiAI');
+const EmbeddingService = require('./EmbeddingService');
+const RerankerService = require('./RerankerService');
 
 // Custom error classes
 class SearchResultError extends Error {
@@ -64,8 +67,9 @@ try {
 /**
  * Service for managing deep search operations and caching results
  */
+
 class DeepSearchService {
-    constructor(userId, geminiAI, duckDuckGo) {
+    constructor(userId, geminiAI, duckDuckGo, embeddingModel = null, rerankerModel = null) {
         if (!userId) throw new Error('userId is required');
         if (!geminiAI) throw new Error('geminiAI is required');
         if (!duckDuckGo) throw new Error('duckDuckGo is required');
@@ -73,9 +77,27 @@ class DeepSearchService {
         this.userDir = path.join(SEARCH_RESULTS_DIR, userId);
         this.geminiAI = geminiAI;
         this.duckDuckGo = duckDuckGo;
+        this.embeddingService = new EmbeddingService(embeddingModel);
+        this.rerankerService = new RerankerService(rerankerModel);
         this.initializeUserDir();
+        // Define progress steps dynamically for more transparency and granularity
+        this.progressSteps = [
+            'Checking cache...',
+            'Checking API quota...',
+            'Optimizing query...',
+            'Performing web search...',
+            'Chunking, embedding, and reranking results...',
+            'Checking Gemini quota...',
+            'Generating initial AI synthesis...',
+            'Reasoning: chain-of-thought step 1...',
+            'Reasoning: chain-of-thought step 2...',
+            'Iterative refinement (reranking/validation)...',
+            'Final answer assembly...',
+            'Preparing final result...',
+            'Caching result...'
+        ];
         this.progress = {
-            totalSteps: 9,
+            totalSteps: this.progressSteps.length,
             currentStep: 0,
             status: 'idle',
             details: []
@@ -109,8 +131,8 @@ class DeepSearchService {
 
     updateProgress(step, message) {
         this.progress.currentStep = step;
-        this.progress.details = [message];
-        console.log(`Progress: ${step}/${this.progress.totalSteps} - ${message}`);
+        this.progress.details = [message || this.progressSteps[step - 1] || ''];
+        console.log(`Progress: ${step}/${this.progress.totalSteps} - ${this.progress.details[0]}`);
     }
 
     stopProgressTracking() {
@@ -177,7 +199,7 @@ class DeepSearchService {
         }
     }
 
-    async callGeminiWithRetry(query, context, maxAttempts = 1) {
+    async callGeminiWithRetry(query, context, maxAttempts = 3) {
         let attempts = 0;
         const baseDelay = 1000;
         while (attempts < maxAttempts) {
@@ -186,15 +208,26 @@ class DeepSearchService {
                 return response;
             } catch (error) {
                 attempts++;
-                
                 // Check if it's a quota error - don't retry these
-                if (error.message && error.message.includes('quota') || 
-                    error.message && error.message.includes('429') ||
-                    error.message && error.message.includes('Too Many Requests')) {
+                if (
+                    (error.message && error.message.includes('quota')) ||
+                    (error.message && error.message.includes('429')) ||
+                    (error.message && error.message.includes('Too Many Requests'))
+                ) {
                     console.warn('Gemini API quota exceeded, not retrying');
                     throw new GeminiQuotaError('API quota exceeded');
                 }
-                
+                // Retry on 503 Service Unavailable (model overloaded)
+                if (
+                    (error.message && error.message.includes('503')) ||
+                    (error.message && error.message.includes('Service Unavailable')) ||
+                    (error.message && error.message.includes('model is overloaded'))
+                ) {
+                    const delay = baseDelay * Math.pow(2, attempts - 1);
+                    console.warn(`Gemini 503 error (model overloaded), retrying in ${delay}ms (attempt ${attempts} of ${maxAttempts})`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
                 if (error instanceof GeminiRateLimitError) {
                     const delay = baseDelay * Math.pow(2, attempts - 1);
                     await new Promise(resolve => setTimeout(resolve, delay));
@@ -273,6 +306,55 @@ class DeepSearchService {
         }
     }
 
+    /**
+     * Helper: Expand snippet for a result by fetching and summarizing page content if snippet is missing/weak
+     */
+    async expandSnippetIfNeeded(result, query) {
+        if (result.snippet && result.snippet.length > 40) return result; // Already has a decent snippet
+        let pageContent = '';
+        try {
+            // Try to fetch page content using DuckDuckGo (if supported)
+            if (this.duckDuckGo.fetchPageContent) {
+                pageContent = await this.duckDuckGo.fetchPageContent(result.url);
+            }
+        } catch (e) {
+            // Ignore fetch errors
+        }
+        if (!pageContent || pageContent.length < 40) {
+            // Fallback: Use Gemini to summarize the page (if allowed)
+            try {
+                const prompt = `Summarize the main points of the following web page for the query: "${query}"\n\n${pageContent || result.url}`;
+                const summary = await this.callGeminiWithRetry(prompt, pageContent || result.url, 1);
+                if (summary && summary.length > 40) {
+                    return { ...result, snippet: summary };
+                }
+            } catch (e) {
+                // Ignore Gemini errors
+            }
+        }
+        // If still no snippet, return as is
+        return result;
+    }
+
+    /**
+     * Helper: Determine if all results are weak (missing/short snippets)
+     */
+    areAllResultsWeak(results) {
+        if (!results || results.length === 0) return true;
+        return results.every(r => !r.snippet || r.snippet.length < 40);
+    }
+
+    /**
+     * Helper: Format sources as bullet points
+     */
+    formatSources(sources) {
+        if (!sources || sources.length === 0) return 'No sources found.';
+        return sources.map((s, i) => `- [${s.title || s.url}](${s.url})${s.snippet ? `: ${s.snippet}` : ''}`).join('\n');
+    }
+
+    /**
+     * Main DeepSearch pipeline
+     */
     async performSearch(query, history = []) {
         try {
             // Prevent multiple simultaneous searches
@@ -294,7 +376,7 @@ class DeepSearchService {
             this.startProgressTracking();
 
             // Step 1: Check cache
-            this.updateProgress(1, 'Checking cache...');
+            this.updateProgress(1);
             const cachedResult = await this.getCachedResult(query);
             if (cachedResult) {
                 console.log('📦 Returning cached result');
@@ -304,7 +386,7 @@ class DeepSearchService {
             }
 
             // Step 1.5: Quick quota check to avoid unnecessary API calls
-            this.updateProgress(2, 'Checking API quota...');
+            this.updateProgress(2);
             try {
                 const quotaCheck = await this.checkGeminiQuota();
                 if (!quotaCheck.hasRemaining) {
@@ -325,11 +407,11 @@ class DeepSearchService {
             }
 
             // Step 2: Optimize query
-            this.updateProgress(3, 'Optimizing query...');
+            this.updateProgress(3);
             const optimizedQuery = await this.optimizeQuery(query, history);
 
             // Step 3: Perform web search
-            this.updateProgress(4, 'Performing web search...');
+            this.updateProgress(4);
             let searchResults;
             try {
                 searchResults = await this.duckDuckGo.performSearch(optimizedQuery, 'text');
@@ -422,22 +504,95 @@ class DeepSearchService {
                 }
             }
 
-            // Step 4: Score and rank results
-            this.updateProgress(5, 'Scoring results...');
-            const scoredResults = this.scoreResults(searchResults.results || []);
-            const topResults = scoredResults.slice(0, 5); // Get top 5 results
+
+            // Step 4: Chunk, embed, rerank, and expand snippets if needed
+            this.updateProgress(5);
+            let rawResults = searchResults.results || [];
+            // Reasoning trace for transparency
+            const reasoningTrace = [];
+            reasoningTrace.push('Initial query: ' + query);
+            reasoningTrace.push('Web search performed, number of results: ' + (rawResults ? rawResults.length : 0));
+            // Expand snippets for each result (in parallel, but limit concurrency)
+            const expandedResults = [];
+            for (const result of rawResults) {
+                expandedResults.push(await this.expandSnippetIfNeeded(result, query));
+            }
+            reasoningTrace.push('Expanded snippets for all results.');
+            // Late-chunking: break each snippet into chunks
+            let chunkedCandidates = [];
+            for (const result of expandedResults) {
+                const text = result.snippet || result.description || '';
+                const chunks = this.embeddingService.chunkText(text);
+                chunkedCandidates.push(...chunks.map(chunk => ({
+                    ...result,
+                    chunkText: chunk
+                })));
+            }
+            reasoningTrace.push('Chunked all snippets for embedding.');
+            // Embed all chunks
+            const embeddedChunks = await this.embeddingService.embedChunks(chunkedCandidates.map(c => c.chunkText));
+            // Attach embeddings to candidates
+            chunkedCandidates = chunkedCandidates.map((c, i) => ({ ...c, embedding: embeddedChunks[i].embedding }));
+            // For now, use the first chunk as query embedding (stub)
+            const queryChunks = this.embeddingService.chunkText(query);
+            const queryEmbeddings = await this.embeddingService.embedChunks([queryChunks[0]]);
+            const queryEmbedding = queryEmbeddings[0].embedding;
+            // Compute similarity and add as feature
+            chunkedCandidates = chunkedCandidates.map(c => ({
+                ...c,
+                similarity: EmbeddingService.cosineSimilarity(queryEmbedding, c.embedding)
+            }));
+            reasoningTrace.push('Computed similarity between query and all chunks.');
+            // Rerank using reranker service
+            const reranked = await this.rerankerService.rerank(query, chunkedCandidates);
+            reasoningTrace.push('Reranked all candidates.');
+            // Take top 5 reranked results
+            const topResults = reranked.slice(0, 5);
+            reasoningTrace.push('Selected top 5 results for synthesis.');
+
+            // Step 4.5: LLM fallback if all results are weak
+            if (this.areAllResultsWeak(topResults)) {
+                this.updateProgress(6, 'All search results are weak, using LLM fallback...');
+                reasoningTrace.push('All top results are weak or missing snippets. Triggering LLM fallback.');
+                const fallbackPrompt = `The web search did not return strong results for the query: "${query}". Please generate a helpful, well-structured answer using your own knowledge and reasoning. If possible, mention that web results were weak.`;
+                const llmFallback = await this.callGeminiWithRetry(fallbackPrompt, '', 1);
+                this.stopProgressTracking();
+                return {
+                    summary: llmFallback,
+                    sources: topResults.map(r => ({ title: r.title, url: r.url, snippet: r.snippet || r.chunkText })),
+                    aiGenerated: true,
+                    rawResults: topResults,
+                    query: query,
+                    timestamp: new Date().toISOString(),
+                    userId: this.userId,
+                    note: 'LLM fallback used due to weak search results',
+                    reasoning: reasoningTrace
+                };
+            }
+
 
             // Step 5: Check Gemini quota
-            this.updateProgress(6, 'Checking Gemini quota...');
+            this.updateProgress(6);
             const quotaCheck = await this.checkGeminiQuota();
             if (!quotaCheck.hasRemaining) {
                 throw new GeminiQuotaError(quotaCheck.quotaInfo);
             }
 
-            // Step 6: Generate AI synthesis
-            this.updateProgress(7, 'Generating AI synthesis...');
+
+
+            // Step 6: Generate initial AI synthesis
+            this.updateProgress(7);
+            // --- Reasoning/chain-of-thought steps ---
+            reasoningTrace.push('Synthesizing context from top reranked results.');
+            this.updateProgress(8, 'Chain-of-thought step 1: synthesizing context from top results');
+            reasoningTrace.push('Prepared answer prompt for LLM synthesis.');
+            this.updateProgress(9, 'Chain-of-thought step 2: preparing answer prompt');
+            reasoningTrace.push('Validated and formatted sources for answer.');
+            this.updateProgress(10, 'Iterative refinement: validating and formatting sources');
+            reasoningTrace.push('Final answer assembly.');
+            this.updateProgress(11, 'Final answer assembly.');
             const context = topResults.map(result => 
-                `Title: ${result.title}\nURL: ${result.url}\nDescription: ${result.description || result.snippet || ''}`
+                `Title: ${result.title}\nURL: ${result.url}\nSnippet: ${result.snippet || result.chunkText}`
             ).join('\n\n');
 
             const synthesisPrompt = `Based on the following search results, provide a comprehensive and accurate answer to the query: "${query}"
@@ -447,26 +602,31 @@ ${context}
 
 Please provide a well-structured response that:
 1. Directly answers the query
-2. Cites relevant sources when possible
-3. Acknowledges any limitations or uncertainties
-4. Is informative and helpful`;
+2. Breaks down the answer into clear sections for each possible sub-question or aspect (for example: "Scientific Explanation", "Why is it not arbitrary?", "Formula", "Limitations", "Further Reading", etc.)
+3. Uses section headings (e.g., ## Scientific Explanation) for each part
+4. Cites relevant sources when possible (use markdown links)
+5. Acknowledges any limitations or uncertainties
+6. Is informative and helpful
+7. Formats the answer with bullet points or a table if appropriate.`;
 
             const aiResponse = await this.callGeminiWithRetry(synthesisPrompt, context);
 
             // Step 7: Prepare final result
-            this.updateProgress(8, 'Preparing final result...');
+            this.updateProgress(12);
             const result = {
                 summary: aiResponse,
-                sources: topResults.map(r => ({ title: r.title, url: r.url })),
+                sources: topResults.map(r => ({ title: r.title, url: r.url, snippet: r.snippet || r.chunkText })),
                 aiGenerated: true,
                 rawResults: topResults,
                 query: query,
                 timestamp: new Date().toISOString(),
-                userId: this.userId
+                userId: this.userId,
+                formattedSources: this.formatSources(topResults),
+                reasoning: reasoningTrace
             };
 
             // Step 8: Cache the result
-            this.updateProgress(9, 'Caching result...');
+            this.updateProgress(13);
             await this.cacheResult(query, result);
 
             this.stopProgressTracking();

@@ -1,0 +1,86 @@
+{
+  "summary": "Based on the provided search results, the query \"hello\" likely refers to the greeting. While the search results lack detailed descriptions for many entries, we can infer the following:\n\n1.  **\"Hello\" is a greeting.** This is supported by the Merriam-Webster result titled \"HELLO Definition &amp; Meaning\" and the Cambridge English Dictionary result titled \"HELLO | definition in the Cambridge English Dictionary,\" implying it is a word with a defined meaning. The result \"hello exclamation - Definition, pictures, pronunciation and usage notes ...\" further suggests its usage as a spoken greeting.\n\n2.  **\"Hello\" has a Wikipedia entry.** The result \"Hello - Wikipedia\" indicates its significance as a topic worthy of an encyclopedia entry, further suggesting its common and widespread usage.\n\n3.  **\"HelloFresh\" is a separate entity.** The results for \"HelloFresh Menus and Plans - Fresh Meal Delivery Service\" and the Merriam-Webster result mentioning \"HelloFresh\" are unrelated to the greeting and refer to a meal delivery service.\n\n**Limitations and Uncertainties:**\n\n*   The provided search results offer limited information due to the lack of descriptions for most entries. We can only infer the meaning of \"hello\" based on the titles.\n*   Without the actual definition from Merriam-Webster or the Cambridge Dictionary, we cannot provide a precise dictionary definition of \"hello.\"\n*   We lack information about the historical origin or nuances of the greeting \"hello.\"\n\n**In conclusion, based on the limited search results, \"hello\" is most likely the common English greeting. However, the search results also highlight the existence of a meal delivery service called \"HelloFresh.\"**",
+  "sources": [
+    {
+      "title": "HELLO Definition &amp; Meaning - Merriam-Webster",
+      "url": ""
+    },
+    {
+      "title": "Hello - Wikipedia",
+      "url": ""
+    },
+    {
+      "title": "HELLO | definition in the Cambridge English Dictionary",
+      "url": ""
+    },
+    {
+      "title": "HelloFresh Menus and Plans - Fresh Meal Delivery Service",
+      "url": ""
+    },
+    {
+      "title": "hello exclamation - Definition, pictures, pronunciation and usage notes ...",
+      "url": ""
+    }
+  ],
+  "aiGenerated": true,
+  "rawResults": [
+    {
+      "title": "HELLO Definition &amp; Meaning - Merriam-Webster",
+      "snippet": "Discover delicious menus and flexible plans with HelloFresh. Fresh, pre-portioned ingredients delivered to your door. Easy home cooking made simple!",
+      "url": "",
+      "raw": {
+        "title": "HELLO Definition &amp; Meaning - Merriam-Webster",
+        "snippet": "Discover delicious menus and flexible plans with HelloFresh. Fresh, pre-portioned ingredients delivered to your door. Easy home cooking made simple!",
+        "url": ""
+      },
+      "score": 24.400000000000002
+    },
+    {
+      "title": "Hello - Wikipedia",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "Hello - Wikipedia",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 5.800000000000001
+    },
+    {
+      "title": "HELLO | definition in the Cambridge English Dictionary",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "HELLO | definition in the Cambridge English Dictionary",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 13.200000000000001
+    },
+    {
+      "title": "HelloFresh Menus and Plans - Fresh Meal Delivery Service",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "HelloFresh Menus and Plans - Fresh Meal Delivery Service",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 13.600000000000001
+    },
+    {
+      "title": "hello exclamation - Definition, pictures, pronunciation and usage notes ...",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "hello exclamation - Definition, pictures, pronunciation and usage notes ...",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 17.4
+    }
+  ],
+  "query": "hello",
+  "timestamp": "2025-07-28T14:28:40.110Z",
+  "userId": "688788dc9dcb0f3a1a65a0ba"
+}

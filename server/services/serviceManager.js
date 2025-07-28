@@ -1,41 +1,35 @@
 // server/services/serviceManager.js
 
-// --- MODIFIED: Import the correct vector store ---
 const langchainVectorStore = require('./LangchainVectorStore');
 const DocumentProcessor = require('./documentProcessor');
-const GeminiService = require('./geminiService');
-const { GeminiAI } = require('./geminiAI');
+const GeminiAI = require('./geminiAI'); // <-- Use the consolidated service
 const DeepSearchService = require('../deep_search/services/deepSearchService');
 const DuckDuckGoService = require('../utils/duckduckgo');
+const personalizationService = require('./personalizationService');
 
 class ServiceManager {
   constructor() {
     this.vectorStore = null;
     this.documentProcessor = null;
-    this.geminiService = null;
-    this.geminiAI = null;
-    this.deepSearchServices = new Map(); // Store per-user instances
+    this.geminiAI = null; // <-- Simplified
+    this.deepSearchServices = new Map();
     this.duckDuckGo = null;
+    this.personalizationService = null;
   }
 
   async initialize() {
-    // --- MODIFIED: Use the correct vector store instance ---
     this.vectorStore = langchainVectorStore; 
     await this.vectorStore.initialize();
 
-    // Pass the correct dependency via constructor
     this.documentProcessor = new DocumentProcessor(this.vectorStore);
     
-    this.geminiService = new GeminiService();
-    await this.geminiService.initialize();
-
-    // Pass dependencies via constructor
-    this.geminiAI = new GeminiAI(this.geminiService);
+    // --- MODIFICATION: Initialize the single GeminiAI service ---
+    this.geminiAI = GeminiAI; // It initializes itself in its constructor
     
-    // Initialize DuckDuckGo service
     this.duckDuckGo = new DuckDuckGoService();
+    this.personalizationService = personalizationService;
 
-    console.log('✅ All services initialized successfully with LangchainVectorStore.');
+    console.log('✅ All services initialized successfully.');
   }
 
   getDeepSearchService(userId) {
@@ -56,9 +50,9 @@ class ServiceManager {
     return {
       vectorStore: this.vectorStore,
       documentProcessor: this.documentProcessor,
-      geminiService: this.geminiService,
-      geminiAI: this.geminiAI,
-      duckDuckGo: this.duckDuckGo
+      geminiAI: this.geminiAI, // <-- Simplified
+      duckDuckGo: this.duckDuckGo,
+      personalizationService: this.personalizationService,
     };
   }
 }

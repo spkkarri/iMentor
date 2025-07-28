@@ -55,6 +55,7 @@ const startServer = async () => {
         app.use('/api/files', require('./routes/files'));
         app.use('/api/podcast', require('./routes/podcast'));
         app.use('/api/mindmap', require('./routes/mindmap'));
+        app.use('/api/memory', require('./routes/memory')); // <-- ADD THIS LINE
 
         const availableIPs = getLocalIPs();
         app.listen(PORT, '0.0.0.0', () => {

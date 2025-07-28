@@ -1,3 +1,5 @@
+// server/deep_search/services/deepSearchService.js
+
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
@@ -5,8 +7,10 @@ const crypto = require('crypto');
 const DuckDuckGoService = require('../../utils/duckduckgo');
 const axios = require('axios');
 const GeminiAI = require('../../services/geminiAI');
+const personalizationService = require('../../services/personalizationService'); // Import the personalization service
 
-// Custom error classes
+
+// ... (Custom error classes and constants remain the same) ...
 class SearchResultError extends Error {
     constructor(message, details) {
         super(message);
@@ -60,11 +64,8 @@ try {
     console.error('Error creating search results directory:', error);
 }
 
-
-/**
- * Service for managing deep search operations and caching results
- */
 class DeepSearchService {
+    // ... (constructor and other methods remain the same) ...
     constructor(userId, geminiAI, duckDuckGo) {
         if (!userId) throw new Error('userId is required');
         if (!geminiAI) throw new Error('geminiAI is required');
@@ -273,9 +274,9 @@ class DeepSearchService {
         }
     }
 
+
     async performSearch(query, history = []) {
         try {
-            // Prevent multiple simultaneous searches
             if (this.isSearching) {
                 console.warn('Search already in progress, returning early');
                 return {
@@ -289,11 +290,9 @@ class DeepSearchService {
             }
             
             this.isSearching = true;
-            
             console.log(`🔍 Starting deep search for: "${query}"`);
             this.startProgressTracking();
 
-            // Step 1: Check cache
             this.updateProgress(1, 'Checking cache...');
             const cachedResult = await this.getCachedResult(query);
             if (cachedResult) {
@@ -303,8 +302,8 @@ class DeepSearchService {
                 return cachedResult;
             }
 
-            // Step 1.5: Quick quota check to avoid unnecessary API calls
             this.updateProgress(2, 'Checking API quota...');
+            // ... (rest of the quota check remains the same)
             try {
                 const quotaCheck = await this.checkGeminiQuota();
                 if (!quotaCheck.hasRemaining) {
@@ -324,13 +323,12 @@ class DeepSearchService {
                 console.warn('Could not check quota, proceeding with search:', quotaError.message);
             }
 
-            // Step 2: Optimize query
             this.updateProgress(3, 'Optimizing query...');
             const optimizedQuery = await this.optimizeQuery(query, history);
 
-            // Step 3: Perform web search
             this.updateProgress(4, 'Performing web search...');
             let searchResults;
+            // ... (rest of the web search and error handling remains the same) ...
             try {
                 searchResults = await this.duckDuckGo.performSearch(optimizedQuery, 'text');
                 
@@ -422,39 +420,45 @@ class DeepSearchService {
                 }
             }
 
-            // Step 4: Score and rank results
+
             this.updateProgress(5, 'Scoring results...');
             const scoredResults = this.scoreResults(searchResults.results || []);
-            const topResults = scoredResults.slice(0, 5); // Get top 5 results
+            const topResults = scoredResults.slice(0, 5);
 
-            // Step 5: Check Gemini quota
             this.updateProgress(6, 'Checking Gemini quota...');
             const quotaCheck = await this.checkGeminiQuota();
             if (!quotaCheck.hasRemaining) {
                 throw new GeminiQuotaError(quotaCheck.quotaInfo);
             }
+            
+            // --- MODIFICATION: Generate Personalization Profile ---
+            this.updateProgress(7, 'Personalizing response...');
+            const personalizationProfile = await personalizationService.generateUserProfile(this.userId, this.geminiAI);
 
-            // Step 6: Generate AI synthesis
-            this.updateProgress(7, 'Generating AI synthesis...');
+            this.updateProgress(8, 'Generating AI synthesis...');
             const context = topResults.map(result => 
                 `Title: ${result.title}\nURL: ${result.url}\nDescription: ${result.description || result.snippet || ''}`
             ).join('\n\n');
+            
+            // --- MODIFICATION: Add personalization profile to the synthesis prompt ---
+            const synthesisPrompt = `
+Based on the following search results, provide a comprehensive and accurate answer to the query: "${query}"
 
-            const synthesisPrompt = `Based on the following search results, provide a comprehensive and accurate answer to the query: "${query}"
+User Profile: ${personalizationProfile || 'No specific user profile available. Provide a general, helpful response.'}
 
 Search Results:
 ${context}
 
 Please provide a well-structured response that:
-1. Directly answers the query
-2. Cites relevant sources when possible
-3. Acknowledges any limitations or uncertainties
-4. Is informative and helpful`;
-
+1. Directly answers the query, keeping the user profile in mind.
+2. Cites relevant sources when possible.
+3. Acknowledges any limitations or uncertainties.
+4. Is informative and helpful.
+`;
+            
             const aiResponse = await this.callGeminiWithRetry(synthesisPrompt, context);
 
-            // Step 7: Prepare final result
-            this.updateProgress(8, 'Preparing final result...');
+            this.updateProgress(9, 'Preparing final result...');
             const result = {
                 summary: aiResponse,
                 sources: topResults.map(r => ({ title: r.title, url: r.url })),
@@ -465,8 +469,6 @@ Please provide a well-structured response that:
                 userId: this.userId
             };
 
-            // Step 8: Cache the result
-            this.updateProgress(9, 'Caching result...');
             await this.cacheResult(query, result);
 
             this.stopProgressTracking();
@@ -481,8 +483,6 @@ Please provide a well-structured response that:
             this.isSearching = false;
         }
     }
-
-    // Add any additional methods you need here, following the same pattern
 }
 
 module.exports = DeepSearchService;

@@ -64,6 +64,8 @@ export const saveChatHistory = (historyData) => api.post('/chat/history', histor
 export const getChatSessions = () => api.get('/chat/sessions');
 export const getSessionDetails = (sessionId) => api.get(`/chat/session/${sessionId}`);
 export const deleteChatSession = (sessionId) => api.delete(`/chat/session/${sessionId}`);
+export const summarizeConversation = (messages) => api.post('/chat/summarize', { messages });
+
 
 // RAG and Search
 export const queryRagService = (queryData) => api.post('/chat/rag', queryData);
@@ -79,3 +81,8 @@ export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${f
 // Content Generation
 export const generatePodcast = (fileId) => api.post('/podcast/generate', { fileId });
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
+
+// User Memory Management
+export const getMemories = () => api.get('/memory');
+export const addMemory = (memoryData) => api.post('/memory', memoryData);
+export const deleteMemory = (memoryId) => api.delete(`/memory/${memoryId}`);

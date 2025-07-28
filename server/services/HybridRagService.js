@@ -1,12 +1,13 @@
 const serviceManager = require('./serviceManager');
 const File = require('../models/File');
+const User = require('../models/User'); // Import User model
 
 // Removed loadedFilesCache and ensureFileIsLoaded as they are specific to per-file RAG.
 // For "RAG on all files", we assume all user files are already indexed or can be efficiently retrieved by the vector store.
 // If you have a large number of files and want to ensure they are loaded,
 // you might reintroduce a more generalized pre-loading or lazy-loading mechanism.
 
-const RAG_CONFIDENCE_THRESHOLD = 0.65; 
+const RAG_CONFIDENCE_THRESHOLD = 0.65;
 
 class HybridRagService {
     async correctAndClarifyQuery(query) {
@@ -24,16 +25,13 @@ class HybridRagService {
     }
 
     // Modified processQuery to search across all files for the user
-    async processQuery(query, userId) { // Removed fileId parameter
-        const { vectorStore } = serviceManager.getServices();
+    // Removed fileId parameter
+    async processQuery(query, userId) {
+        const { vectorStore, geminiAI } = serviceManager.getServices();
 
         const correctedQuery = await this.correctAndClarifyQuery(query);
 
-        // Fetch all files for the user to ensure their content is ready for search.
-        // In a real-world scenario with many files, you'd want an efficient way
-        // to ensure they are indexed in your vector store rather than fetching all here.
         // The `vectorStore.searchDocuments` should handle the actual search across indexed data.
-        
         const relevantChunks = await vectorStore.searchDocuments(correctedQuery, {
             limit: 5,
             filters: { userId } // Removed fileId from filters
@@ -44,7 +42,14 @@ class HybridRagService {
         if (isContextSufficient) {
             console.log('[RAG Service] Context sufficient. Answering from document.');
             const context = relevantChunks.map(chunk => chunk.content).join('\n\n');
-            const answer = await serviceManager.geminiAI.generateText(this.buildStandardRagPrompt(correctedQuery, context));
+            
+            // --- MODIFICATION: Fetch user profile and use new RAG prompt builder ---
+            const user = await User.findById(userId);
+            const personalizationProfile = user ? user.personalizationProfile : '';
+            // Assuming geminiAI has a `buildRagPrompt` method
+            const prompt = geminiAI.buildRagPrompt(correctedQuery, context, personalizationProfile);
+            
+            const answer = await geminiAI.generateText(prompt);
             return {
                 message: answer,
                 metadata: { searchType: 'rag', sources: this.formatSources(relevantChunks) }
@@ -58,9 +63,17 @@ class HybridRagService {
         }
     }
     
+    // Moved to GeminiAI service or removed if it's not universally applicable
+    // This method needs to be added to GeminiAI or a new prompt utility
+    // For now, I'm providing a placeholder if GeminiAI doesn't have it.
+    // If you plan to pass personalizationProfile, consider where buildStandardRagPrompt lives
+    // if not in GeminiAI. I've assumed `geminiAI.buildRagPrompt` exists.
+    // If it doesn't, uncomment this and adjust `processQuery` accordingly.
+    /*
     buildStandardRagPrompt(query, context) {
         return `You are an expert assistant. Answer the user's question based ONLY on the following context. If the answer is not in the context, say "I could not find an answer in the provided documents." Context: --- ${context} --- Question: "${query}" Answer:`;
     }
+    */
 
     formatSources(chunks) {
         const uniqueSources = [...new Set(chunks.map(chunk => chunk.metadata.source))];

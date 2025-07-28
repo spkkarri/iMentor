@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     sendMessage as apiSendMessage, saveChatHistory, generatePodcast, generateMindMap,
     getUserFiles, deleteUserFile, renameUserFile, performDeepSearch,
-    queryHybridRagService, getSessionDetails
+    queryHybridRagService, getSessionDetails, summarizeConversation
 } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -53,8 +53,11 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [isRagEnabled, setIsRagEnabled] = useState(false);
     const [allowRagDeepSearch, setAllowRagDeepSearch] = useState(true);
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
-    // Removed activeFileForRag state
+    // Removed activeFileForRag state (from previous change)
     const [currentlySpeakingIndex, setCurrentlySpeakingIndex] = useState(null);
+    const [conversationSummary, setConversationSummary] = useState('');
+    const summaryTriggerCount = useRef(0);
+
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
@@ -64,7 +67,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const handleProfileClose = () => setProfileAnchorEl(null);
     const isProfileOpen = Boolean(profileAnchorEl);
 
-    // New handler to close sidebar on mobile after an action
     const handleSidebarAction = () => {
         if (window.innerWidth < 1024) {
             setIsSidebarExpanded(false);
@@ -74,6 +76,26 @@ const ChatPage = ({ setIsAuthenticated }) => {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    useEffect(() => {
+        const SUMMARY_THRESHOLD = 6;
+        if (messages.length >= SUMMARY_THRESHOLD && messages.length > summaryTriggerCount.current) {
+            summaryTriggerCount.current = messages.length;
+            const generateSummary = async () => {
+                try {
+                    const response = await summarizeConversation(messages);
+                    if (response.data.summary) {
+                        setConversationSummary(response.data.summary);
+                        console.log("Conversation summary updated:", response.data.summary);
+                    }
+                } catch (err) {
+                    console.error("Failed to generate conversation summary:", err);
+                }
+            };
+            generateSummary();
+        }
+    }, [messages]);
+
 
     const saveAndReset = useCallback(async (isLoggingOut = false, onCompleteCallback = null) => {
         const currentSessionId = localStorage.getItem('sessionId');
@@ -91,6 +113,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } finally {
             if (!isLoggingOut) {
                 setMessages([]);
+                // --- FIX: Reset summary state on new chat ---
+                setConversationSummary('');
+                summaryTriggerCount.current = 0;
                 const newSessionId = uuidv4();
                 setSessionId(newSessionId);
                 localStorage.setItem('sessionId', newSessionId);
@@ -164,10 +189,11 @@ const ChatPage = ({ setIsAuthenticated }) => {
         if (userId) fetchFiles();
     }, [userId, fetchFiles]);
 
+
     const handleNewChat = useCallback(() => {
         if (!isProcessing) {
             saveAndReset(false, () => {
-                setSidebarView('files'); 
+                setSidebarView('files');
             });
         }
     }, [isProcessing, saveAndReset]);
@@ -224,7 +250,13 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } else {
             setLoadingStates(prev => ({ ...prev, chat: true }));
             try {
-                const payload = { query: trimmedInput, history: historyToSend, sessionId, systemPrompt: editableSystemPromptText };
+                const payload = {
+                    query: trimmedInput,
+                    history: historyToSend,
+                    sessionId,
+                    systemPrompt: editableSystemPromptText,
+                    conversationSummary // Include conversation summary
+                };
                 const response = await apiSendMessage(payload);
                 const assistantMessage = {
                     role: 'assistant', parts: [{ text: response.data.message }], timestamp: new Date()
@@ -239,8 +271,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     }, [
         inputText, isProcessing, loadingStates.listening, messages, isDeepSearchEnabled,
-        isRagEnabled, allowRagDeepSearch, sessionId, editableSystemPromptText
-    ]); // Removed activeFileForRag from dependencies
+        isRagEnabled, allowRagDeepSearch, sessionId, editableSystemPromptText,
+        conversationSummary // Added to dependencies
+    ]);
     
     const handleEnterKey = useCallback((e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -268,8 +301,11 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 setCurrentSystemPromptId(availablePrompts.find(p => p.prompt === sessionData.systemPrompt)?.id || 'custom');
                 setSessionId(sessionData.sessionId);
                 localStorage.setItem('sessionId', sessionData.sessionId);
+                // --- FIX: Reset summary state when loading a session ---
+                setConversationSummary('');
+                summaryTriggerCount.current = 0;
                 setSidebarView('files');
-                handleSidebarAction(); // Close sidebar on mobile after loading
+                handleSidebarAction();
             }
         } catch (err) {
             setError(`Failed to load session ${sessionIdToLoad}.`);

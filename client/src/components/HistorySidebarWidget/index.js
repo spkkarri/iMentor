@@ -40,9 +40,8 @@ const HistorySidebarWidget = ({ onLoadSession }) => {
     };
 
     const handleLoad = async (sessionId) => {
-        // Here you would call getSessionDetails and then pass it to onLoadSession
-        // This is a simplified version. Let's assume onLoadSession handles the fetch.
-        onLoadSession({ sessionId, messages: [] /* Pass full session data */ });
+        // --- FIX: Pass only the sessionId string, not an object ---
+        onLoadSession(sessionId);
     }
 
     return (

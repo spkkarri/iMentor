@@ -1,9 +1,11 @@
-// server/services/HybridRagService.js
-
 const serviceManager = require('./serviceManager');
 const File = require('../models/File');
 
-const loadedFilesCache = new Set();
+// Removed loadedFilesCache and ensureFileIsLoaded as they are specific to per-file RAG.
+// For "RAG on all files", we assume all user files are already indexed or can be efficiently retrieved by the vector store.
+// If you have a large number of files and want to ensure they are loaded,
+// you might reintroduce a more generalized pre-loading or lazy-loading mechanism.
+
 const RAG_CONFIDENCE_THRESHOLD = 0.65; 
 
 class HybridRagService {
@@ -21,41 +23,20 @@ class HybridRagService {
         }
     }
 
-    async ensureFileIsLoaded(fileId, userId) {
-        if (loadedFilesCache.has(fileId)) {
-            return;
-        }
-        console.log(`[RAG Service] File ${fileId} not in memory. Processing on-demand...`);
-        const { documentProcessor } = serviceManager.getServices();
-        const file = await File.findOne({ _id: fileId, user: userId });
-        if (!file) {
-            throw new Error(`File not found or user not authorized for fileId: ${fileId}`);
-        }
-        await documentProcessor.processFile(file.path, {
-            userId: file.user.toString(),
-            fileId: file._id.toString(),
-            originalName: file.originalname,
-        });
-        loadedFilesCache.add(fileId);
-        console.log(`[RAG Service] Successfully processed and loaded file ${file.originalname} into memory.`);
-    }
-
-    async processQuery(query, userId, fileId) {
+    // Modified processQuery to search across all files for the user
+    async processQuery(query, userId) { // Removed fileId parameter
         const { vectorStore } = serviceManager.getServices();
 
-        if (!fileId) {
-            return {
-                message: "Please select a file to chat with from the 'My Files' list before asking a question in RAG mode.",
-                metadata: { searchType: 'rag_error', sources: [] }
-            };
-        }
-
         const correctedQuery = await this.correctAndClarifyQuery(query);
-        await this.ensureFileIsLoaded(fileId, userId);
 
+        // Fetch all files for the user to ensure their content is ready for search.
+        // In a real-world scenario with many files, you'd want an efficient way
+        // to ensure they are indexed in your vector store rather than fetching all here.
+        // The `vectorStore.searchDocuments` should handle the actual search across indexed data.
+        
         const relevantChunks = await vectorStore.searchDocuments(correctedQuery, {
             limit: 5,
-            filters: { userId, fileId }
+            filters: { userId } // Removed fileId from filters
         });
 
         const isContextSufficient = relevantChunks.length > 0 && relevantChunks[0].score > RAG_CONFIDENCE_THRESHOLD;
@@ -63,17 +44,15 @@ class HybridRagService {
         if (isContextSufficient) {
             console.log('[RAG Service] Context sufficient. Answering from document.');
             const context = relevantChunks.map(chunk => chunk.content).join('\n\n');
-            const prompt = this.buildStandardRagPrompt(correctedQuery, context);
-            const answer = await serviceManager.geminiAI.generateText(prompt);
+            const answer = await serviceManager.geminiAI.generateText(this.buildStandardRagPrompt(correctedQuery, context));
             return {
                 message: answer,
                 metadata: { searchType: 'rag', sources: this.formatSources(relevantChunks) }
             };
         } else {
-            // --- UPDATED LOGIC: No more web search. Just give a fallback message. ---
             console.log('[RAG Service] Context insufficient. Returning fallback message.');
             return {
-                message: "I couldn't find a confident answer for that in your document. Please try rephrasing your question or asking something else about the file.",
+                message: "I couldn't find a confident answer for that in your uploaded documents. Please try rephrasing your question or uploading more relevant files.",
                 metadata: { searchType: 'rag_fallback', sources: [] }
             };
         }

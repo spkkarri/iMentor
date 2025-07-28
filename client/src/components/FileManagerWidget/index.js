@@ -1,4 +1,3 @@
-// src/components/FileManagerWidget/index.js
 import React, { useState } from 'react';
 import { Popover } from 'react-tiny-popover';
 import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots } from 'react-icons/fa';
@@ -51,8 +50,9 @@ function FileManagerWidget({
                                 containerStyle={{ zIndex: 1100 }}
                                 content={
                                     <div className="popover-menu">
+                                        {/* This button will now enable general RAG mode */}
                                         <button onClick={() => handleActionClick(onChatWithFile, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
-                                            <FaCommentDots /> Chat with this File
+                                            <FaCommentDots /> Chat with your Files
                                         </button>
                                         <div className="popover-divider" />
                                         <button onClick={() => handleActionClick(onGeneratePodcast, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">

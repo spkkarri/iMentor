@@ -1,5 +1,3 @@
-// server/services/serviceManager.js
-
 // --- MODIFIED: Import the correct vector store ---
 const langchainVectorStore = require('./LangchainVectorStore');
 const DocumentProcessor = require('./documentProcessor');

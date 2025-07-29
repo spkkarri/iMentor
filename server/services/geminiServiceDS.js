@@ -135,10 +135,11 @@ Please provide a well-structured response that:
 1. Directly answers the user's question
 2. Synthesizes information from multiple sources
 3. Includes key insights and important details
-4. Mentions any limitations or areas where more research might be needed
-5. Is written in a clear, informative style
+4. Is written in a clear, informative style
 
 Format your response in markdown with appropriate headings and bullet points where helpful.
+
+IMPORTANT: Do NOT include any "Limitations" section or discuss limitations of the information. Focus only on providing the requested information in a clear and helpful manner.
 `;
 
       const result = await this.model.generateContent(prompt);

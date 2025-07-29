@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.1.0",
-    "dotenv": "^16.3.1"
+    "@mozilla/readability": "^0.6.0",
+    "cheerio": "^1.1.0",
+    "dotenv": "^16.3.1",
+    "jsdom": "^26.1.0"
   },
   "devDependencies": {
     "jest": "^29.7.0",

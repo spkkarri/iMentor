@@ -3,12 +3,9 @@
 const express = require('express');
 const router = express.Router();
 const fs = require('fs').promises;
-// --- FIX: Corrected the path to go UP one directory with '..' ---
 const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
-const AIService = require('../services/aiService');
 const MindMapGenerator = require('../services/mindMapGenerator');
-const DocumentProcessor = require('../services/documentProcessor');
 
 // @route   POST /api/mindmap/generate
 // @desc    Generate a mind map from a file
@@ -27,7 +24,6 @@ router.post('/generate', tempAuth, async (req, res) => {
 
     try {
         const file = await File.findOne({ _id: fileId, user: userId });
-        // Add file existence check
         const fsPath = file?.path;
         let fileExists = false;
         if (fsPath) {
@@ -42,70 +38,36 @@ router.post('/generate', tempAuth, async (req, res) => {
             return res.status(404).json({ message: 'File not found on server. Please re-upload.' });
         }
 
-        console.log(`[MindMap] Requesting generation from local AI service for file: ${file.path}`);
-
-        // Use DocumentProcessor to extract text from any file type
-        // Pass a dummy vectorStore since we only need text extraction
-        const dummyVectorStore = { addDocuments: async () => ({ count: 0 }), getStatistics: async () => ({}) };
-        const docProcessor = new DocumentProcessor(dummyVectorStore);
-        const fileContent = await docProcessor.parseFile(file.path);
+        const { documentProcessor, geminiAI } = req.serviceManager.getServices();
+        const fileContent = await documentProcessor.parseFile(file.path);
+        console.log(`[MindMap] File content length: ${fileContent ? fileContent.length : 0}`);
         
         if (!fileContent || fileContent.trim().length === 0) {
             return res.status(400).json({ message: 'File is empty or contains no readable content.' });
         }
 
-        let mindMapData = null;
+        let mermaidData = null;
         
-        // Try AI generation first
         try {
-            // Create an instance of AIService
-            const aiService = require('../services/aiService');
-            mindMapData = await aiService.generateMindMapData(fileContent, file.originalname);
+            mermaidData = await geminiAI.generateMindMapFromTranscript(fileContent, file.originalname);
         } catch (aiError) {
             console.warn('[MindMap] AI generation failed, using fallback:', aiError.message);
+            mermaidData = MindMapGenerator.createMermaidFallback(fileContent, file.originalname);
         }
 
-        // If AI generation failed or returned invalid data, use fallback
-        if (!mindMapData || !mindMapData.nodes || mindMapData.nodes.length === 0) {
-            console.log('[MindMap] Using enhanced fallback mind map generation');
-            // Try hierarchical generation first, then basic, then simple fallback
-            try {
-                mindMapData = MindMapGenerator.createHierarchicalMindMap(fileContent);
-                if (!mindMapData.nodes || mindMapData.nodes.length === 0) {
-                    mindMapData = MindMapGenerator.createBasicMindMap(fileContent);
-                }
-            } catch (hierarchicalError) {
-                console.warn('[MindMap] Hierarchical generation failed, using basic:', hierarchicalError.message);
-                mindMapData = MindMapGenerator.createBasicMindMap(fileContent);
-            }
-            
-            // If still no data, use simple fallback
-            if (!mindMapData || !mindMapData.nodes || mindMapData.nodes.length === 0) {
-                mindMapData = MindMapGenerator.createFallbackMindMap(fileContent);
-            }
+        if (!mermaidData || !mermaidData.startsWith('mindmap')) {
+            console.log('[MindMap] AI response was invalid or missing "mindmap" prefix, using final fallback.');
+            mermaidData = MindMapGenerator.createMermaidFallback(fileContent, file.originalname);
         }
 
-        // Use MindMapGenerator to format the data for React Flow
-        try {
-            const formattedMindMapData = MindMapGenerator.formatForReactFlow(mindMapData);
-            
-            // Validate the formatted data
-            if (!formattedMindMapData.nodes || formattedMindMapData.nodes.length === 0) {
-                throw new Error('No nodes generated in mind map');
-            }
+        console.log(`[MindMap] Successfully generated Mermaid syntax for mind map.`);
+        console.log(`[MindMap] Full Mermaid data:\n${mermaidData}`); // Keep this uncommented for debugging
+        
+        // No need to escape here if the client-side Mermaid library handles it
+        return res.json({ mermaidData });
 
-            console.log(`[MindMap] Successfully generated mind map with ${formattedMindMapData.nodes.length} nodes and ${formattedMindMapData.edges.length} edges`);
-            
-            return res.json(formattedMindMapData);
-        } catch (formatError) {
-            console.error('[MindMap] Error formatting mind map data:', formatError);
-            
-            // Try basic mind map as last resort
-            const basicMindMap = MindMapGenerator.createBasicMindMap(fileContent);
-            return res.json(basicMindMap);
-        }
     } catch (error) {
-        console.error('Error in mind map generation route:', error.message);
+        console.error('[MindMap] Error in mind map generation route:', error.message, error.stack);
         const message = 'An internal server error occurred while generating the mind map.';
         res.status(500).json({ message });
     }

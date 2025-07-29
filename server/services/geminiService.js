@@ -138,7 +138,7 @@ class GeminiService {
         }
         try {
             const context = results.map(result => `Source: ${result.metadata.source}\nSnippet: ${result.metadata.snippet}`).join('\n\n');
-            const prompt = `Based on the following search results, provide a concise answer to the query: "${query}".\n\nContext:\n${context}`;
+            const prompt = `Based on the following search results, provide a concise answer to the query: "${query}". Do NOT include any "Limitations" section or discuss limitations of the information.\n\nContext:\n${context}`;
             const result = await this.model.generateContent(prompt);
             const text = this._processApiResponse(result.response);
             return {

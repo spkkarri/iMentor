@@ -21,10 +21,11 @@ const AuthPage = ({ setIsAuthenticated }) => {
         try {
             // The user data is now the same for both login and signup
             const userData = { username, password };
+            console.log('AuthPage: Attempting auth with data:', userData);
             const apiCall = isLogin ? signinUser : signupUser;
             const response = await apiCall(userData);
 
-            console.log('AuthPage: Auth response:', response);
+            console.log('AuthPage: Auth response:', response.data);
             const userId = response.data.user.id || response.data.user._id;
             console.log('AuthPage: Setting userId:', userId);
             localStorage.setItem('token', response.data.token);
@@ -33,7 +34,7 @@ const AuthPage = ({ setIsAuthenticated }) => {
             setIsAuthenticated(true);
             navigate('/chat');
         } catch (err) {
-            console.error('AuthPage: Auth error:', err);
+            console.error('AuthPage: Auth error:', err.response ? err.response.data : err.message);
             const errorMessage = err.response?.data?.message || `Failed to ${isLogin ? 'sign in' : 'sign up'}. Please try again.`;
             setError(errorMessage);
         } finally {

@@ -1,0 +1,176 @@
+/* src/components/QuotaStatus.css */
+
+.quota-status {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
+    font-size: 12px;
+    color: #ffffff;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.quota-status:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.quota-status.loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.7;
+}
+
+.quota-status.error {
+    background: rgba(255, 68, 68, 0.2);
+    border-color: rgba(255, 68, 68, 0.4);
+    color: #ffcccc;
+}
+
+.quota-status.red {
+    border-color: rgba(255, 68, 68, 0.6);
+    background: rgba(255, 68, 68, 0.1);
+}
+
+.quota-status.orange {
+    border-color: rgba(255, 136, 0, 0.6);
+    background: rgba(255, 136, 0, 0.1);
+}
+
+.quota-status.yellow {
+    border-color: rgba(255, 170, 0, 0.6);
+    background: rgba(255, 170, 0, 0.1);
+}
+
+.quota-status.green {
+    border-color: rgba(68, 170, 68, 0.6);
+    background: rgba(68, 170, 68, 0.1);
+}
+
+.quota-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.quota-icon {
+    font-size: 14px;
+}
+
+.quota-text {
+    flex: 1;
+    font-size: 11px;
+}
+
+.quota-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.quota-fill {
+    height: 100%;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    border-radius: 2px;
+}
+
+.quota-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.quota-remaining {
+    font-size: 10px;
+    opacity: 0.8;
+}
+
+.quota-reset {
+    font-size: 10px;
+    color: #ffcccc;
+    font-weight: 500;
+}
+
+.quota-warning {
+    font-size: 10px;
+    color: #ffdd88;
+    font-style: italic;
+    margin-top: 4px;
+}
+
+.quota-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #ffffff;
+    border-radius: 50%;
+    animation: quota-spin 1s linear infinite;
+}
+
+@keyframes quota-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .quota-status {
+        padding: 8px;
+        margin: 4px 0;
+    }
+    
+    .quota-text {
+        font-size: 10px;
+    }
+    
+    .quota-remaining,
+    .quota-reset,
+    .quota-warning {
+        font-size: 9px;
+    }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+    .quota-status {
+        background: rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .quota-status:hover {
+        background: rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+}
+
+/* Compact mode for smaller sidebars */
+.quota-status.compact {
+    padding: 6px;
+    margin: 4px 0;
+}
+
+.quota-status.compact .quota-header {
+    margin-bottom: 4px;
+}
+
+.quota-status.compact .quota-text {
+    font-size: 10px;
+}
+
+.quota-status.compact .quota-details {
+    gap: 2px;
+}
+
+.quota-status.compact .quota-remaining,
+.quota-status.compact .quota-reset,
+.quota-status.compact .quota-warning {
+    font-size: 9px;
+}

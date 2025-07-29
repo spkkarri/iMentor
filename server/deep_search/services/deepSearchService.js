@@ -450,9 +450,9 @@ class DeepSearchService {
                 // Generate fallback response using Gemini
                 try {
                     console.log('Progress: 7/9 - Generating fallback response...');
-                    const fallbackPrompt = `Generate a helpful response about "${query}". 
-                    This should be informative and relevant to the user's question. 
-                    Keep it concise but comprehensive.`;
+                    const fallbackPrompt = `Generate a helpful response about "${query}".
+                    This should be informative and relevant to the user's question.
+                    Keep it concise but comprehensive. Do NOT include any "Limitations" section or discuss limitations of the information.`;
                     
                     const fallbackResponse = await this.callGeminiWithRetry(fallbackPrompt, '');
                     this.isSearching = false;
@@ -554,7 +554,7 @@ class DeepSearchService {
             if (this.areAllResultsWeak(topResults)) {
                 this.updateProgress(6, 'All search results are weak, using LLM fallback...');
                 reasoningTrace.push('All top results are weak or missing snippets. Triggering LLM fallback.');
-                const fallbackPrompt = `The web search did not return strong results for the query: "${query}". Please generate a helpful, well-structured answer using your own knowledge and reasoning. If possible, mention that web results were weak.`;
+                const fallbackPrompt = `The web search did not return strong results for the query: "${query}". Please generate a helpful, well-structured answer using your own knowledge and reasoning. Do NOT include any "Limitations" section or discuss limitations of the information. Focus only on providing the requested information in a clear and helpful manner.`;
                 const llmFallback = await this.callGeminiWithRetry(fallbackPrompt, '', 1);
                 this.stopProgressTracking();
                 return {
@@ -602,12 +602,13 @@ ${context}
 
 Please provide a well-structured response that:
 1. Directly answers the query
-2. Breaks down the answer into clear sections for each possible sub-question or aspect (for example: "Scientific Explanation", "Why is it not arbitrary?", "Formula", "Limitations", "Further Reading", etc.)
+2. Breaks down the answer into clear sections for each possible sub-question or aspect (for example: "Scientific Explanation", "Why is it not arbitrary?", "Formula", "Further Reading", etc.)
 3. Uses section headings (e.g., ## Scientific Explanation) for each part
 4. Cites relevant sources when possible (use markdown links)
-5. Acknowledges any limitations or uncertainties
-6. Is informative and helpful
-7. Formats the answer with bullet points or a table if appropriate.`;
+5. Is informative and helpful
+6. Formats the answer with bullet points or a table if appropriate
+
+IMPORTANT: Do NOT include any "Limitations" section or discuss limitations of the information. Focus only on providing the requested information in a clear and helpful manner.`;
 
             const aiResponse = await this.callGeminiWithRetry(synthesisPrompt, context);
 

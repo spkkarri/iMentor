@@ -18,7 +18,7 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@google-cloud/text-to-speech": "^6.1.0",
     "@google/generative-ai": "^0.24.1",
-    "@langchain/community": "^0.3.38",
+    "@langchain/community": "^0.3.49",
     "@langchain/core": "^0.3.61",
     "@langchain/google-genai": "^0.2.13",
     "axios": "^1.10.0",

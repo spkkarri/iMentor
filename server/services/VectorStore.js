@@ -1,126 +1,185 @@
-// backend/services/VectorStore.js
-
-// REMOVE: const geminiServiceInstance = require('./geminiService'); // No longer directly required here
-
-// In-memory store for document chunks and their embeddings
-let documentStore = []; 
+const path = require("path");
+const fs = require('fs').promises;
 
 class VectorStore {
-    // CRITICAL CHANGE: Accept geminiService as a constructor argument
-    constructor(geminiService) { 
-        if (VectorStore.instance) {
-            return VectorStore.instance;
-        }
-        VectorStore.instance = this;
-        this.documents = documentStore; 
-        this.SEARCH_STRATEGIES = {
-            COSINE: 'cosine_similarity',
-        };
-        // Assign the passed-in geminiService instance
-        if (!geminiService) {
-            throw new Error("GeminiService instance must be provided to VectorStore constructor.");
-        }
-        this.geminiService = geminiService; // <-- Assign the passed-in instance
-        console.log("✅ In-memory vector store initialized successfully.");
+    static cosineSimilarity(vecA, vecB) {
+        if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
+        const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+        const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+        return magnitudeA && magnitudeB ? dotProduct / (magnitudeA * magnitudeB) : 0;
     }
 
-    async addDocument(doc) {
-        if (!doc.content || !doc.metadata || !doc.metadata.userId || !doc.metadata.fileId || !doc.metadata.chunkId) {
-            throw new Error("Document must have content, metadata, userId, fileId, and chunkId.");
-        }
+    constructor() {
+        this.documents = [];
+        this.dimension = 384; // For MiniLM
+        this.embeddingPipeline = null;
+        this.storePath = path.join(__dirname, '..', 'faiss_indices', 'vector_store.json');
+    }
+
+    async initialize() {
         try {
-            // Use the geminiService instance provided at construction
-            const embedding = await this.geminiService.generateEmbedding(doc.content); 
-            this.documents.push({
-                id: doc.metadata.chunkId, 
-                content: doc.content,
-                embedding: embedding,
-                metadata: {
-                    userId: doc.metadata.userId,
-                    fileId: doc.metadata.fileId,
-                    fileName: doc.metadata.fileName,
-                    pageNumber: doc.metadata.pageNumber || null,
-                    uploadedAt: new Date().toISOString(), 
-                },
-            });
+            await this.loadStore();
+            // Ensure pipeline is initialized only once during application startup
+            // or when explicitly needed, not on every embedding generation.
+            // This helps prevent EMFILE errors by reducing repeated file open attempts.
+            await this.initPipeline();
+            console.log('Vector store initialized');
         } catch (error) {
-            console.error("Error adding document to vector store:", error);
+            console.error('Vector store initialization failed:', error);
             throw error;
         }
     }
 
-    async removeDocumentsByFileId(userId, fileId) {
-        const initialLength = this.documents.length;
-        this.documents = this.documents.filter(doc => 
-            !(doc.metadata.userId === userId && doc.metadata.fileId === fileId)
-        );
-        console.log(`Removed ${initialLength - this.documents.length} document chunks for file ${fileId} by user ${userId}.`);
-    }
-
-    async clearUserDocuments(userId) {
-        const initialLength = this.documents.length;
-        this.documents = this.documents.filter(doc => doc.metadata.userId !== userId);
-        console.log(`Removed ${initialLength - this.documents.length} document chunks for user ${userId}.`);
-    }
-
-    async searchDocuments(query, options = {}) {
-        const { userId, limit = 5, fileId = null } = options;
-
-        if (!query) {
-            throw new Error("Query is required for searchDocuments.");
+    async initPipeline() {
+        // Only initialize the pipeline if it hasn't been already
+        if (this.embeddingPipeline) {
+            console.log('Vector store pipeline already initialized. Skipping re-initialization.');
+            return;
         }
-        if (!userId) {
-            throw new Error("userId is required for searchDocuments.");
-        }
-
-        let queryVector;
         try {
-            // Use the geminiService instance provided at construction
-            queryVector = await this.geminiService.generateEmbedding(query); 
-        } catch (error) {
-            console.error("Error generating embedding for query:", error);
-            throw new Error(`Failed to generate embedding for search query: ${error.message}`); 
-        }
-
-        let relevantDocuments = this.documents.filter(doc => {
-            const isUserDoc = doc.metadata.userId === userId;
-            const isSpecificFile = fileId ? doc.metadata.fileId === fileId : true; 
-            return isUserDoc && isSpecificFile;
-        });
-
-        if (relevantDocuments.length === 0) {
-            console.warn(`No documents found for user ${userId}${fileId ? ` and file ${fileId}` : ''}.`);
-            return [];
-        }
-
-        const calculateCosineSimilarity = (vecA, vecB) => {
-            if (!vecA || !vecB || vecA.length === 0 || vecA.length !== vecB.length) return 0;
-            let dotProduct = 0;
-            let magnitudeA = 0;
-            let magnitudeB = 0;
-            for (let i = 0; i < vecA.length; i++) {
-                dotProduct += vecA[i] * vecB[i];
-                magnitudeA += vecA[i] * vecA[i];
-                magnitudeB += vecB[i] * vecB[i];
+            const hfApiKey = process.env.HF_API_KEY;
+            if (!hfApiKey) {
+                console.error('HF_API_KEY not found in environment variables. Please set it to access Hugging Face models.');
+                throw new Error('HF_API_KEY not found');
             }
-            magnitudeA = Math.sqrt(magnitudeA);
-            magnitudeB = Math.sqrt(magnitudeB);
-            if (magnitudeA === 0 || magnitudeB === 0) return 0;
-            return dotProduct / (magnitudeA * magnitudeB);
+            console.log(`[VectorStore] Attempting to initialize pipeline with HF_API_KEY present: ${!!hfApiKey}`);
+            const { pipeline } = await import('@xenova/transformers');
+            this.embeddingPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+                token: hfApiKey
+            });
+            console.log('✅ Vector store pipeline initialized');
+        } catch (error) {
+            console.error('❌ Error initializing vector store pipeline:', error);
+            console.error('Detailed error during pipeline initialization:', error.message, error.stack);
+            if (error.cause) {
+                console.error('Caused by:', error.cause);
+            }
+            throw error;
+        }
+    }
+
+    async generateEmbedding(text) {
+        try {
+            // The pipeline should ideally be initialized once during VectorStore initialization.
+            // This check ensures it's available, but repeated calls to initPipeline here
+            // are what caused the EMFILE error.
+            if (!this.embeddingPipeline) {
+                console.warn('[VectorStore] Embedding pipeline not initialized during embedding generation. This should ideally be initialized once during startup. Attempting to initialize now.');
+                await this.initPipeline();
+            }
+            console.log(`[VectorStore] Generating embedding for text (first 50 chars): "${text.substring(0, 50)}..."`);
+            const output = await this.embeddingPipeline(text, { pooling: 'mean', normalize: true });
+            const embedding = Array.from(output.data);
+            const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
+            console.log('[VectorStore] Embedding generated successfully.');
+            return embedding.map(val => val / magnitude);
+        } catch (error) {
+            console.error('❌ Error generating embedding:', error);
+            console.error('Detailed error during embedding generation:', error.message, error.stack);
+            if (error.cause) {
+                console.error('Caused by:', error.cause);
+            }
+            throw error;
+        }
+    }
+
+    async addDocuments(documents) {
+        try {
+            // Ensure pipeline is initialized before processing documents
+            if (!this.embeddingPipeline) {
+                console.log('[VectorStore] Pipeline not initialized before adding documents. Initializing now.');
+                await this.initPipeline();
+            }
+            const processedDocs = await Promise.all(
+                documents.map(async (doc) => {
+                    const embedding = await this.generateEmbedding(doc.content);
+                    return {
+                        content: doc.content,
+                        embedding,
+                        metadata: { ...doc.metadata }
+                    };
+                })
+            );
+            this.documents.push(...processedDocs);
+            await this.saveStore();
+            console.log(`[VectorStore] Added ${processedDocs.length} documents. Total now: ${this.documents.length}`);
+            return { count: processedDocs.length };
+        } catch (error) {
+            console.error('❌ Error adding documents:', error);
+            throw error;
+        }
+    }
+    
+    async searchDocuments(query, options = {}) {
+  try {
+    // Validate input
+    if (!query) throw new Error('Query is required');
+    if (!options.filters?.userId) throw new Error('userId is required in filters');
+
+    // Generate query embedding
+    const queryEmbedding = await this.generateEmbedding(query);
+
+    // Apply filters
+    let filteredDocs = this.documents.filter(doc => {
+      // Always filter by userId
+      if (doc.metadata.userId !== options.filters.userId) return false;
+      // Only filter by fileId if provided
+      if (options.filters.fileId && doc.metadata.fileId !== options.filters.fileId) return false;
+      return true;
+    });
+
+    // Compute cosine similarity and map results
+    const results = filteredDocs.map(doc => {
+      const score = VectorStore.cosineSimilarity(queryEmbedding, doc.embedding);
+      return { ...doc, score };
+    });
+
+    // Sort by score (descending)
+    results.sort((a, b) => b.score - a.score);
+
+    // Limit results and format output
+    return results.slice(0, options.limit || 5).map(result => ({
+      content: result.content,
+      metadata: result.metadata,
+      score: result.score
+    }));
+  } catch (error) {
+    console.error('❌ Search documents error:', error);
+    return [];
+  }
+}
+
+    async saveStore() {
+        try {
+            const dir = path.dirname(this.storePath);
+            await fs.mkdir(dir, { recursive: true });
+            await fs.writeFile(this.storePath, JSON.stringify(this.documents, null, 2));
+        } catch (error) {
+            console.error('❌ Error saving vector store:', error);
+        }
+    }
+
+    async loadStore() {
+        try {
+            const data = await fs.readFile(this.storePath, 'utf8');
+            if (data) {
+                this.documents = JSON.parse(data);
+                console.log(`[VectorStore] Store loaded from ${this.storePath}. Documents: ${this.documents.length}`);
+            }
+        } catch (error) {
+            if (error.code !== 'ENOENT') {
+                console.error('❌ Error loading vector store:', error);
+            }
+        }
+    }
+    
+    getStatistics() {
+        const totalDocs = this.documents.length;
+        const stats = {
+            totalDocuments: totalDocs,
         };
-
-        const scoredDocuments = relevantDocuments.map(doc => ({
-            id: doc.id,
-            content: doc.content,
-            metadata: doc.metadata,
-            score: calculateCosineSimilarity(queryVector, doc.embedding)
-        }));
-
-        const sortedResults = scoredDocuments
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit);
-
-        return sortedResults;
+        return stats;
     }
 }
 

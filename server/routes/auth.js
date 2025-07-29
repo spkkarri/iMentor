@@ -82,38 +82,49 @@ router.get('/me', async (req, res) => {
 router.post('/signin', async (req, res) => {
     const { username, password } = req.body;
 
+    console.log(`[Auth] Sign-in attempt for username: ${username}, received body: ${JSON.stringify(req.body)}`);
+
     if (!username || !password) {
+        console.log('[Auth] Missing username or password.');
         return res.status(400).json({ message: 'Please provide a username and password.' });
     }
 
     try {
         // Find user by username
         let user = await User.findOne({ username });
+        console.log(`[Auth] User found: ${user ? user.username : 'None'}`);
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials.' });
         }
 
         // Check password
         const isMatch = await bcrypt.compare(password, user.password);
+        console.log(`[Auth] Password comparison result: ${isMatch}`);
         if (!isMatch) {
+            console.log(`[Auth] Invalid password for user: ${username}`);
             return res.status(400).json({ message: 'Invalid credentials.' });
         }
 
         // Create JWT
         const payload = { user: { id: user.id } };
+        console.log(`[Auth] JWT_SECRET defined: ${!!process.env.JWT_SECRET}`);
         if (!process.env.JWT_SECRET) {
             console.error('FATAL ERROR: JWT_SECRET is not defined in your environment.');
             return res.status(500).send('Server configuration error.');
         }
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5d' }, (err, token) => {
-            if (err) throw err;
+            if (err) {
+                console.error('[Auth] JWT Sign Error:', err.message, 'for user:', username);
+                throw err;
+            }
+            console.log('[Auth] Sign-in successful, JWT generated for user:', username);
             res.json({
                 token,
                 user: { id: user.id, username: user.username } // Return user object without email
             });
         });
     } catch (err) {
-        console.error(err.message);
+        console.error(`[Auth] Server error during sign-in for ${username}:`, err.message);
         res.status(500).send('Server error');
     }
 });

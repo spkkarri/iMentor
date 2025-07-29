@@ -79,3 +79,6 @@ export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${f
 // Content Generation
 export const generatePodcast = (fileId) => api.post('/podcast/generate', { fileId });
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
+
+// Quota Management
+export const getQuotaStatus = () => api.get('/chat/quota-status');

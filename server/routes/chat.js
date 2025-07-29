@@ -15,6 +15,7 @@ const {
 } = require('../controllers/chatController');
 const { ChatSession, SESSION_STATES, SESSION_CONTEXTS, MESSAGE_TYPES } = require('../models/ChatSession');
 const DeepSearchService = require('../deep_search/services/deepSearchService');
+const quotaMonitor = require('../utils/quotaMonitor');
 
 
 // --- Session Management Endpoints ---
@@ -48,5 +49,29 @@ router.post('/rag-v2', tempAuth, handleHybridRagMessage);
 
 // Perform deep search with AI-powered query decomposition and synthesis
 router.post('/deep-search', tempAuth, handleDeepSearch);
+
+// Get API quota status
+router.get('/quota-status', tempAuth, (req, res) => {
+    try {
+        const stats = quotaMonitor.getUsageStats();
+        const timeUntilReset = quotaMonitor.getTimeUntilReset();
+        const warning = quotaMonitor.getQuotaWarning();
+
+        res.json({
+            success: true,
+            quota: {
+                ...stats,
+                timeUntilReset,
+                warning
+            }
+        });
+    } catch (error) {
+        console.error('Error getting quota status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get quota status'
+        });
+    }
+});
 
 module.exports = router;

@@ -212,10 +212,11 @@ class DeepSearchService {
                 if (
                     (error.message && error.message.includes('quota')) ||
                     (error.message && error.message.includes('429')) ||
-                    (error.message && error.message.includes('Too Many Requests'))
+                    (error.message && error.message.includes('Too Many Requests')) ||
+                    (error.message && error.message.includes('exceeded your current quota'))
                 ) {
-                    console.warn('Gemini API quota exceeded, not retrying');
-                    throw new GeminiQuotaError('API quota exceeded');
+                    console.warn('🚫 Gemini API quota exceeded, not retrying');
+                    throw new GeminiQuotaError('API quota exceeded - daily limit reached');
                 }
                 // Retry on 503 Service Unavailable (model overloaded)
                 if (
@@ -286,24 +287,91 @@ class DeepSearchService {
     handleError(error, step) {
         try {
             console.error(`DeepSearchService error at step ${step}:`, error);
-            const errorResponse = {
-                error: error.message,
-                step,
-                timestamp: new Date().toISOString()
-            };
+
             if (error instanceof GeminiQuotaError) {
-                return { success: false, error: 'Gemini API quota exceeded', details: error.quotaInfo };
+                console.log('🔄 Providing fallback response due to quota limit...');
+                return this.generateQuotaFallbackResponse();
             } else if (error instanceof GeminiRateLimitError) {
-                return { success: false, error: 'Gemini API rate limit exceeded', details: { retryAttempts: error.retryAttempts } };
+                return {
+                    success: false,
+                    error: 'Gemini API rate limit exceeded. Please try again in a few minutes.',
+                    details: { retryAttempts: error.retryAttempts },
+                    fallback: true
+                };
             } else if (error instanceof WebSearchError) {
-                return { success: false, error: 'Web search failed', details: error.details };
+                return {
+                    success: false,
+                    error: 'Web search failed',
+                    details: error.details,
+                    fallback: true
+                };
             } else {
-                return { success: false, error: 'Search failed', details: error.details || {} };
+                return {
+                    success: false,
+                    error: 'Search failed',
+                    details: error.details || {},
+                    fallback: true
+                };
             }
         } catch (error) {
             console.error('Error handling error:', error);
             return { success: false, error: 'Internal server error', details: {} };
         }
+    }
+
+    /**
+     * Generate a helpful fallback response when quota is exceeded
+     */
+    generateQuotaFallbackResponse() {
+        const fallbackMessage = `# API Quota Exceeded
+
+I apologize, but I've reached my daily API limit for AI-powered responses. However, I can still help you in other ways:
+
+## Alternative Search Options
+
+1. **Web Search Engines**
+   - [Google Search](https://www.google.com)
+   - [Bing Search](https://www.bing.com)
+   - [DuckDuckGo](https://duckduckgo.com)
+
+2. **Specialized Resources**
+   - [Wikipedia](https://wikipedia.org) - For general knowledge
+   - [Stack Overflow](https://stackoverflow.com) - For programming questions
+   - [GitHub](https://github.com) - For code and projects
+   - [arXiv](https://arxiv.org) - For academic papers
+
+3. **Educational Platforms**
+   - [Khan Academy](https://khanacademy.org)
+   - [Coursera](https://coursera.org)
+   - [edX](https://edx.org)
+
+## What You Can Do
+
+- **Try again tomorrow**: My quota resets daily
+- **Use specific search terms**: More targeted queries often yield better results
+- **Check multiple sources**: Cross-reference information from different websites
+- **Ask more specific questions**: Break down complex topics into smaller parts
+
+## Technical Details
+
+- **Quota Type**: Daily API request limit
+- **Reset Time**: Approximately 24 hours from first request
+- **Service**: Deep Search with AI synthesis
+
+Thank you for your understanding! 🙏`;
+
+        return {
+            success: true,
+            summary: fallbackMessage,
+            sources: [],
+            aiGenerated: false,
+            query: this.currentQuery || 'search query',
+            timestamp: new Date().toISOString(),
+            userId: this.userId,
+            formattedSources: 'No sources available due to quota limit',
+            fallback: true,
+            quotaExceeded: true
+        };
     }
 
     /**
@@ -349,7 +417,7 @@ class DeepSearchService {
      */
     formatSources(sources) {
         if (!sources || sources.length === 0) return 'No sources found.';
-        return sources.map((s, i) => `- [${s.title || s.url}](${s.url})${s.snippet ? `: ${s.snippet}` : ''}`).join('\n');
+        return sources.map((s) => `- [${s.title || s.url}](${s.url})${s.snippet ? `: ${s.snippet}` : ''}`).join('\n');
     }
 
     /**
@@ -371,7 +439,8 @@ class DeepSearchService {
             }
             
             this.isSearching = true;
-            
+            this.currentQuery = query; // Store for fallback responses
+
             console.log(`🔍 Starting deep search for: "${query}"`);
             this.startProgressTracking();
 

@@ -17,6 +17,7 @@ import FileManagerWidget from './FileManagerWidget';
 import HistorySidebarWidget from './HistorySidebarWidget';
 import SettingsWidget from './SettingsWidget';
 import MindMap from './MindMap';
+import QuotaStatus from './QuotaStatus';
 import { getPromptTextById, availablePrompts } from '../utils/prompts';
 
 import './ChatPage.css';
@@ -433,6 +434,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         </button>
                     </div>
                     <div className="sidebar-divider" />
+
+                    <QuotaStatus />
 
                     {sidebarView === 'files' && (
                         <>

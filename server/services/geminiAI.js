@@ -1,5 +1,6 @@
 // const geminiService = require('./geminiService');
 const { SUMMARIZATION_TYPES, SUMMARIZATION_STYLES } = require('../utils/constants');
+const quotaMonitor = require('../utils/quotaMonitor');
 
 class GeminiAI {
     constructor(geminiService) {
@@ -303,14 +304,67 @@ Example format:
    * @returns {Promise<string>} Generated text response
    */
   async generateText(prompt) {
+    // Check quota before making request
+    if (!quotaMonitor.canMakeRequest()) {
+      const stats = quotaMonitor.getUsageStats();
+      console.warn(`🚫 Quota exceeded: ${stats.requests}/${stats.limit} requests used today`);
+      return this.generateFallbackResponse(prompt);
+    }
+
     try {
+      // Record the request attempt
+      quotaMonitor.recordRequest();
+
       const result = await this.geminiService.model.generateContent(prompt);
       const response = result.response;
+
+      // Check for quota warning
+      const warning = quotaMonitor.getQuotaWarning();
+      if (warning) {
+        console.log(warning);
+      }
+
       return response.text().trim();
     } catch (error) {
       console.error('Gemini text generation error:', error.message);
+
+      // Check if it's a quota limit error
+      if (error.message.includes('429') || error.message.includes('quota') || error.message.includes('Too Many Requests')) {
+        console.warn('🚫 Gemini API quota exceeded, providing fallback response');
+        return this.generateFallbackResponse(prompt);
+      }
+
       throw new Error('Failed to generate text response');
     }
+  }
+
+  /**
+   * Generate a fallback response when API quota is exceeded
+   * @param {string} prompt - The original prompt
+   * @returns {string} Fallback response
+   */
+  generateFallbackResponse(prompt) {
+    // Extract query from prompt if possible
+    const queryMatch = prompt.match(/query[:\s]+"([^"]+)"/i) || prompt.match(/question[:\s]+"([^"]+)"/i);
+    const query = queryMatch ? queryMatch[1] : 'your question';
+
+    return `I apologize, but I'm currently experiencing high demand and have reached my daily API limit.
+
+However, I can still help you with "${query}". Here are some suggestions:
+
+1. **Try a web search**: Search for "${query}" on Google, Bing, or DuckDuckGo for the most current information.
+
+2. **Check reliable sources**: For factual information, consider:
+   - Wikipedia for general knowledge
+   - Official websites and documentation
+   - Academic sources and research papers
+   - Government and institutional websites
+
+3. **Ask again later**: My API quota resets daily, so you can try asking the same question tomorrow.
+
+4. **Refine your question**: If you have a more specific aspect of "${query}" you'd like to know about, that might help when the service is available again.
+
+I apologize for the inconvenience and appreciate your understanding!`;
   }
 
   /**

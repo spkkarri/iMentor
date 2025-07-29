@@ -1,0 +1,112 @@
+/* client/src/components/MemoryWidget/index.css */
+.memory-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.memory-widget h4 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--secondary-text-color);
+    margin: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.memory-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.memory-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--hover-color);
+    color: var(--primary-text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.memory-textarea:focus {
+    outline: none;
+    border-color: var(--user-gradient-end);
+    box-shadow: 0 0 0 1px var(--user-gradient-end);
+}
+
+.add-memory-btn {
+    align-self: flex-end;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: none;
+    background-color: var(--user-gradient-end);
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.add-memory-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.memory-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.memory-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--hover-color);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.memory-content {
+    flex-grow: 1;
+    margin-right: 10px;
+    word-break: break-word;
+}
+
+.delete-memory-btn {
+    background: none;
+    border: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    display: flex;
+    transition: color 0.2s, background-color 0.2s;
+    flex-shrink: 0;
+}
+
+.delete-memory-btn:hover {
+    color: #f48fb1;
+    background-color: rgba(244, 143, 177, 0.1);
+}
+
+.memory-status {
+    text-align: center;
+    color: var(--secondary-text-color);
+    font-style: italic;
+    padding: 15px 0;
+}
+
+/* --- REMOVED: All styles for pending memories are no longer needed --- */

@@ -1,10 +1,9 @@
-// src/components/ChatPage.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     sendMessage as apiSendMessage, saveChatHistory, generatePodcast, generateMindMap,
     getUserFiles, deleteUserFile, renameUserFile, performDeepSearch,
-    queryHybridRagService, getSessionDetails
+    queryHybridRagService, getSessionDetails, summarizeConversation
 } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -55,8 +54,11 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [isRagEnabled, setIsRagEnabled] = useState(false);
     const [allowRagDeepSearch, setAllowRagDeepSearch] = useState(true);
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
-    const [activeFileForRag, setActiveFileForRag] = useState(null);
+    // Removed activeFileForRag state (from previous change)
     const [currentlySpeakingIndex, setCurrentlySpeakingIndex] = useState(null);
+    const [conversationSummary, setConversationSummary] = useState('');
+    const summaryTriggerCount = useRef(0);
+
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
@@ -66,7 +68,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const handleProfileClose = () => setProfileAnchorEl(null);
     const isProfileOpen = Boolean(profileAnchorEl);
 
-    // New handler to close sidebar on mobile after an action
     const handleSidebarAction = () => {
         if (window.innerWidth < 1024) {
             setIsSidebarExpanded(false);
@@ -76,6 +77,26 @@ const ChatPage = ({ setIsAuthenticated }) => {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    useEffect(() => {
+        const SUMMARY_THRESHOLD = 6;
+        if (messages.length >= SUMMARY_THRESHOLD && messages.length > summaryTriggerCount.current) {
+            summaryTriggerCount.current = messages.length;
+            const generateSummary = async () => {
+                try {
+                    const response = await summarizeConversation(messages);
+                    if (response.data.summary) {
+                        setConversationSummary(response.data.summary);
+                        console.log("Conversation summary updated:", response.data.summary);
+                    }
+                } catch (err) {
+                    console.error("Failed to generate conversation summary:", err);
+                }
+            };
+            generateSummary();
+        }
+    }, [messages]);
+
 
     const saveAndReset = useCallback(async (isLoggingOut = false, onCompleteCallback = null) => {
         const currentSessionId = localStorage.getItem('sessionId');
@@ -93,6 +114,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } finally {
             if (!isLoggingOut) {
                 setMessages([]);
+                // --- FIX: Reset summary state on new chat ---
+                setConversationSummary('');
+                summaryTriggerCount.current = 0;
                 const newSessionId = uuidv4();
                 setSessionId(newSessionId);
                 localStorage.setItem('sessionId', newSessionId);
@@ -166,10 +190,11 @@ const ChatPage = ({ setIsAuthenticated }) => {
         if (userId) fetchFiles();
     }, [userId, fetchFiles]);
 
+
     const handleNewChat = useCallback(() => {
         if (!isProcessing) {
             saveAndReset(false, () => {
-                setSidebarView('files'); 
+                setSidebarView('files');
             });
         }
     }, [isProcessing, saveAndReset]);
@@ -206,8 +231,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } else if (isRagEnabled) {
             setLoadingStates(prev => ({ ...prev, chat: true }));
             try {
+                // Modified payload: no fileId
                 const ragPayload = {
-                    query: trimmedInput, fileId: activeFileForRag?.id, allowDeepSearch: allowRagDeepSearch
+                    query: trimmedInput, allowDeepSearch: allowRagDeepSearch
                 };
                 const response = await queryHybridRagService(ragPayload);
                 const assistantMessage = {
@@ -225,7 +251,13 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } else {
             setLoadingStates(prev => ({ ...prev, chat: true }));
             try {
-                const payload = { query: trimmedInput, history: historyToSend, sessionId, systemPrompt: editableSystemPromptText };
+                const payload = {
+                    query: trimmedInput,
+                    history: historyToSend,
+                    sessionId,
+                    systemPrompt: editableSystemPromptText,
+                    conversationSummary // Include conversation summary
+                };
                 const response = await apiSendMessage(payload);
                 const assistantMessage = {
                     role: 'assistant', parts: [{ text: response.data.message }], timestamp: new Date()
@@ -240,7 +272,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     }, [
         inputText, isProcessing, loadingStates.listening, messages, isDeepSearchEnabled,
-        isRagEnabled, allowRagDeepSearch, sessionId, editableSystemPromptText, activeFileForRag
+        isRagEnabled, allowRagDeepSearch, sessionId, editableSystemPromptText,
+        conversationSummary // Added to dependencies
     ]);
     
     const handleEnterKey = useCallback((e) => {
@@ -269,8 +302,11 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 setCurrentSystemPromptId(availablePrompts.find(p => p.prompt === sessionData.systemPrompt)?.id || 'custom');
                 setSessionId(sessionData.sessionId);
                 localStorage.setItem('sessionId', sessionData.sessionId);
+                // --- FIX: Reset summary state when loading a session ---
+                setConversationSummary('');
+                summaryTriggerCount.current = 0;
                 setSidebarView('files');
-                handleSidebarAction(); // Close sidebar on mobile after loading
+                handleSidebarAction();
             }
         } catch (err) {
             setError(`Failed to load session ${sessionIdToLoad}.`);
@@ -321,12 +357,12 @@ const ChatPage = ({ setIsAuthenticated }) => {
     };
     
     const handleChatWithFile = useCallback((fileId, fileName) => {
-        setActiveFileForRag({ id: fileId, name: fileName });
+        // No longer setting specific file for RAG, just enabling RAG mode
         setIsRagEnabled(true);
         setIsDeepSearchEnabled(false);
         setMessages(prev => [...prev, {
             role: 'system',
-            parts: [{ text: `Now chatting with file: **${fileName}**` }],
+            parts: [{ text: `RAG mode enabled. I will now search all your uploaded files to answer your questions.` }],
             timestamp: new Date()
         }]);
     }, []);
@@ -415,7 +451,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         <button onClick={() => setSidebarView('files')} className={`icon-button ${sidebarView === 'files' ? 'active' : ''}`} title="My Files"> <FaFolderOpen /> </button>
                     </div>
                     <div className="sidebar-icons-bottom">
-                         <button onClick={() => setSidebarView('settings')} className={`icon-button ${sidebarView === 'settings' ? 'active' : ''}`} title="Settings"> <FaCog /> </button>
+                            <button onClick={() => setSidebarView('settings')} className={`icon-button ${sidebarView === 'settings' ? 'active' : ''}`} title="Settings"> <FaCog /> </button>
                     </div>
                 </div>
                 <div className="sidebar-content">
@@ -459,10 +495,10 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     )}
                     {sidebarView === 'settings' && (
                         <SettingsWidget 
-                           selectedPromptId={currentSystemPromptId}
-                           promptText={editableSystemPromptText}
-                           onSelectChange={handlePromptSelectChange}
-                           onTextChange={handlePromptTextChange}
+                            selectedPromptId={currentSystemPromptId}
+                            promptText={editableSystemPromptText}
+                            onSelectChange={handlePromptSelectChange}
+                            onTextChange={handlePromptTextChange}
                         />
                     )}
                 </div>
@@ -521,43 +557,43 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         </div>
                     )}
                     {messages.map((msg, index) => {
-                         if (!msg?.role || !msg?.parts?.length) return null;
-                         const messageText = msg.parts[0]?.text || '';
-                         return (
-                             <div key={index} className={`message-row ${msg.role}`}>
-                                 <div className="avatar">
-                                     {msg.role === 'user' ? (username?.[0]?.toUpperCase() || 'U') : <GeminiIcon />}
-                                 </div>
-                                 <div className="message-bubble-container">
-                                     <div className={`message-bubble ${msg.type || ''}`}>
-                                         {msg.type === 'mindmap' && msg.mindMapData ? (
-                                             <div className="mindmap-container">
-                                                 <MindMap mindMapData={msg.mindMapData} />
-                                             </div>
-                                         ) : msg.type === 'audio' && msg.audioUrl ? (
-                                             <div className="audio-player-container">
-                                                 <p>{messageText}</p>
-                                                 <audio controls src={msg.audioUrl} />
-                                             </div>
-                                         ) : (
-                                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                                         )}
-                                     </div>
-                                     <div className="message-actions">
-                                         {msg.role === 'assistant' && (
-                                             <button
-                                                 onClick={() => handleTextToSpeech(messageText, index)}
-                                                 className={`tts-button ${currentlySpeakingIndex === index ? 'speaking' : ''}`}
-                                                 title="Read aloud"
-                                                 disabled={isProcessing}
-                                             >
-                                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/><path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/><path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/></svg>
-                                             </button>
-                                         )}
-                                     </div>
-                                 </div>
-                             </div>
-                         );
+                            if (!msg?.role || !msg?.parts?.length) return null;
+                            const messageText = msg.parts[0]?.text || '';
+                            return (
+                                <div key={index} className={`message-row ${msg.role}`}>
+                                    <div className="avatar">
+                                        {msg.role === 'user' ? (username?.[0]?.toUpperCase() || 'U') : <GeminiIcon />}
+                                    </div>
+                                    <div className="message-bubble-container">
+                                        <div className={`message-bubble ${msg.type || ''}`}>
+                                            {msg.type === 'mindmap' && msg.mindMapData ? (
+                                                <div className="mindmap-container">
+                                                    <MindMap mindMapData={msg.mindMapData} />
+                                                </div>
+                                            ) : msg.type === 'audio' && msg.audioUrl ? (
+                                                <div className="audio-player-container">
+                                                    <p>{messageText}</p>
+                                                    <audio controls src={msg.audioUrl} />
+                                                </div>
+                                            ) : (
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                                            )}
+                                        </div>
+                                        <div className="message-actions">
+                                            {msg.role === 'assistant' && (
+                                                <button
+                                                    onClick={() => handleTextToSpeech(messageText, index)}
+                                                    className={`tts-button ${currentlySpeakingIndex === index ? 'speaking' : ''}`}
+                                                    title="Read aloud"
+                                                    disabled={isProcessing}
+                                                >
+                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/><path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/><path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/></svg>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
                     })}
                     <div ref={messagesEndRef} />
                 </main>

@@ -9,7 +9,6 @@ const {
     handleStandardMessage,
     handleRagMessage,
     handleDeepSearch,
-    deleteSession,
     handleHybridRagMessage,
     summarizeConversation, // <-- Import the function
 } = require('../controllers/chatController');
@@ -22,7 +21,6 @@ const quotaMonitor = require('../utils/quotaMonitor');
 router.post('/session', tempAuth, createSession);
 router.get('/sessions', tempAuth, getSessions);
 router.get('/session/:sessionId', tempAuth, getSessionDetails);
-router.delete('/session/:sessionId', tempAuth, deleteSession);
 router.post('/history', tempAuth, saveChatHistory);
 
 // --- Core Chat Endpoints ---

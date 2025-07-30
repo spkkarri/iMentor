@@ -359,6 +359,61 @@ class MindMapGenerator {
 
         return sections;
     }
+
+    /**
+     * Creates a fallback mind map in Mermaid syntax when AI generation fails.
+     * This version is simplified to be more robust.
+     * @param {string} content - The text content of the document.
+     * @param {string} title - The title of the document.
+     * @returns {string} A Mermaid syntax string.
+     */
+    static createMermaidFallback(content, title) {
+        console.log("[MindMapGenerator] Creating Mermaid fallback.");
+        
+        // Sanitize title for the root node
+        const rootTitle = this.escapeMermaidText(title);
+        let mermaidString = `mindmap\n  root((${rootTitle}))\n`;
+
+        // Extract a few lines or sentences to serve as main topics
+        const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 10);
+        
+        if (lines.length === 0) {
+            mermaidString += `    No content to display.`;
+            return mermaidString;
+        }
+
+        // Take up to 5 lines as main topics
+        const mainTopics = lines.slice(0, 5);
+
+        mainTopics.forEach((topic, index) => {
+            // Truncate and escape the topic text for the node label
+            const nodeLabel = this.escapeMermaidText(topic.substring(0, 50) + (topic.length > 50 ? '...' : ''));
+            // Create a unique ID for the node
+            const nodeId = `fallback_topic_${index}`;
+            // Escape the full topic content for the click interaction
+            const nodeContent = this.escapeMermaidText(topic);
+
+            mermaidString += `    Topic ${index + 1}("${nodeLabel}"):::${nodeId}("${nodeContent}")\n`;
+        });
+
+        return mermaidString;
+    }
+
+    /**
+     * Escapes special characters in a string to be safely used in Mermaid labels and click functions.
+     * @param {string} text - The text to escape.
+     * @returns {string} The escaped text.
+     */
+    static escapeMermaidText(text) {
+        if (!text) return '';
+        return text
+            .replace(/"/g, '#quot;')  // Escape double quotes
+            .replace(/\(/g, '#lpar;') // Escape left parenthesis
+            .replace(/\)/g, '#rpar;') // Escape right parenthesis
+            .replace(/:/g, '#colon;') // Escape colon
+            .replace(/;/g, '#scolon;')// Escape semicolon
+            .replace(/\n/g, '<br/>'); // Replace newlines with <br/> for multi-line labels
+    }
 }
 
 module.exports = MindMapGenerator;

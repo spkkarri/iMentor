@@ -8,7 +8,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
-import { FaBars, FaPaperPlane, FaMicrophone, FaHistory, FaPlus, FaCog, FaFolderOpen, FaSignOutAlt } from 'react-icons/fa';
+import { FaBars, FaPaperPlane, FaMicrophone, FaHistory, FaPlus, FaCog, FaFolderOpen, FaSignOutAlt, FaBrain } from 'react-icons/fa';
 import { Popover, Typography, Button, Box, IconButton as MuiIconButton } from '@mui/material';
 
 import FileUploadWidget from './FileUploadWidget';
@@ -513,6 +513,13 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         <h1>TutorAI</h1>
                     </div>
                     <div className="header-right">
+                        <button
+                            onClick={() => navigate('/training')}
+                            className="header-button training-button"
+                            title="LLM Training Dashboard"
+                        >
+                            <FaBrain />
+                        </button>
                         <MuiIconButton onClick={handleProfileClick} title="Profile">
                             <div className="avatar profile-avatar">{username?.[0]?.toUpperCase()}</div>
                         </MuiIconButton>

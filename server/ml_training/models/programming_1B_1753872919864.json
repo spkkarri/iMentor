@@ -1,0 +1,12 @@
+{
+  "subject": "programming",
+  "size": "1B",
+  "accuracy": 83,
+  "epochs": 3,
+  "batchSize": 4,
+  "learningRate": 0.0002,
+  "useUnsloth": true,
+  "useLoRA": true,
+  "createdAt": "2025-07-30T10:55:19.852Z",
+  "trainingTime": 50749
+}

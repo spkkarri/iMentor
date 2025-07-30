@@ -2,6 +2,7 @@
 
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const { handleGeminiError } = require('../utils/errorUtils');
+const { getQuotaManager } = require('./quotaManager');
 
 // ... (MODEL_NAME, baseGenerationConfig, baseSafetySettings remain the same) ...
 const MODEL_NAME = "gemini-1.5-flash";
@@ -24,6 +25,10 @@ class GeminiAI {
     constructor() {
         this.genAI = null;
         this.model = null;
+
+        // Initialize quota manager
+        this.quotaManager = getQuotaManager();
+
         this.initialize(); // Initialize on creation
     }
 
@@ -47,6 +52,8 @@ class GeminiAI {
     isEnabled() {
         return !!this.model;
     }
+
+
 
     _configureModel(systemInstructionText) {
         if (!this.genAI) throw new Error("Cannot configure model, Gemini AI not initialized.");
@@ -145,19 +152,42 @@ You have just updated your memory based on the latest conversation. Briefly and 
         return finalPrompt;
     }
 
-    async generateText(prompt) {
+    async generateText(prompt, requestType = 'general', priority = 'medium') {
         if (!this.isEnabled()) {
             throw new Error("AI service is not available.");
         }
+
         try {
+            // Request permission from quota manager
+            await this.quotaManager.requestPermission(requestType, priority);
+
+            // Make the API request
             const result = await this.model.generateContent(prompt);
             const response = result.response;
-            return this._processApiResponse(response);
+            const processedResponse = this._processApiResponse(response);
+
+            // Record successful request
+            this.quotaManager.recordSuccess();
+
+            return processedResponse;
         } catch (error) {
             console.error('Gemini text generation error:', error.message);
+
+            // Record failed request
+            this.quotaManager.recordFailure(error);
+
             throw new Error('Failed to generate text response');
         }
     }
+
+    /**
+     * Check current quota status
+     */
+    async checkQuota() {
+        return this.quotaManager.getQuotaStatus();
+    }
+
+
 
     buildContext(documentChunks) {
         if (!Array.isArray(documentChunks) || documentChunks.length === 0) {

@@ -126,7 +126,7 @@ class DeepSearchService {
         this.progressTimeout = setTimeout(() => {
             console.warn('Progress tracking timeout reached, stopping tracking');
             this.stopProgressTracking();
-        }, 15000); // 15 second timeout (reduced from 30)
+        }, 45000); // 45 second timeout (increased for embedding processing)
     }
 
     updateProgress(step, message) {
@@ -195,7 +195,15 @@ class DeepSearchService {
                 limit: response.limit
             };
         } catch (error) {
-            throw new GeminiQuotaError('Failed to check Gemini quota');
+            console.warn('⚠️ Could not check Gemini quota, assuming quota exceeded:', error.message);
+            // Return quota exceeded status if check fails (safer assumption)
+            return {
+                hasRemaining: false,
+                remaining: 0,
+                limit: 1000,
+                checkFailed: true,
+                quotaExceeded: true
+            };
         }
     }
 
@@ -209,21 +217,32 @@ class DeepSearchService {
             } catch (error) {
                 attempts++;
                 // Check if it's a quota error - don't retry these
+                const errorMessage = error.message || '';
+                console.log('🔍 Checking error message:', errorMessage);
+
                 if (
-                    (error.message && error.message.includes('quota')) ||
-                    (error.message && error.message.includes('429')) ||
-                    (error.message && error.message.includes('Too Many Requests')) ||
-                    (error.message && error.message.includes('exceeded your current quota'))
+                    errorMessage.includes('quota') ||
+                    errorMessage.includes('429') ||
+                    errorMessage.includes('Too Many Requests') ||
+                    errorMessage.includes('exceeded your current quota') ||
+                    errorMessage.includes('exceeded') ||
+                    errorMessage.includes('billing') ||
+                    errorMessage.includes('plan')
                 ) {
-                    console.warn('🚫 Gemini API quota exceeded, not retrying');
-                    throw new GeminiQuotaError('API quota exceeded - daily limit reached');
+                    console.warn('🚫 Gemini API quota exceeded, using intelligent fallback');
+                    return this.getIntelligentFallback(query, context);
                 }
-                // Retry on 503 Service Unavailable (model overloaded)
+                // Check for 503 Service Unavailable (model overloaded)
                 if (
-                    (error.message && error.message.includes('503')) ||
-                    (error.message && error.message.includes('Service Unavailable')) ||
-                    (error.message && error.message.includes('model is overloaded'))
+                    errorMessage.includes('503') ||
+                    errorMessage.includes('Service Unavailable') ||
+                    errorMessage.includes('model is overloaded') ||
+                    errorMessage.includes('overloaded')
                 ) {
+                    if (attempts >= maxAttempts) {
+                        console.warn('🚫 Gemini service overloaded, max retries reached, using intelligent fallback');
+                        return this.getIntelligentFallback(query, context);
+                    }
                     const delay = baseDelay * Math.pow(2, attempts - 1);
                     console.warn(`Gemini 503 error (model overloaded), retrying in ${delay}ms (attempt ${attempts} of ${maxAttempts})`);
                     await new Promise(resolve => setTimeout(resolve, delay));
@@ -234,10 +253,54 @@ class DeepSearchService {
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }
-                throw error;
+
+                // If we've reached max attempts, use fallback instead of throwing
+                if (attempts >= maxAttempts) {
+                    console.warn(`⚠️ All ${maxAttempts} attempts failed, using intelligent fallback`);
+                    return this.getIntelligentFallback(query, context);
+                }
+
+                // For other errors, wait and retry
+                const delay = baseDelay * Math.pow(2, attempts - 1);
+                console.warn(`Gemini error, retrying in ${delay}ms (attempt ${attempts} of ${maxAttempts}):`, error.message);
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
-        throw new GeminiRateLimitError(`Failed after ${maxAttempts} attempts`);
+        console.warn(`⚠️ All Gemini attempts failed, using intelligent fallback`);
+        return this.getIntelligentFallback(query, context);
+    }
+
+    /**
+     * Generate intelligent fallback response when Gemini is unavailable
+     */
+    getIntelligentFallback(query, context = '') {
+        console.log('🤖 Generating intelligent fallback response...');
+
+        // Simple query classification for fallback responses
+        const lowerQuery = query.toLowerCase();
+
+        // Greeting responses
+        if (lowerQuery.match(/^(hi|hello|hey|greetings?)$/)) {
+            return "Hello! I'm here to help you with any questions you have. While my AI service is temporarily unavailable, I can still assist you with basic information and guidance.";
+        }
+
+        // Math queries
+        if (lowerQuery.includes('calculate') || lowerQuery.includes('math') || lowerQuery.match(/\d+\s*[\+\-\*\/]\s*\d+/)) {
+            return "I'd be happy to help with mathematical calculations. While my advanced AI is temporarily unavailable, you can try using a calculator or math tools for precise calculations.";
+        }
+
+        // Programming queries
+        if (lowerQuery.includes('code') || lowerQuery.includes('program') || lowerQuery.includes('function') || lowerQuery.includes('python') || lowerQuery.includes('javascript')) {
+            return "I can help with programming questions! While my AI service is temporarily unavailable, I recommend checking official documentation, Stack Overflow, or programming tutorials for detailed coding assistance.";
+        }
+
+        // General information queries
+        if (lowerQuery.includes('what is') || lowerQuery.includes('explain') || lowerQuery.includes('how does')) {
+            return `I understand you're asking about "${query}". While my AI service is temporarily unavailable due to high demand, I recommend checking reliable sources like Wikipedia, educational websites, or official documentation for detailed information on this topic.`;
+        }
+
+        // Default fallback
+        return `Thank you for your question about "${query}". My AI service is temporarily unavailable due to high demand, but I'm still here to help! You might want to try rephrasing your question or checking reliable online sources for information. Please try again in a few moments when the service becomes available.`;
     }
 
     async getCachedResult(query) {
@@ -292,30 +355,64 @@ class DeepSearchService {
                 console.log('🔄 Providing fallback response due to quota limit...');
                 return this.generateQuotaFallbackResponse();
             } else if (error instanceof GeminiRateLimitError) {
-                return {
-                    success: false,
-                    error: 'Gemini API rate limit exceeded. Please try again in a few minutes.',
-                    details: { retryAttempts: error.retryAttempts },
-                    fallback: true
-                };
+                console.log('🔄 Providing fallback response due to rate limit...');
+                return this.generateFallbackResponse('rate_limit');
             } else if (error instanceof WebSearchError) {
-                return {
-                    success: false,
-                    error: 'Web search failed',
-                    details: error.details,
-                    fallback: true
-                };
+                console.log('🔄 Providing fallback response due to search error...');
+                return this.generateFallbackResponse('search_error');
             } else {
-                return {
-                    success: false,
-                    error: 'Search failed',
-                    details: error.details || {},
-                    fallback: true
-                };
+                console.log('🔄 Providing general fallback response...');
+                return this.generateFallbackResponse('general_error');
             }
         } catch (error) {
             console.error('Error handling error:', error);
             return { success: false, error: 'Internal server error', details: {} };
+        }
+    }
+
+    /**
+     * Use Multi-AI service for synthesis when Gemini quota exceeded
+     */
+    async useMultiAIForSynthesis(query, searchResults) {
+        try {
+            // Import Multi-AI service
+            const { getMultiAIService } = require('../../services/multiAIService');
+            const multiAI = getMultiAIService();
+
+            // Build context from search results
+            let context = '';
+            if (searchResults && searchResults.length > 0) {
+                context = 'Based on the following search results:\n\n';
+                searchResults.slice(0, 5).forEach((result, index) => {
+                    context += `${index + 1}. ${result.title}\n${result.snippet}\n\n`;
+                });
+            }
+
+            // Generate response using Multi-AI
+            const response = await multiAI.generateResponse(query, context);
+
+            if (response && response.summary) {
+                console.log(`✅ Multi-AI synthesis successful using ${response.service}`);
+
+                return {
+                    message: response.summary,
+                    metadata: {
+                        sources: searchResults ? searchResults.slice(0, 5).map(result => ({
+                            title: result.title,
+                            url: result.url,
+                            snippet: result.snippet
+                        })) : [],
+                        searchType: 'multi_ai_synthesis',
+                        aiService: response.service,
+                        note: 'Generated using Multi-AI service due to Gemini quota limit'
+                    }
+                };
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Multi-AI synthesis failed:', error);
+            return null;
         }
     }
 
@@ -371,6 +468,78 @@ Thank you for your understanding! 🙏`;
             formattedSources: 'No sources available due to quota limit',
             fallback: true,
             quotaExceeded: true
+        };
+    }
+
+    /**
+     * Generate fallback response for different error types
+     */
+    generateFallbackResponse(errorType = 'general_error') {
+        const query = this.currentQuery || 'your question';
+        let fallbackMessage = '';
+
+        switch (errorType) {
+            case 'rate_limit':
+                fallbackMessage = `# Service Temporarily Unavailable
+
+I apologize, but the AI service is currently experiencing high demand and is temporarily unavailable.
+
+## Your Question
+"${query}"
+
+## What You Can Do Right Now
+
+1. **Try Again in a Few Minutes** - The service should be available shortly
+2. **Use Alternative Search** - Try [Google](https://google.com) or [DuckDuckGo](https://duckduckgo.com)
+3. **Simplify Your Question** - Break complex queries into smaller parts
+
+## Why This Happened
+- High server load
+- Temporary rate limiting
+- Service maintenance
+
+Please try your question again in a few moments! 🔄`;
+                break;
+
+            case 'search_error':
+                fallbackMessage = `# Search Service Issue
+
+I encountered an issue while searching for information about "${query}".
+
+## Alternative Approaches
+
+1. **Manual Search** - Try searching directly on:
+   - [Google](https://google.com/search?q=${encodeURIComponent(query)})
+   - [Wikipedia](https://wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)})
+   - [DuckDuckGo](https://duckduckgo.com/?q=${encodeURIComponent(query)})
+
+2. **Rephrase Your Question** - Try using different keywords
+3. **Be More Specific** - Add more context to your query
+
+## What I Can Still Help With
+- General knowledge questions
+- Basic calculations
+- Simple explanations
+
+Please try rephrasing your question or use the search links above! 🔍`;
+                break;
+
+            default:
+                fallbackMessage = this.getIntelligentFallback(query);
+                break;
+        }
+
+        return {
+            success: true,
+            summary: fallbackMessage,
+            sources: [],
+            aiGenerated: false,
+            query: query,
+            timestamp: new Date().toISOString(),
+            userId: this.userId,
+            formattedSources: 'No sources available due to service issue',
+            fallback: true,
+            errorType: errorType
         };
     }
 
@@ -459,7 +628,19 @@ Thank you for your understanding! 🙏`;
             try {
                 const quotaCheck = await this.checkGeminiQuota();
                 if (!quotaCheck.hasRemaining) {
-                    console.warn('Gemini API quota exceeded, providing immediate fallback');
+                    console.warn('🤖 Gemini quota exceeded, trying Multi-AI for immediate response...');
+                    try {
+                        const multiAIResult = await this.useMultiAIForSynthesis(query, []);
+                        if (multiAIResult) {
+                            this.stopProgressTracking();
+                            this.isSearching = false;
+                            return multiAIResult;
+                        }
+                    } catch (multiAIError) {
+                        console.warn('Multi-AI immediate response failed:', multiAIError.message);
+                    }
+
+                    console.warn('Providing basic fallback response');
                     this.stopProgressTracking();
                     this.isSearching = false;
                     return {
@@ -587,7 +768,9 @@ Thank you for your understanding! 🙏`;
                 expandedResults.push(await this.expandSnippetIfNeeded(result, query));
             }
             reasoningTrace.push('Expanded snippets for all results.');
+
             // Late-chunking: break each snippet into chunks
+            console.log('📝 Processing text chunks...');
             let chunkedCandidates = [];
             for (const result of expandedResults) {
                 const text = result.snippet || result.description || '';
@@ -597,26 +780,39 @@ Thank you for your understanding! 🙏`;
                     chunkText: chunk
                 })));
             }
+            console.log(`📝 Created ${chunkedCandidates.length} text chunks`);
             reasoningTrace.push('Chunked all snippets for embedding.');
+
             // Embed all chunks
+            console.log('🧠 Generating embeddings...');
             const embeddedChunks = await this.embeddingService.embedChunks(chunkedCandidates.map(c => c.chunkText));
+            console.log('✅ Embeddings generated');
+
             // Attach embeddings to candidates
             chunkedCandidates = chunkedCandidates.map((c, i) => ({ ...c, embedding: embeddedChunks[i].embedding }));
+
             // For now, use the first chunk as query embedding (stub)
+            console.log('🔍 Processing query embedding...');
             const queryChunks = this.embeddingService.chunkText(query);
             const queryEmbeddings = await this.embeddingService.embedChunks([queryChunks[0]]);
             const queryEmbedding = queryEmbeddings[0].embedding;
+
             // Compute similarity and add as feature
+            console.log('📊 Computing similarities...');
             chunkedCandidates = chunkedCandidates.map(c => ({
                 ...c,
                 similarity: EmbeddingService.cosineSimilarity(queryEmbedding, c.embedding)
             }));
             reasoningTrace.push('Computed similarity between query and all chunks.');
+
             // Rerank using reranker service
+            console.log('🔄 Reranking results...');
             const reranked = await this.rerankerService.rerank(query, chunkedCandidates);
             reasoningTrace.push('Reranked all candidates.');
+
             // Take top 5 reranked results
             const topResults = reranked.slice(0, 5);
+            console.log(`✅ Selected top ${topResults.length} results for synthesis`);
             reasoningTrace.push('Selected top 5 results for synthesis.');
 
             // Step 4.5: LLM fallback if all results are weak
@@ -640,11 +836,26 @@ Thank you for your understanding! 🙏`;
             }
 
 
-            // Step 5: Check Gemini quota
+            // Step 5: Check Gemini quota and use Multi-AI if exceeded
             this.updateProgress(6);
             const quotaCheck = await this.checkGeminiQuota();
             if (!quotaCheck.hasRemaining) {
-                throw new GeminiQuotaError(quotaCheck.quotaInfo);
+                console.warn('🤖 Gemini quota exceeded, trying Multi-AI service...');
+                try {
+                    const multiAIResult = await this.useMultiAIForSynthesis(query, searchResults);
+                    if (multiAIResult) {
+                        this.stopProgressTracking();
+                        this.isSearching = false;
+                        return multiAIResult;
+                    }
+                } catch (multiAIError) {
+                    console.warn('Multi-AI also failed, using fallback response:', multiAIError.message);
+                }
+
+                console.warn('All AI services failed, using fallback response');
+                this.stopProgressTracking();
+                this.isSearching = false;
+                return this.generateQuotaFallbackResponse();
             }
 
 

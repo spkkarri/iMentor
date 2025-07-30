@@ -1,0 +1,13 @@
+{
+  "requestCount": 50,
+  "lastRequestTime": 1753898029951,
+  "resetTime": 1753920000000,
+  "metrics": {
+    "totalRequests": 50,
+    "successfulRequests": 50,
+    "failedRequests": 2,
+    "quotaExceeded": 0,
+    "lastReset": 1753897885720
+  },
+  "lastSaved": 1753902167152
+}

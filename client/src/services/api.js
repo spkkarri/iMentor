@@ -89,3 +89,55 @@ export const deleteMemory = (memoryId) => api.delete(`/memory/${memoryId}`);
 
 // Quota Management
 export const getQuotaStatus = () => api.get('/chat/quota-status');
+
+// Training API
+export const getTrainingDataStats = (subject) => api.get(`/training/data/stats/${subject}`);
+export const uploadTrainingData = (formData) => api.post('/training/data/upload', formData);
+export const addTextTrainingData = (subject, data) => api.post('/training/data/text', { subject, data });
+export const generateSampleData = (subject, count = 100) => api.post('/training/data/generate', { subject, count });
+export const getTrainingStatus = () => api.get('/training/status');
+export const getTrainingModels = () => api.get('/training/models');
+export const startTraining = (subject, config) => api.post('/training/start', { subject, config });
+export const stopTraining = () => api.post('/training/stop');
+export const getTrainingProgress = () => api.get('/training/progress');
+
+// Advanced training API functions
+export const getBaseModels = (includeCustom = false) => {
+    const params = includeCustom ? { includeCustom: 'true' } : {};
+    return api.get('/training/base-models', { params });
+};
+export const getCheckpoints = (subject = null) => {
+    const params = subject ? { subject } : {};
+    return api.get('/training/checkpoints', { params });
+};
+
+// Custom model API functions
+export const uploadCustomModel = (formData) => {
+    return api.post('/training/upload-model', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+};
+export const getCustomModels = () => api.get('/training/custom-models');
+export const deleteCustomModel = (modelId) => api.delete(`/training/custom-models/${modelId}`);
+
+// Ollama API functions
+export const getOllamaStatus = () => api.get('/training/ollama/status');
+export const getOllamaModels = () => api.get('/training/ollama/models');
+export const getPopularOllamaModels = () => api.get('/training/ollama/popular');
+export const pullOllamaModel = (modelName) => api.post('/training/ollama/pull', { modelName });
+export const deleteOllamaModel = (modelName) => api.delete(`/training/ollama/models/${modelName}`);
+export const loadOllamaModel = (modelName) => api.post(`/training/ollama/load/${modelName}`);
+export const unloadOllamaModel = (modelName) => api.post(`/training/ollama/unload/${modelName}`);
+export const getRunningOllamaModels = () => api.get('/training/ollama/running');
+export const configureOllama = (baseUrl) => api.post('/training/ollama/configure', { baseUrl });
+
+// Database API functions
+export const getSupportedDatabaseTypes = () => api.get('/training/database/supported-types');
+export const getDataFormats = () => api.get('/training/database/data-formats');
+export const testDatabaseConnection = (config) => api.post('/training/database/test-connection', { config });
+export const getDatabaseSchema = (config) => api.post('/training/database/get-schema', { config });
+export const extractTrainingData = (config, extractionConfig) => api.post('/training/database/extract-data', { config, extractionConfig });
+export const validateTrainingData = (data, format, options) => api.post('/training/database/validate-data', { data, format, options });
+export const downloadModel = (modelId) => api.get(`/training/download/${modelId}`, { responseType: 'blob' });

@@ -1,0 +1,24 @@
+{"input":"What is the purpose of 'self' in Python class methods?","target":"'self' refers to the instance of the class. It's used to access instance variables and methods within the class.","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"What is the difference between '==' and 'is' in Python?","target":"'==' checks for equality of values, while 'is' checks for identity, i.e., if two objects are the same in memory.","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"How can I handle exceptions in Python?","target":"You can handle exceptions using a try-except block, e.g.,\ntry:\n    # Code that may raise an error\nexcept SomeException:\n    # Code to handle the error","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"Write a Python function to reverse a string.","target":"def reverse_string(s):\n    return s[::-1]","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"What does the 'len' function do in Python?","target":"The 'len' function returns the number of items in an object, such as a list, string, or tuple.","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"How do you create a class in Python?","target":"You create a class in Python using the 'class' keyword, e.g., class MyClass:\n    pass","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"What is a lambda function in Python?","target":"A lambda function is an anonymous function defined with the keyword 'lambda', e.g., lambda x: x * 2.","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"What is a dictionary in Python?","target":"A dictionary in Python is an unordered collection of key-value pairs, defined using curly braces, e.g., my_dict = {'key': 'value'}","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"How do you create a class in Python?","target":"You create a class in Python using the 'class' keyword, e.g., class MyClass:\n    pass","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"What is the difference between '==' and 'is' in Python?","target":"'==' checks for equality of values, while 'is' checks for identity, i.e., if two objects are the same in memory.","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"What is a lambda function in Python?","target":"A lambda function is an anonymous function defined with the keyword 'lambda', e.g., lambda x: x * 2.","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"How do you create a list in Python?","target":"You can create a list in Python by using square brackets, e.g., my_list = [1, 2, 3]","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"How can I read a file in Python?","target":"You can use the open() function, e.g., with open('file.txt', 'r') as f:\n    content = f.read()","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"What is the purpose of 'self' in Python class methods?","target":"'self' refers to the instance of the class. It's used to access instance variables and methods within the class.","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"What does the 'len' function do in Python?","target":"The 'len' function returns the number of items in an object, such as a list, string, or tuple.","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"Write a Python function to reverse a string.","target":"def reverse_string(s):\n    return s[::-1]","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"eagle","target":"bird","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"dog","target":"animal","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"carrot","target":"vegetable","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"apple","target":"fruit","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"tesla","target":"car brand","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"c++","target":"programming language","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"tomato","target":"vegetable","category":"general","difficulty":"intermediate","source":"user_upload"}
+{"input":"python","target":"programming language","category":"general","difficulty":"intermediate","source":"user_upload"}

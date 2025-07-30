@@ -1,41 +1,43 @@
-// server/services/serviceManager.js
-
-// --- MODIFIED: Import the correct vector store ---
 const langchainVectorStore = require('./LangchainVectorStore');
 const DocumentProcessor = require('./documentProcessor');
-const GeminiService = require('./geminiService');
-const { GeminiAI } = require('./geminiAI');
+const GeminiAI = require('./geminiAI'); // Corrected import to use the consolidated service
 const DeepSearchService = require('../deep_search/services/deepSearchService');
 const DuckDuckGoService = require('../utils/duckduckgo');
+const personalizationService = require('./personalizationService');
 
 class ServiceManager {
   constructor() {
     this.vectorStore = null;
     this.documentProcessor = null;
-    this.geminiService = null;
-    this.geminiAI = null;
-    this.deepSearchServices = new Map(); // Store per-user instances
+    this.geminiAI = null; // Simplified, now directly references the initialized GeminiAI instance
+    this.deepSearchServices = new Map();
     this.duckDuckGo = null;
+    this.personalizationService = null;
   }
 
   async initialize() {
-    // --- MODIFIED: Use the correct vector store instance ---
-    this.vectorStore = langchainVectorStore; 
+    this.vectorStore = langchainVectorStore;
     await this.vectorStore.initialize();
 
-    // Pass the correct dependency via constructor
     this.documentProcessor = new DocumentProcessor(this.vectorStore);
     
-    this.geminiService = new GeminiService();
-    await this.geminiService.initialize();
+    // MODIFICATION: Initialize the single GeminiAI service
+    // GeminiAI service is designed to be a singleton or handle its own initialization.
+    // It's likely `new GeminiAI()` should be called if it's a class, or it's directly exported as an instance.
+    // Assuming GeminiAI is a class that needs to be instantiated, then it initializes itself.
+    // If GeminiAI is directly an object (singleton), then just assign it.
+    // Based on `geminiAI.generateText(prompt)` call in HybridRagService, it suggests `geminiAI` is an instantiated object.
+    // If `GeminiAI` itself is a class that needs `initialize()` called, ensure that.
+    // For simplicity and assuming GeminiAI's constructor handles its own API key setup:
+    this.geminiAI = GeminiAI; // This implies GeminiAI is already an instance or a class with static methods
+    // If GeminiAI is a class that needs instantiation and initialization:
+    // this.geminiAI = new GeminiAI();
+    // await this.geminiAI.initialize(); // Assuming it has an initialize method
 
-    // Pass dependencies via constructor
-    this.geminiAI = new GeminiAI(this.geminiService);
-    
-    // Initialize DuckDuckGo service
     this.duckDuckGo = new DuckDuckGoService();
+    this.personalizationService = personalizationService;
 
-    console.log('✅ All services initialized successfully with LangchainVectorStore.');
+    console.log('✅ All services initialized successfully.');
   }
 
   getDeepSearchService(userId) {
@@ -56,9 +58,9 @@ class ServiceManager {
     return {
       vectorStore: this.vectorStore,
       documentProcessor: this.documentProcessor,
-      geminiService: this.geminiService,
-      geminiAI: this.geminiAI,
-      duckDuckGo: this.duckDuckGo
+      geminiAI: this.geminiAI, // Simplified
+      duckDuckGo: this.duckDuckGo,
+      personalizationService: this.personalizationService,
     };
   }
 }

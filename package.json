@@ -3,6 +3,9 @@
     "nodemon": "^3.1.10"
   },
   "dependencies": {
-    "pdfmake": "^0.2.20"
+    "pdfmake": "^0.2.20",
+    "axios": "^1.11.0",
+    "franc-min": "^6.2.0",
+    "sbd": "^1.0.19"
   }
 }

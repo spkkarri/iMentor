@@ -1,4 +1,3 @@
-// src/components/FileManagerWidget/index.js
 import React, { useState } from 'react';
 import { Popover } from 'react-tiny-popover';
 import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots } from 'react-icons/fa';
@@ -47,7 +46,6 @@ function FileManagerWidget({
             ) : error ? (
                 <div className="file-manager-error">{error}</div>
             ) : (
-
                 <>
                     <ul className="file-list">
                         {files.map(file => (
@@ -79,7 +77,6 @@ function FileManagerWidget({
                                             </button>
                                         </div>
                                     }
-
                                 >
                                     <button 
                                         onClick={() => setOpenMenuId(openMenuId === file._id ? null : file._id)} 

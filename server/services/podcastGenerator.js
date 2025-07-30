@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const say = require('say');
 const axios = require('axios'); // Keep for potential ElevenLabs use
 
 const execAsync = promisify(exec);
@@ -117,33 +118,61 @@ const generateWithElevenLabs = async (podcastScript, filename, timestamp) => {
  * It checks for an ElevenLabs API key and uses it if available, otherwise falls back to SAPI.
  */
 const generatePodcastAudio = async (podcastScript, filename) => {
-    if (!podcastScript || !Array.isArray(podcastScript) || podcastScript.length === 0) {
-        throw new Error('Podcast script is empty or invalid.');
-    }
-
-    await createAudioDir();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const safeFilename = filename.replace(/[^a-zA-Z0-9]/g, '_');
-    
-    let finalAudioPath;
-
-    if (process.env.ELEVENLABS_API_KEY) {
-        try {
-            console.log('Attempting audio generation with ElevenLabs...');
-            finalAudioPath = await generateWithElevenLabs(podcastScript, safeFilename, timestamp);
-        } catch (error) {
-            console.warn('ElevenLabs generation failed:', error.message);
-            console.log('Falling back to built-in Windows SAPI...');
-            finalAudioPath = await generateWithSAPI(podcastScript, safeFilename, timestamp);
+    try {
+        if (!podcastScript || !Array.isArray(podcastScript)) {
+            throw new Error('Podcast script array is required');
         }
-    } else {
-        console.log('ElevenLabs API key not found. Using built-in Windows SAPI.');
-        finalAudioPath = await generateWithSAPI(podcastScript, safeFilename, timestamp);
-    }
+        await createAudioDir();
 
-    const stats = await fs.stat(finalAudioPath);
-    if (stats.size === 0) {
-        throw new Error('Generated audio file is empty (0 bytes)');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const safeFilename = filename.replace(/[^a-zA-Z0-9]/g, '_');
+        const tempDir = path.join(AUDIO_DIR, 'temp_' + timestamp);
+        await fs.mkdir(tempDir, { recursive: true });
+        const segmentFiles = [];
+        // List available voices on your Mac with: say -v '?'
+        const voiceA = 'Samantha'; // Change to a valid macOS voice
+        const voiceB = 'Daniel';   // Change to a valid macOS voice
+
+        for (let i = 0; i < podcastScript.length; i++) {
+            const segment = podcastScript[i];
+            const text = segment.text;
+            const voiceToUse = (segment.speaker.toLowerCase().includes('b') || segment.speaker.toLowerCase().includes('host b')) 
+                ? voiceB 
+                : voiceA;
+            const segmentFile = path.join(tempDir, `segment_${i}.wav`);
+            await new Promise((resolve, reject) => {
+                say.export(text, voiceToUse, 1.0, segmentFile, (err) => {
+                    if (err) return reject(err);
+                    resolve();
+                });
+            });
+            segmentFiles.push(segmentFile);
+        }
+
+        // Combine segments into one file using ffmpeg
+        const outputPath = path.join(AUDIO_DIR, `${safeFilename}_podcast_${timestamp}.wav`);
+        const fileList = path.join(tempDir, 'filelist.txt');
+        const fileListContent = segmentFiles.map(file => `file '${file}'`).join('\n');
+        await fs.writeFile(fileList, fileListContent);
+        const combineCommand = `ffmpeg -f concat -safe 0 -i "${fileList}" -c copy "${outputPath}" -y`;
+        await execAsync(combineCommand);
+        // Clean up temporary files
+        await Promise.allSettled([
+            ...segmentFiles.map(file => fs.unlink(file)),
+            fs.unlink(fileList),
+            fs.rmdir(tempDir)
+        ]);
+        const stats = await fs.stat(outputPath);
+        if (stats.size === 0) {
+            throw new Error('Generated audio file is empty (0 bytes)');
+        }
+
+        const port = process.env.PORT || 5007;
+        const baseUrl = process.env.BACKEND_URL || `http://localhost:${port}`;
+        return `${baseUrl}/podcasts/${path.basename(outputPath)}`;
+    } catch (error) {
+        console.error('Error in generatePodcastAudio:', error);
+        throw new Error(`Audio generation failed: ${error.message}`);
     }
 
     console.log(`✅ Podcast generated: ${path.basename(finalAudioPath)} (${stats.size} bytes)`);

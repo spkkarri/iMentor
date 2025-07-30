@@ -211,3 +211,15 @@ body, html {
 .input-action-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 .input-action-btn.active { background-color: var(--user-gradient-end); color: white; }
 .error-message { color: #f48fb1; text-align: center; font-size: 0.9rem; margin-top: 8px; }
+.ppt-generator-input {
+    width: 95%;
+    padding: 8px;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+.ppt-generator-select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    font-size: 16px;
+}

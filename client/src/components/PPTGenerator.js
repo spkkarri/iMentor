@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { generatePPT, generateReport } from '../services/api';
+import './ChatPage.css';
 
 
 const PPTGenerator = () => {
@@ -28,27 +29,9 @@ const PPTGenerator = () => {
       }
       let response;
       if (option === 'ppt') {
-        response = await axios.post(
-          '/api/files/generate-ppt',
-          { topic: title },
-          {
-            responseType: 'blob',
-            headers: {
-              'X-User-ID': userId,
-            },
-          }
-        );
+        response = await generatePPT(title);
       } else if (option === 'report') {
-        response = await axios.post(
-          '/api/files/generate-report',
-          { topic: title },
-          {
-            responseType: 'blob',
-            headers: {
-              'X-User-ID': userId,
-            },
-          }
-        );
+        response = await generateReport(title);
       }
       const blobType = option === 'ppt' ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation' : 'application/pdf';
       const fileExtension = option === 'ppt' ? 'pptx' : 'pdf';
@@ -74,12 +57,12 @@ const PPTGenerator = () => {
         placeholder="Ex: Indian Railways"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        style={{ width: 'auto', minWidth: '90%', padding: 8, marginBottom: 10, fontSize: 16 }}
+        className="ppt-generator-input"
       />
       <select
         value={option}
         onChange={(e) => setOption(e.target.value)}
-        style={{ width: '100%', padding: 8, marginBottom: 10, fontSize: 16 }}
+        className="ppt-generator-select"
       >
         <option value="choose" disabled>Choose</option>
         <option value="ppt">Generate PPT</option>

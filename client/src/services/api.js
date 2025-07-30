@@ -79,3 +79,5 @@ export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${f
 // Content Generation
 export const generatePodcast = (fileId) => api.post('/podcast/generate', { fileId });
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
+export const generatePPT = (topic) => api.post('/files/generate-ppt', { topic }, { responseType: 'blob' });
+export const generateReport = (topic) => api.post('/files/generate-report', { topic }, { responseType: 'blob' });

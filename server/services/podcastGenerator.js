@@ -90,7 +90,7 @@ const generatePodcastAudio = async (podcastScript, filename) => {
         for (let i = 0; i < podcastScript.length; i++) {
             const segment = podcastScript[i];
             const text = segment.text;
-            const voiceToUse = (speaker.toLowerCase().includes('b') || speaker.toLowerCase().includes('host b')) 
+            const voiceToUse = (segment.speaker.toLowerCase().includes('b') || segment.speaker.toLowerCase().includes('host b')) 
                 ? voiceB 
                 : voiceA;
             const segmentFile = path.join(tempDir, `segment_${i}.wav`);
@@ -121,7 +121,8 @@ const generatePodcastAudio = async (podcastScript, filename) => {
             throw new Error('Generated audio file is empty (0 bytes)');
         }
 
-        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5005';
+        const port = process.env.PORT || 5007;
+        const baseUrl = process.env.BACKEND_URL || `http://localhost:${port}`;
         return `${baseUrl}/podcasts/${path.basename(outputPath)}`;
     } catch (error) {
         console.error('Error in generatePodcastAudio:', error);

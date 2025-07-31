@@ -1,0 +1,12 @@
+{
+  "max_models_in_memory": 2,
+  "max_memory_usage_mb": 4096,
+  "model_idle_timeout": 1800,
+  "preload_models": [
+    "mathematics",
+    "programming"
+  ],
+  "memory_check_interval": 60,
+  "enable_model_caching": true,
+  "cache_directory": "../model_cache"
+}

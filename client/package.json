@@ -24,18 +24,16 @@
     "react-tiny-popover": "^8.1.6",
     "reactflow": "^11.11.4",
     "remark-gfm": "^4.0.1",
+    "uuid": "^11.1.0",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "set PORT=3004 && react-scripts start",
+    "start": "set PORT=3005 && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
-  "options": {
-    "proxy": "http://localhost:5007",
-    "allowedHosts": "all"
-  },
+  "proxy": "http://localhost:5007",
   "eslintConfig": {
     "extends": [
       "react-app",

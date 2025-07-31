@@ -12,12 +12,52 @@ class DuckDuckGoService {
     this.retryDelay = 5000; // 5 seconds between retries
 
     // Configuration flag to use only mock results (recommended for stability)
-    this.useMockOnly = process.env.DEEP_SEARCH_MOCK_ONLY !== 'false'; // Default to true
+    this.useMockOnly = process.env.DEEP_SEARCH_MOCK_ONLY === 'true'; // Fixed: Proper boolean check
+    this.useSimulated = process.env.DEEP_SEARCH_USE_SIMULATED === 'true'; // Use simulated results
+
+    console.log('🔧 DuckDuckGo Configuration:', {
+      DEEP_SEARCH_MOCK_ONLY: process.env.DEEP_SEARCH_MOCK_ONLY,
+      DEEP_SEARCH_USE_SIMULATED: process.env.DEEP_SEARCH_USE_SIMULATED,
+      useMockOnly: this.useMockOnly,
+      useSimulated: this.useSimulated
+    });
 
     if (this.useMockOnly) {
       console.log('🎓 Deep Search configured to use educational content only (recommended)');
+    } else if (this.useSimulated) {
+      console.log('🔍 Deep Search configured to use simulated web results (for demonstration)');
     } else {
       console.log('⚠️ Deep Search configured to attempt real web searches (may be unreliable)');
+    }
+  }
+
+  /**
+   * Reload configuration from environment variables (for runtime updates)
+   */
+  reloadConfiguration() {
+    const oldConfig = {
+      useMockOnly: this.useMockOnly,
+      useSimulated: this.useSimulated
+    };
+
+    this.useMockOnly = process.env.DEEP_SEARCH_MOCK_ONLY === 'true';
+    this.useSimulated = process.env.DEEP_SEARCH_USE_SIMULATED === 'true';
+
+    console.log('🔄 DuckDuckGo configuration reloaded:', {
+      old: oldConfig,
+      new: {
+        useMockOnly: this.useMockOnly,
+        useSimulated: this.useSimulated
+      },
+      timestamp: new Date().toISOString()
+    });
+
+    if (this.useMockOnly) {
+      console.log('🎓 Deep Search now using educational content only');
+    } else if (this.useSimulated) {
+      console.log('🔍 Deep Search now using simulated web results');
+    } else {
+      console.log('⚠️ Deep Search now attempting real web searches');
     }
   }
 
@@ -81,17 +121,21 @@ class DuckDuckGoService {
     try {
       console.log(`🔍 Searching: "${query}" (${type})`);
 
+      let searchResults;
+
       if (this.useMockOnly) {
         // Use enhanced educational content as primary source (faster and more reliable)
         console.log(`📚 Using enhanced educational content for: "${query}"`);
-        const searchResults = this.getMockSearchResults(query, type);
+        searchResults = this.getMockSearchResults(query, type);
+      } else if (this.useSimulated) {
+        // Use simulated web search results for demonstration
+        console.log(`🔍 Using simulated web search results for: "${query}"`);
+        searchResults = this.getSimulatedWebResults(query, type);
       } else {
         // This path should not be used but is here for completeness
         console.log(`⚠️ Attempting real DuckDuckGo search for: "${query}" (not recommended)`);
         throw new Error('Real DuckDuckGo search is disabled for stability. Set DEEP_SEARCH_MOCK_ONLY=false to enable.');
       }
-
-      const searchResults = this.getMockSearchResults(query, type);
 
       // Process and format results
       const formattedResults = this.formatResults(searchResults, type);
@@ -510,6 +554,86 @@ class DuckDuckGoService {
         description: `Current applications and future prospects of ${query}. This covers practical implementations, industry use cases, and emerging opportunities. Discussion includes challenges, limitations, and potential solutions. Recent research developments and their implications for future advancement in this field are also examined.`
       }
     ];
+  }
+
+  /**
+   * Generate simulated web search results that look like real web search
+   */
+  getSimulatedWebResults(query, type = 'text') {
+    const currentYear = new Date().getFullYear();
+    const queryLower = query.toLowerCase();
+
+    // Generate realistic web search results based on query
+    const results = [];
+
+    if (queryLower.includes('ai') || queryLower.includes('artificial intelligence')) {
+      results.push(
+        {
+          title: `Latest AI Developments ${currentYear} - OpenAI, Google, Microsoft`,
+          url: "https://openai.com/blog/latest-developments",
+          description: `Comprehensive overview of artificial intelligence breakthroughs in ${currentYear}. Major developments include GPT-4 improvements, multimodal AI systems, and enterprise AI adoption. Key players like OpenAI, Google DeepMind, and Microsoft are pushing boundaries in natural language processing, computer vision, and autonomous systems.`
+        },
+        {
+          title: `AI Research Trends ${currentYear}: Machine Learning & Deep Learning`,
+          url: "https://arxiv.org/list/cs.AI/recent",
+          description: `Recent research papers and trends in artificial intelligence for ${currentYear}. Focus areas include transformer architectures, reinforcement learning, federated learning, and AI safety. Academic institutions and tech companies are collaborating on breakthrough research in neural networks and cognitive computing.`
+        },
+        {
+          title: `Enterprise AI Adoption Report ${currentYear} - McKinsey & Company`,
+          url: "https://www.mckinsey.com/capabilities/quantumblack/our-insights",
+          description: `Business impact of AI adoption across industries in ${currentYear}. Survey results show 70% of companies have implemented AI solutions, with significant ROI in automation, customer service, and predictive analytics. Key challenges include data quality, talent shortage, and ethical AI implementation.`
+        },
+        {
+          title: `AI Ethics and Regulation ${currentYear} - IEEE Standards`,
+          url: "https://standards.ieee.org/industry-connections/ec/autonomous-systems.html",
+          description: `Current state of AI ethics, governance, and regulatory frameworks in ${currentYear}. Global initiatives for responsible AI development, bias mitigation, and transparency requirements. Discussion of GDPR impact, algorithmic accountability, and emerging AI governance models worldwide.`
+        },
+        {
+          title: `Future of AI: Predictions and Trends for ${currentYear + 1}`,
+          url: "https://www.nature.com/subjects/machine-learning",
+          description: `Expert predictions for artificial intelligence evolution beyond ${currentYear}. Emerging areas include quantum machine learning, neuromorphic computing, and artificial general intelligence (AGI) research. Analysis of technological convergence, societal impact, and economic transformation driven by AI advancement.`
+        }
+      );
+    } else if (queryLower.includes('quantum')) {
+      results.push(
+        {
+          title: `Quantum Computing Breakthroughs ${currentYear} - IBM, Google, IonQ`,
+          url: "https://www.ibm.com/quantum-computing/",
+          description: `Major quantum computing achievements in ${currentYear}. IBM's 1000+ qubit processors, Google's quantum supremacy demonstrations, and IonQ's trapped-ion systems. Progress in quantum error correction, quantum algorithms, and practical quantum applications in cryptography and optimization.`
+        },
+        {
+          title: `Quantum Machine Learning Applications ${currentYear}`,
+          url: "https://quantum-journal.org/",
+          description: `Integration of quantum computing with machine learning in ${currentYear}. Quantum neural networks, variational quantum algorithms, and quantum advantage in specific ML tasks. Research progress in quantum feature maps, quantum kernels, and hybrid classical-quantum systems for AI applications.`
+        }
+      );
+    } else {
+      // Generic web search results
+      results.push(
+        {
+          title: `${query} - Wikipedia`,
+          url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(query.replace(/\s+/g, '_')),
+          description: `Comprehensive encyclopedia article about ${query}. Detailed information covering definition, history, key concepts, applications, and related topics. Includes references to academic sources, notable examples, and cross-references to related subjects.`
+        },
+        {
+          title: `${query} - Latest News and Updates ${currentYear}`,
+          url: "https://news.google.com/search?q=" + encodeURIComponent(query),
+          description: `Recent news articles and updates about ${query} from ${currentYear}. Current developments, industry trends, expert opinions, and analysis from major news sources. Coverage includes recent events, policy changes, and market developments related to this topic.`
+        },
+        {
+          title: `${query} - Research Papers and Academic Sources`,
+          url: "https://scholar.google.com/scholar?q=" + encodeURIComponent(query),
+          description: `Academic research papers and scholarly articles about ${query}. Peer-reviewed studies, conference proceedings, and academic publications from leading researchers and institutions. Includes citation metrics, related work, and access to full-text papers where available.`
+        },
+        {
+          title: `${query} - Industry Analysis and Market Reports`,
+          url: "https://www.statista.com/search/?q=" + encodeURIComponent(query),
+          description: `Market research, industry analysis, and statistical data about ${query}. Professional reports, market size estimates, growth projections, and competitive landscape analysis. Includes charts, graphs, and data visualizations from industry experts and research firms.`
+        }
+      );
+    }
+
+    return results;
   }
 }
 

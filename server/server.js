@@ -1,6 +1,10 @@
 // server/server.js
 const path = require('path');
 const dotenv = require('dotenv');
+
+// Load environment variables FIRST before importing any services
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
 const multer = require('multer');
 const express = require('express');
 const cors = require('cors');
@@ -13,8 +17,6 @@ const { getLocalIPs } = require('./utils/networkUtils');
 const { performAssetCleanup } = require('./utils/assetCleanup');
 const File = require('./models/File');
 const serviceManager = require('./services/serviceManager');
-
-dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const PORT = process.env.PORT || 5007;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
@@ -33,11 +35,23 @@ app.use(express.json());
 const startServer = async () => {
     try {
         console.log("--- Starting Server ---");
-        await connectDB(MONGO_URI);
-        console.log("✓ MongoDB connected successfully");
+
+        // Try to connect to MongoDB with fallback
+        try {
+            await connectDB(MONGO_URI);
+            console.log("✓ MongoDB connected successfully");
+        } catch (dbError) {
+            console.warn("⚠️ MongoDB connection failed:", dbError.message);
+            console.warn("⚠️ Server will continue without database features");
+        }
 
         await serviceManager.initialize();
-        await performAssetCleanup();
+
+        try {
+            await performAssetCleanup();
+        } catch (cleanupError) {
+            console.warn("⚠️ Asset cleanup failed:", cleanupError.message);
+        }
 
         app.use((req, res, next) => {
             req.serviceManager = serviceManager;
@@ -56,9 +70,17 @@ const startServer = async () => {
         app.use('/api/podcast', require('./routes/podcast'));
         app.use('/api/mindmap', require('./routes/mindmap'));
         app.use('/api/memory', require('./routes/memory')); // <-- ADD THIS LINE
+        app.use('/api/multi-model', require('./routes/multiModel')); // Multi-model LLM routes
+        app.use('/api/training', require('./routes/training')); // LLM Training routes
+        app.use('/api/subjects', require('./routes/subjects')); // Custom subjects and model management
+
+        // Initialize monitoring routes with metrics collector
+        const monitoringRoutes = require('./routes/monitoring');
+        monitoringRoutes.setMetricsCollector(serviceManager.getMetricsCollector());
+        app.use('/api/monitoring', monitoringRoutes);
 
         const availableIPs = getLocalIPs();
-        app.listen(PORT, '0.0.0.0', () => {
+        const server = app.listen(PORT, '0.0.0.0', () => {
             console.log('\n=== Server Ready ===');
             console.log(`🚀 Server listening on port ${PORT}`);
             console.log('Access URLs:');
@@ -67,6 +89,35 @@ const startServer = async () => {
             });
             console.log('==================\n');
         });
+
+        // Graceful shutdown handling
+        const gracefulShutdown = async (signal) => {
+            console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+
+            server.close(async () => {
+                console.log('📡 HTTP server closed');
+
+                try {
+                    await serviceManager.cleanup();
+                    console.log('🧹 Services cleaned up');
+
+                    // Only close MongoDB if it's connected
+                    if (mongoose.connection.readyState === 1) {
+                        await mongoose.connection.close();
+                        console.log('🗄️ Database connection closed');
+                    }
+
+                    console.log('✅ Graceful shutdown completed');
+                    process.exit(0);
+                } catch (error) {
+                    console.error('❌ Error during shutdown:', error);
+                    process.exit(1);
+                }
+            });
+        };
+
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     } catch (error) {
         console.error("!!! Failed to start server:", error.message);
         process.exit(1);

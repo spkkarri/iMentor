@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSearch Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #45a049;
+        }
+        .test-button.deepsearch {
+            background: #2196F3;
+        }
+        .test-button.websearch {
+            background: #FF9800;
+        }
+        .results {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🔍 DeepSearch Test Page</h1>
+    
+    <div class="test-container">
+        <h2>Authentication Test</h2>
+        <button class="test-button" onclick="testAuth()">Test Login</button>
+        <div id="auth-status"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>DeepSearch Service Test</h2>
+        <button class="test-button deepsearch" onclick="testDeepSearchService()">Test DeepSearch Service</button>
+        <div id="service-status"></div>
+        <div id="service-results" class="results" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>Message Tests</h2>
+        <input type="text" id="test-query" placeholder="Enter test query..." style="width: 70%; padding: 8px;">
+        <br><br>
+        <button class="test-button deepsearch" onclick="testDeepSearchMessage()">🔍 Test DeepSearch</button>
+        <button class="test-button websearch" onclick="testWebSearchMessage()">🌐 Test WebSearch</button>
+        <button class="test-button" onclick="testStandardMessage()">💬 Test Standard Chat</button>
+        <div id="message-status"></div>
+        <div id="message-results" class="results" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>UI Integration Test</h2>
+        <p>This tests if the main chat application is accessible:</p>
+        <button class="test-button" onclick="openMainApp()">Open Main Chat App</button>
+        <div id="ui-status"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let sessionId = null;
+
+        const API_BASE = 'http://localhost:5007/api';
+        const CLIENT_BASE = 'http://localhost:3005';
+
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function showResults(elementId, data) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function testAuth() {
+            try {
+                showStatus('auth-status', 'Testing authentication methods...', 'info');
+
+                // Method 1: Try test token first
+                authToken = 'test-token-123';
+                try {
+                    const testResponse = await fetch(`${API_BASE}/auth/me`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+
+                    if (testResponse.ok) {
+                        showStatus('auth-status', '✅ Test token authentication successful!', 'success');
+                        await createSession();
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Test token failed, trying signin...');
+                }
+
+                // Method 2: Try signin with test credentials
+                try {
+                    const response = await fetch(`${API_BASE}/auth/signin`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: 'testuser',
+                            password: 'testpass123'
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        authToken = data.token;
+                        showStatus('auth-status', '✅ Signin authentication successful!', 'success');
+                        await createSession();
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Signin failed, trying signup...');
+                }
+
+                // Method 3: Try creating a test user
+                try {
+                    const signupResponse = await fetch(`${API_BASE}/auth/signup`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: 'testuser',
+                            password: 'testpass123'
+                        })
+                    });
+
+                    if (signupResponse.ok) {
+                        const data = await signupResponse.json();
+                        authToken = data.token;
+                        showStatus('auth-status', '✅ New user created and authenticated!', 'success');
+                        await createSession();
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Signup failed');
+                }
+
+                showStatus('auth-status', '❌ All authentication methods failed. Please check server logs.', 'error');
+
+            } catch (error) {
+                showStatus('auth-status', `❌ Authentication error: ${error.message}`, 'error');
+            }
+        }
+
+        async function createSession() {
+            try {
+                let headers = { 'Content-Type': 'application/json' };
+
+                // Try with JWT token first
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                let response = await fetch(`${API_BASE}/chat/session`, {
+                    method: 'POST',
+                    headers: headers
+                });
+
+                // If JWT fails, try with temp auth (X-User-ID header)
+                if (!response.ok && authToken) {
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': 'test-user-123'
+                    };
+
+                    response = await fetch(`${API_BASE}/chat/session`, {
+                        method: 'POST',
+                        headers: headers
+                    });
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    sessionId = data.sessionId;
+                    showStatus('auth-status', '✅ Authentication & Session created!', 'success');
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`Session creation failed: ${errorData.message || response.statusText}`);
+                }
+            } catch (error) {
+                showStatus('auth-status', `❌ Session creation failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDeepSearchService() {
+            try {
+                showStatus('service-status', 'Testing DeepSearch service...', 'info');
+
+                let headers = { 'Content-Type': 'application/json' };
+
+                // Try with JWT token first
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                let response = await fetch(`${API_BASE}/chat/test-deep-search`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        query: 'What is artificial intelligence?'
+                    })
+                });
+
+                // If JWT fails, try with temp auth
+                if (!response.ok) {
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': 'test-user-123'
+                    };
+
+                    response = await fetch(`${API_BASE}/chat/test-deep-search`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({
+                            query: 'What is artificial intelligence?'
+                        })
+                    });
+                }
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showStatus('service-status', '✅ DeepSearch service is working!', 'success');
+                    showResults('service-results', data);
+                } else {
+                    showStatus('service-status', `❌ DeepSearch service failed: ${data.error || data.message}`, 'error');
+                    showResults('service-results', data);
+                }
+            } catch (error) {
+                showStatus('service-status', `❌ Service test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMessage(searchType) {
+            if (!authToken || !sessionId) {
+                showStatus('message-status', '❌ Please authenticate first', 'error');
+                return;
+            }
+
+            const query = document.getElementById('test-query').value || 'What is artificial intelligence?';
+            
+            try {
+                showStatus('message-status', `Testing ${searchType} message...`, 'info');
+                
+                const payload = {
+                    query: query,
+                    sessionId: sessionId,
+                    history: [],
+                    systemPrompt: 'You are a helpful AI assistant.'
+                };
+
+                if (searchType === 'DeepSearch') payload.deepSearch = true;
+                if (searchType === 'WebSearch') payload.webSearch = true;
+                
+                const response = await fetch(`${API_BASE}/chat/message`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus('message-status', `✅ ${searchType} message successful!`, 'success');
+                    showResults('message-results', {
+                        searchType: data.metadata?.searchType,
+                        sourcesCount: data.metadata?.sources?.length || 0,
+                        responseLength: data.response?.length || 0,
+                        response: data.response?.substring(0, 200) + '...'
+                    });
+                } else {
+                    showStatus('message-status', `❌ ${searchType} message failed: ${data.message}`, 'error');
+                    showResults('message-results', data);
+                }
+            } catch (error) {
+                showStatus('message-status', `❌ ${searchType} message error: ${error.message}`, 'error');
+            }
+        }
+
+        function testDeepSearchMessage() { testMessage('DeepSearch'); }
+        function testWebSearchMessage() { testMessage('WebSearch'); }
+        function testStandardMessage() { testMessage('Standard'); }
+
+        function openMainApp() {
+            window.open(CLIENT_BASE, '_blank');
+            showStatus('ui-status', '✅ Main chat application opened in new tab', 'success');
+        }
+
+        // Auto-run auth test on page load
+        window.onload = () => {
+            document.getElementById('test-query').value = 'What are the latest AI developments in 2024?';
+        };
+    </script>
+</body>
+</html>

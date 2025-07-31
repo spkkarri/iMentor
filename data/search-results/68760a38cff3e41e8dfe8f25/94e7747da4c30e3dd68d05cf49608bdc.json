@@ -1,0 +1,86 @@
+{
+  "summary": "Indian Railways is a vast and crucial transportation network in India, primarily focused on passenger and freight transport. The search results highlight several key aspects:\n\n*   **Ticket Booking:** Indian Railways offers online ticket booking services through platforms like IRCTC (Indian Railway Catering and Tourism Corporation) (Source: IRCTC Next Generation eTicketing System). Third-party platforms like RailYatri (Source: Train Ticket Booking Online | Confirmed Indian Railways Ticket - RailYatri) also facilitate online train ticket booking.\n*   **Information Access:** Passengers can access various information online, including PNR status, seat availability, fares, and train schedules (Source: Welcome to Indian Railway Passenger Reservation Enquiry).\n*   **Services:** Indian Railways provides passenger services for traveling across India to experience the country's diverse landscapes (Source: Train Ticket Booking Online | Confirmed Indian Railways Ticket - RailYatri). They also offer parcel and freight services (Source: Welcome to Indian Railway Passenger Reservation Enquiry).\n\n**Limitations and Uncertainties:**\n\n*   The search results don't provide detailed information about Indian Railways' infrastructure, history, organizational structure, or current challenges.\n*   The lack of description for the \"Indian Railway\" search result limits its usefulness.\n\n**In summary:** Indian Railways provides extensive train services throughout India, with online platforms for booking tickets, accessing travel information, and offering parcel/freight services. Passengers can book tickets through IRCTC and other third-party platforms.",
+  "sources": [
+    {
+      "title": "Book Bus Ticket Online - Get upto 15% off on Bus Ticket",
+      "url": ""
+    },
+    {
+      "title": "IRCTC Next Generation eTicketing System",
+      "url": ""
+    },
+    {
+      "title": "Welcome to Indian Railway Passenger Reservation Enquiry",
+      "url": ""
+    },
+    {
+      "title": "Train Ticket Booking Online | Confirmed Indian Railways Ticket - RailYatri",
+      "url": ""
+    },
+    {
+      "title": "Indian Railway",
+      "url": ""
+    }
+  ],
+  "aiGenerated": true,
+  "rawResults": [
+    {
+      "title": "Book Bus Ticket Online - Get upto 15% off on Bus Ticket",
+      "snippet": "AbhiBus is the trusted bus booking partner with 4000+ operators covering 3 lakh+ routes. Filter by new or old buses for best bus booking experience. Get 15% off* with ABHIFIRST.",
+      "url": "",
+      "raw": {
+        "title": "Book Bus Ticket Online - Get upto 15% off on Bus Ticket",
+        "snippet": "AbhiBus is the trusted bus booking partner with 4000+ operators covering 3 lakh+ routes. Filter by new or old buses for best bus booking experience. Get 15% off* with ABHIFIRST.",
+        "url": ""
+      },
+      "score": 28.7
+    },
+    {
+      "title": "IRCTC Next Generation eTicketing System",
+      "snippet": "IRCTC offers an advanced eTicketing system for booking train tickets, checking PNR status, and accessing travel information seamlessly.",
+      "url": "",
+      "raw": {
+        "title": "IRCTC Next Generation eTicketing System",
+        "snippet": "IRCTC offers an advanced eTicketing system for booking train tickets, checking PNR status, and accessing travel information seamlessly.",
+        "url": ""
+      },
+      "score": 21.3
+    },
+    {
+      "title": "Welcome to Indian Railway Passenger Reservation Enquiry",
+      "snippet": "Book train tickets, check PNR status, seat availability, fare and schedule online. Find out about train accidents, national anthem rendering and parcel freight services.",
+      "url": "",
+      "raw": {
+        "title": "Welcome to Indian Railway Passenger Reservation Enquiry",
+        "snippet": "Book train tickets, check PNR status, seat availability, fare and schedule online. Find out about train accidents, national anthem rendering and parcel freight services.",
+        "url": ""
+      },
+      "score": 27.900000000000002
+    },
+    {
+      "title": "Train Ticket Booking Online | Confirmed Indian Railways Ticket - RailYatri",
+      "snippet": "Experience Our Service... India has some of the most spectacular and unforgettable rail journeys in the world. Here you experience a simple way to find out everything you need to know in one easy place. There&#x27;s no better way to enjoy India&#x27;s outback, cities, coastal towns and regional areas in comfort.",
+      "url": "",
+      "raw": {
+        "title": "Train Ticket Booking Online | Confirmed Indian Railways Ticket - RailYatri",
+        "snippet": "Experience Our Service... India has some of the most spectacular and unforgettable rail journeys in the world. Here you experience a simple way to find out everything you need to know in one easy place. There&#x27;s no better way to enjoy India&#x27;s outback, cities, coastal towns and regional areas in comfort.",
+        "url": ""
+      },
+      "score": 46.1
+    },
+    {
+      "title": "Indian Railway",
+      "snippet": "No description available",
+      "url": "",
+      "raw": {
+        "title": "Indian Railway",
+        "snippet": "No description available",
+        "url": ""
+      },
+      "score": 5.200000000000001
+    }
+  ],
+  "query": "indian railways",
+  "timestamp": "2025-07-26T10:45:24.673Z",
+  "userId": "68760a38cff3e41e8dfe8f25"
+}

@@ -1,0 +1,95 @@
+{
+  "timestamp": 1753805187487,
+  "summary": {
+    "uptime": {
+      "milliseconds": 60188,
+      "hours": 0.016718888888888887,
+      "formatted": "1m 0s"
+    },
+    "requests": {
+      "total": 0,
+      "successful": 0,
+      "failed": 0,
+      "successRate": 0,
+      "averageResponseTime": 0,
+      "requestsPerHour": 0
+    },
+    "routing": {
+      "total": 0,
+      "successful": 0,
+      "fallback": 0,
+      "errors": 0,
+      "successRate": 0,
+      "averageRoutingTime": 0
+    },
+    "classification": {
+      "total": 0,
+      "accurate": 0,
+      "accuracy": 0,
+      "averageConfidence": 0
+    },
+    "models": [],
+    "system": {
+      "memoryUsage": 33.21446990966797,
+      "cpuUsage": 0,
+      "peakMemoryUsage": 33.210655212402344,
+      "requestsPerMinute": 0
+    }
+  },
+  "detailed": {
+    "system": {
+      "startTime": 1753805127300,
+      "totalRequests": 0,
+      "successfulRequests": 0,
+      "failedRequests": 0,
+      "averageResponseTime": 0,
+      "peakMemoryUsage": 34823896,
+      "peakCpuUsage": 0
+    },
+    "models": {},
+    "routing": {
+      "totalRoutes": 0,
+      "successfulRoutes": 0,
+      "fallbackRoutes": 0,
+      "routingErrors": 0,
+      "subjectDistribution": {},
+      "averageRoutingTime": 0
+    },
+    "classification": {
+      "totalClassifications": 0,
+      "accurateClassifications": 0,
+      "averageConfidence": 0,
+      "subjectAccuracy": {}
+    },
+    "performance": {
+      "responseTimeHistory": [],
+      "memoryUsageHistory": [
+        {
+          "timestamp": 1753805187486,
+          "heapUsed": 34823896,
+          "heapTotal": 36843520,
+          "external": 21367337,
+          "rss": 81965056
+        }
+      ],
+      "cpuUsageHistory": [
+        {
+          "timestamp": 1753805187486,
+          "user": 2718000,
+          "system": 1921000
+        }
+      ],
+      "errorRateHistory": []
+    },
+    "realtime": {
+      "currentRequests": 0,
+      "requestsPerMinute": 0,
+      "averageResponseTime": 0,
+      "errorRate": 0,
+      "memoryUsage": 33.21446990966797,
+      "cpuUsage": 0
+    },
+    "uptime": 60189,
+    "timestamp": 1753805187489
+  }
+}

@@ -3,11 +3,12 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env'
 
 const langchainVectorStore = require('./LangchainVectorStore');
 const DocumentProcessor = require('./documentProcessor');
-const GeminiAI = require('./geminiAI'); // Corrected import to use the consolidated service
+const { GeminiAI } = require('./geminiAI'); // Corrected import to use the consolidated service
+const GeminiService = require('./geminiService'); // Import the GeminiService class
 const DeepSearchService = require('../deep_search/services/deepSearchService');
 const EnhancedDeepSearchService = require('./enhancedDeepSearchService');
 const MultiModelService = require('./multiModelService');
-const DuckDuckGoService = require('../utils/duckduckgo');
+const DuckDuckGoService = require('./duckduckgo');
 const personalizationService = require('./personalizationService');
 const MetricsCollector = require('../monitoring/metricsCollector');
 
@@ -31,18 +32,13 @@ class ServiceManager {
 
     this.documentProcessor = new DocumentProcessor(this.vectorStore);
 
-    // MODIFICATION: Initialize the single GeminiAI service
-    // GeminiAI service is designed to be a singleton or handle its own initialization.
-    // It's likely `new GeminiAI()` should be called if it's a class, or it's directly exported as an instance.
-    // Assuming GeminiAI is a class that needs to be instantiated, then it initializes itself.
-    // If GeminiAI is directly an object (singleton), then just assign it.
-    // Based on `geminiAI.generateText(prompt)` call in HybridRagService, it suggests `geminiAI` is an instantiated object.
-    // If `GeminiAI` itself is a class that needs `initialize()` called, ensure that.
-    // For simplicity and assuming GeminiAI's constructor handles its own API key setup:
-    this.geminiAI = GeminiAI; // This implies GeminiAI is already an instance or a class with static methods
-    // If GeminiAI is a class that needs instantiation and initialization:
-    // this.geminiAI = new GeminiAI();
-    // await this.geminiAI.initialize(); // Assuming it has an initialize method
+    // Initialize the single GeminiAI service
+    // Instantiate and initialize the GeminiService
+    const geminiService = new GeminiService();
+    await geminiService.initialize();
+    
+    // Instantiate the GeminiAI class with the geminiService instance
+    this.geminiAI = new GeminiAI(geminiService);
 
     this.duckDuckGo = new DuckDuckGoService();
     this.personalizationService = personalizationService;
@@ -74,25 +70,59 @@ class ServiceManager {
 
   getDeepSearchService(userId) {
     if (!userId) {
+      console.error('[ServiceManager] userId is required for DeepSearchService');
       throw new Error('userId is required for DeepSearchService');
     }
 
-    // Use enhanced search service if available, otherwise fall back to standard
-    if (this.useEnhancedSearch && this.multiModelService) {
-      if (!this.enhancedDeepSearchServices.has(userId)) {
-        const enhancedService = new EnhancedDeepSearchService(userId, this.geminiAI, this.duckDuckGo);
-        this.enhancedDeepSearchServices.set(userId, enhancedService);
-        console.log(`Created Enhanced DeepSearchService for user: ${userId}`);
+    console.log(`[ServiceManager] Getting DeepSearchService for user: ${userId}`);
+    console.log(`[ServiceManager] Enhanced search enabled: ${this.useEnhancedSearch}`);
+    console.log(`[ServiceManager] MultiModel service available: ${!!this.multiModelService}`);
+
+    try {
+      // Use enhanced search service if available, otherwise fall back to standard
+      if (this.useEnhancedSearch && this.multiModelService) {
+        if (!this.enhancedDeepSearchServices.has(userId)) {
+          console.log(`[ServiceManager] Creating Enhanced DeepSearchService for user: ${userId}`);
+
+          if (!this.geminiAI) {
+            console.error('[ServiceManager] GeminiAI service not available');
+            throw new Error('GeminiAI service not initialized');
+          }
+
+          if (!this.duckDuckGo) {
+            console.error('[ServiceManager] DuckDuckGo service not available');
+            throw new Error('DuckDuckGo service not initialized');
+          }
+
+          const enhancedService = new EnhancedDeepSearchService(userId, this.geminiAI, this.duckDuckGo);
+          this.enhancedDeepSearchServices.set(userId, enhancedService);
+          console.log(`✅ Created Enhanced DeepSearchService for user: ${userId}`);
+        }
+        return this.enhancedDeepSearchServices.get(userId);
+      } else {
+        // Standard deep search service
+        if (!this.deepSearchServices.has(userId)) {
+          console.log(`[ServiceManager] Creating Standard DeepSearchService for user: ${userId}`);
+
+          if (!this.geminiAI) {
+            console.error('[ServiceManager] GeminiAI service not available');
+            throw new Error('GeminiAI service not initialized');
+          }
+
+          if (!this.duckDuckGo) {
+            console.error('[ServiceManager] DuckDuckGo service not available');
+            throw new Error('DuckDuckGo service not initialized');
+          }
+
+          const deepSearchService = new DeepSearchService(userId, this.geminiAI, this.duckDuckGo);
+          this.deepSearchServices.set(userId, deepSearchService);
+          console.log(`✅ Created Standard DeepSearchService for user: ${userId}`);
+        }
+        return this.deepSearchServices.get(userId);
       }
-      return this.enhancedDeepSearchServices.get(userId);
-    } else {
-      // Standard deep search service
-      if (!this.deepSearchServices.has(userId)) {
-        const deepSearchService = new DeepSearchService(userId, this.geminiAI, this.duckDuckGo);
-        this.deepSearchServices.set(userId, deepSearchService);
-        console.log(`Created DeepSearchService for user: ${userId}`);
-      }
-      return this.deepSearchServices.get(userId);
+    } catch (error) {
+      console.error(`[ServiceManager] Error creating DeepSearchService for user ${userId}:`, error);
+      throw error;
     }
   }
 

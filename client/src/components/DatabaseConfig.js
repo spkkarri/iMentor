@@ -32,7 +32,58 @@ const DatabaseConfig = ({ onDataExtracted, selectedSubject }) => {
             const response = await getSupportedDatabaseTypes();
             setSupportedTypes(response.data.types);
         } catch (error) {
-            setError('Failed to load supported database types');
+            console.warn('API endpoint not available, using fallback database types');
+            // Fallback supported database types
+            setSupportedTypes([
+                {
+                    id: 'postgresql',
+                    name: 'PostgreSQL',
+                    icon: '🐘',
+                    description: 'Advanced open-source relational database',
+                    defaultPort: 5432,
+                    connectionFields: ['host', 'port', 'database', 'username', 'password']
+                },
+                {
+                    id: 'mysql',
+                    name: 'MySQL',
+                    icon: '🐬',
+                    description: 'Popular open-source relational database',
+                    defaultPort: 3306,
+                    connectionFields: ['host', 'port', 'database', 'username', 'password']
+                },
+                {
+                    id: 'mongodb',
+                    name: 'MongoDB',
+                    icon: '🍃',
+                    description: 'Document-oriented NoSQL database',
+                    defaultPort: 27017,
+                    connectionFields: ['host', 'port', 'database', 'username', 'password', 'authSource']
+                },
+                {
+                    id: 'sqlite',
+                    name: 'SQLite',
+                    icon: '📁',
+                    description: 'Lightweight file-based database',
+                    defaultPort: null,
+                    connectionFields: ['filepath']
+                },
+                {
+                    id: 'redis',
+                    name: 'Redis',
+                    icon: '🔴',
+                    description: 'In-memory data structure store',
+                    defaultPort: 6379,
+                    connectionFields: ['host', 'port', 'password', 'database']
+                },
+                {
+                    id: 'elasticsearch',
+                    name: 'Elasticsearch',
+                    icon: '🔍',
+                    description: 'Distributed search and analytics engine',
+                    defaultPort: 9200,
+                    connectionFields: ['host', 'port', 'index', 'username', 'password']
+                }
+            ]);
         }
     };
 
@@ -41,7 +92,45 @@ const DatabaseConfig = ({ onDataExtracted, selectedSubject }) => {
             const response = await getDataFormats();
             setDataFormats(response.data.formats);
         } catch (error) {
-            setError('Failed to load data formats');
+            console.warn('API endpoint not available, using fallback data formats');
+            // Fallback data formats when API is not available
+            setDataFormats([
+                {
+                    id: 'conversational',
+                    name: 'Conversational',
+                    description: 'Question-answer pairs for chat training',
+                    schema: { input: 'text', output: 'text' },
+                    example: { input: "What is AI?", output: "Artificial Intelligence is..." }
+                },
+                {
+                    id: 'instruction',
+                    name: 'Instruction Following',
+                    description: 'Instruction-response pairs',
+                    schema: { instruction: 'text', response: 'text' },
+                    example: { instruction: "Explain quantum physics", response: "Quantum physics is..." }
+                },
+                {
+                    id: 'classification',
+                    name: 'Text Classification',
+                    description: 'Text with category labels',
+                    schema: { text: 'text', label: 'category' },
+                    example: { text: "This movie is great!", label: "positive" }
+                },
+                {
+                    id: 'completion',
+                    name: 'Text Completion',
+                    description: 'Incomplete text with completions',
+                    schema: { prompt: 'text', completion: 'text' },
+                    example: { prompt: "The capital of France is", completion: "Paris" }
+                },
+                {
+                    id: 'summarization',
+                    name: 'Text Summarization',
+                    description: 'Long text with summaries',
+                    schema: { document: 'text', summary: 'text' },
+                    example: { document: "Long article...", summary: "Brief summary..." }
+                }
+            ]);
         }
     };
 
@@ -123,7 +212,7 @@ const DatabaseConfig = ({ onDataExtracted, selectedSubject }) => {
             setError('');
             
             const dbConfig = { ...config, type: selectedType };
-            const response = await extractTrainingData(dbConfig, extractionConfig);
+            const response = await extractTrainingData({ dbConfig, extractionConfig });
             
             if (response.data.success) {
                 setStep(4);

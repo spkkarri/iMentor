@@ -1,3 +1,0 @@
-{"input":"How can I read a file in Python?","target":"You can use the open() function, e.g., with open('file.txt', 'r') as f:\n    content = f.read()","category":"general","difficulty":"intermediate","source":"user_upload"}
-{"input":"What is a dictionary in Python?","target":"A dictionary in Python is an unordered collection of key-value pairs, defined using curly braces, e.g., my_dict = {'key': 'value'}","category":"general","difficulty":"intermediate","source":"user_upload"}
-{"input":"mango","target":"fruit","category":"general","difficulty":"intermediate","source":"user_upload"}

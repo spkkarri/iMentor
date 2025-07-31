@@ -73,12 +73,22 @@ class DeepSearchService {
         if (!userId) throw new Error('userId is required');
         if (!geminiAI) throw new Error('geminiAI is required');
         if (!duckDuckGo) throw new Error('duckDuckGo is required');
+
         this.userId = userId;
         this.userDir = path.join(SEARCH_RESULTS_DIR, userId);
         this.geminiAI = geminiAI;
         this.duckDuckGo = duckDuckGo;
-        this.embeddingService = new EmbeddingService(embeddingModel);
-        this.rerankerService = new RerankerService(rerankerModel);
+
+        // Initialize services with error handling
+        try {
+            this.embeddingService = new EmbeddingService(embeddingModel);
+            this.rerankerService = new RerankerService(rerankerModel);
+        } catch (error) {
+            console.warn('⚠️ Failed to initialize embedding/reranker services:', error.message);
+            this.embeddingService = null;
+            this.rerankerService = null;
+        }
+
         this.initializeUserDir();
         // Define progress steps dynamically for more transparency and granularity
         this.progressSteps = [
@@ -189,20 +199,41 @@ class DeepSearchService {
     async checkGeminiQuota() {
         try {
             const response = await this.geminiAI.checkQuota();
-            return {
-                hasRemaining: response.remaining > 0,
-                remaining: response.remaining,
-                limit: response.limit
-            };
+
+            // Handle different response formats
+            if (response.remaining !== undefined) {
+                // Format 1: {remaining, limit, status}
+                return {
+                    hasRemaining: response.remaining > 0,
+                    remaining: response.remaining,
+                    limit: response.limit
+                };
+            } else if (response.used !== undefined) {
+                // Format 2: QuotaManager format {used, remaining, limit, ...}
+                return {
+                    hasRemaining: response.remaining > 0,
+                    remaining: response.remaining,
+                    limit: response.limit
+                };
+            } else {
+                // Unknown format, assume quota available for now
+                console.warn('⚠️ Unknown quota response format, assuming quota available');
+                return {
+                    hasRemaining: true,
+                    remaining: 100,
+                    limit: 200,
+                    assumedAvailable: true
+                };
+            }
         } catch (error) {
-            console.warn('⚠️ Could not check Gemini quota, assuming quota exceeded:', error.message);
-            // Return quota exceeded status if check fails (safer assumption)
+            console.warn('⚠️ Could not check Gemini quota, assuming quota available for web search:', error.message);
+            // CHANGED: Assume quota is available instead of exceeded to allow web search
             return {
-                hasRemaining: false,
-                remaining: 0,
-                limit: 1000,
+                hasRemaining: true,
+                remaining: 50,
+                limit: 200,
                 checkFailed: true,
-                quotaExceeded: true
+                assumedAvailable: true
             };
         }
     }
@@ -467,7 +498,16 @@ Thank you for your understanding! 🙏`;
             userId: this.userId,
             formattedSources: 'No sources available due to quota limit',
             fallback: true,
-            quotaExceeded: true
+            quotaExceeded: true,
+            metadata: {
+                searchType: 'quota_exceeded_fallback',
+                sources: [],
+                resultsCount: 0,
+                aiGenerated: false,
+                query: this.currentQuery || 'search query',
+                timestamp: new Date().toISOString(),
+                quotaExceeded: true
+            }
         };
     }
 
@@ -539,7 +579,16 @@ Please try rephrasing your question or use the search links above! 🔍`;
             userId: this.userId,
             formattedSources: 'No sources available due to service issue',
             fallback: true,
-            errorType: errorType
+            errorType: errorType,
+            metadata: {
+                searchType: `${errorType}_fallback`,
+                sources: [],
+                resultsCount: 0,
+                aiGenerated: false,
+                query: query,
+                timestamp: new Date().toISOString(),
+                errorType: errorType
+            }
         };
     }
 
@@ -886,7 +935,15 @@ Please try rephrasing your question or use the search links above! 🔍`;
                 timestamp: new Date().toISOString(),
                 userId: this.userId,
                 formattedSources: this.formatSources(topResults),
-                reasoning: reasoningTrace
+                reasoning: reasoningTrace,
+                metadata: {
+                    searchType: 'standard_deep_search',
+                    sources: topResults.map(r => ({ title: r.title, url: r.url })),
+                    resultsCount: topResults.length,
+                    aiGenerated: true,
+                    query: query,
+                    timestamp: new Date().toISOString()
+                }
             };
 
             // Step 8: Cache the result

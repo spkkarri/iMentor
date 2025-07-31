@@ -7,7 +7,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
-import { FaPlus, FaMicrophone, FaEdit, FaSave, FaTimes, FaCopy, FaStop, FaPaperPlane } from 'react-icons/fa';
+import { FaMicrophone, FaSave, FaCopy, FaStop, FaPaperPlane } from 'react-icons/fa';
 
 import SystemPromptWidget, { getPromptTextById } from './SystemPromptWidget';
 import FileUploadWidget from './FileUploadWidget';
@@ -49,11 +49,21 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [editableSystemPromptText, setEditableSystemPromptText] = useState(() => getPromptTextById('friendly'));
     const [files, setFiles] = useState([]);
     const [fileError, setFileError] = useState('');
-    const [isRagEnabled, setIsRagEnabled] = useState(false); // Kept for potential future use
-    const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false); // Added from 'main'
+    // const [isRagEnabled, setIsRagEnabled] = useState(false); // Kept for potential future use
+    const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(() => {
+        // Persist DeepSearch state in localStorage
+        const saved = localStorage.getItem('deepSearchEnabled');
+        return saved !== null ? JSON.parse(saved) : false;
+    }); // Added from 'main'
+    const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(() => {
+        // Persist WebSearch state in localStorage
+        const saved = localStorage.getItem('webSearchEnabled');
+        return saved !== null ? JSON.parse(saved) : false;
+    });
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [currentlySpeakingIndex, setCurrentlySpeakingIndex] = useState(null);
     const [editingMessage, setEditingMessage] = useState(null);
+    const [deepSearchStatus, setDeepSearchStatus] = useState('unknown'); // 'available', 'quota_exceeded', 'unavailable', 'unknown'
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
@@ -61,6 +71,90 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const isProcessing = Object.values(loadingStates).some(Boolean);
 
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+    // Persist DeepSearch state to localStorage
+    useEffect(() => {
+        localStorage.setItem('deepSearchEnabled', JSON.stringify(isDeepSearchEnabled));
+    }, [isDeepSearchEnabled]);
+
+    // Persist WebSearch state to localStorage
+    useEffect(() => {
+        localStorage.setItem('webSearchEnabled', JSON.stringify(isWebSearchEnabled));
+    }, [isWebSearchEnabled]);
+
+    // Ensure only one search mode is active at a time
+    const handleDeepSearchToggle = useCallback(() => {
+        if (!isDeepSearchEnabled && isWebSearchEnabled) {
+            setIsWebSearchEnabled(false); // Disable WebSearch when enabling DeepSearch
+        }
+        setIsDeepSearchEnabled(v => !v);
+    }, [isDeepSearchEnabled, isWebSearchEnabled]);
+
+    const handleWebSearchToggle = useCallback(() => {
+        if (!isWebSearchEnabled && isDeepSearchEnabled) {
+            setIsDeepSearchEnabled(false); // Disable DeepSearch when enabling WebSearch
+        }
+        setIsWebSearchEnabled(v => !v);
+    }, [isWebSearchEnabled, isDeepSearchEnabled]);
+
+    // Function to check DeepSearch service status (currently unused - using response-based status tracking)
+    // const checkDeepSearchStatus = useCallback(async () => {
+    //     try {
+    //         // Make a lightweight test request to check service availability
+    //         const testPayload = {
+    //             query: "test",
+    //             history: [],
+    //             sessionId: sessionId || 'test',
+    //             systemPrompt: "Test",
+    //             deepSearch: true
+    //         };
+    //
+    //         const response = await apiSendMessage(testPayload);
+    //         const metadata = response.data.metadata;
+    //
+    //         if (metadata) {
+    //             if (metadata.searchType === 'quota_exceeded_fallback') {
+    //                 setDeepSearchStatus('quota_exceeded');
+    //             } else if (metadata.searchType === 'offline_deep_search') {
+    //                 setDeepSearchStatus('limited');
+    //             } else if (metadata.searchType === 'standard_deep_search' || metadata.searchType === 'enhanced_deep_search') {
+    //                 setDeepSearchStatus('available');
+    //             } else {
+    //                 setDeepSearchStatus('unavailable');
+    //             }
+    //         } else {
+    //             setDeepSearchStatus('unavailable');
+    //         }
+    //     } catch (error) {
+    //         console.log('DeepSearch status check failed:', error.message);
+    //         setDeepSearchStatus('unavailable');
+    //     }
+    // }, [sessionId]);
+
+    // Check DeepSearch status periodically when enabled
+    useEffect(() => {
+        if (isDeepSearchEnabled && sessionId) {
+            // Don't run the actual test - just set status based on previous responses
+            // This prevents unnecessary API calls
+            const lastMessage = messages[messages.length - 1];
+            if (lastMessage && lastMessage.metadata) {
+                const metadata = lastMessage.metadata;
+                if (metadata.searchType === 'quota_exceeded_fallback') {
+                    setDeepSearchStatus('quota_exceeded');
+                } else if (metadata.searchType === 'offline_deep_search') {
+                    setDeepSearchStatus('limited');
+                } else if (metadata.searchType === 'standard_deep_search' || metadata.searchType === 'enhanced_deep_search') {
+                    setDeepSearchStatus('available');
+                } else {
+                    setDeepSearchStatus('unknown');
+                }
+            } else {
+                setDeepSearchStatus('unknown');
+            }
+        } else {
+            setDeepSearchStatus('unknown');
+        }
+    }, [isDeepSearchEnabled, messages, sessionId]);
 
     const saveAndReset = useCallback(async (isLoggingOut = false, onCompleteCallback = null) => {
         const currentSessionId = localStorage.getItem('sessionId');
@@ -167,24 +261,74 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setLoadingStates(prev => ({ ...prev, chat: true }));
 
         try {
-            const payload = { 
-                query: trimmedInput, 
-                history: [...messages, newUserMessage], 
-                sessionId, 
+            const payload = {
+                query: trimmedInput,
+                history: [...messages, newUserMessage],
+                sessionId,
                 systemPrompt: editableSystemPromptText,
-                deepSearch: isDeepSearchEnabled // Pass deep search flag to API
+                deepSearch: isDeepSearchEnabled, // Pass deep search flag to API
+                webSearch: isWebSearchEnabled   // Pass web search flag to API
             };
+
+            // Add debugging for search modes
+            if (isDeepSearchEnabled) {
+                console.log('🔍 DeepSearch enabled for query:', trimmedInput);
+            } else if (isWebSearchEnabled) {
+                console.log('🌐 WebSearch enabled for query:', trimmedInput);
+            }
+
             const response = await apiSendMessage(payload);
+
+            // Check if search was actually used and provide feedback
+            const metadata = response.data.metadata;
+            let responseText = response.data.response;
+
+            if (isDeepSearchEnabled && metadata) {
+                console.log('🔍 DeepSearch metadata:', metadata);
+
+                // Add status indicator to response if DeepSearch had issues
+                if (metadata.searchType === 'quota_exceeded_fallback') {
+                    responseText = `⚠️ **DeepSearch quota exceeded** - Using fallback response.\n\n${responseText}`;
+                } else if (metadata.searchType === 'offline_deep_search') {
+                    responseText = `🔄 **DeepSearch offline mode** - Limited web access.\n\n${responseText}`;
+                } else if (metadata.searchType === 'standard_deep_search') {
+                    responseText = `✅ **DeepSearch active** - Enhanced with web research.\n\n${responseText}`;
+                }
+            } else if (isWebSearchEnabled && metadata) {
+                console.log('🌐 WebSearch metadata:', metadata);
+                responseText = `🌐 **WebSearch active** - Enhanced with web results.\n\n${responseText}`;
+            } else if ((isDeepSearchEnabled || isWebSearchEnabled) && !metadata) {
+                const searchType = isDeepSearchEnabled ? 'DeepSearch' : 'WebSearch';
+                console.warn(`${searchType} was enabled but no metadata returned - may have fallen back to standard chat`);
+                responseText = `⚠️ **${searchType} unavailable** - Using standard chat mode.\n\n${responseText}`;
+            }
+
             const assistantMessage = {
                 id: uuidv4(),
                 role: 'assistant',
-                parts: [{ text: response.data.response }],
+                parts: [{ text: responseText }],
                 followUpQuestions: response.data.followUpQuestions || [],
-                timestamp: new Date()
+                timestamp: new Date(),
+                metadata: metadata
             };
             setMessages(prev => [...prev, assistantMessage]);
         } catch (err) {
-            setError(err.response?.data?.error || 'Chat error.');
+            console.error('Chat error:', err);
+
+            // Enhanced error handling for search modes
+            let errorMessage = err.response?.data?.error || err.response?.data?.message || 'Chat error.';
+
+            if (isDeepSearchEnabled && err.response?.status === 404) {
+                errorMessage = 'DeepSearch found no relevant results. Try rephrasing your question or disable DeepSearch for a general response.';
+            } else if (isDeepSearchEnabled && err.response?.status === 500) {
+                errorMessage = 'DeepSearch service encountered an error. The service may be temporarily unavailable.';
+            } else if (isWebSearchEnabled && err.response?.status === 404) {
+                errorMessage = 'WebSearch found no relevant results. Try rephrasing your question or disable WebSearch for a general response.';
+            } else if (isWebSearchEnabled && err.response?.status === 500) {
+                errorMessage = 'WebSearch service encountered an error. The service may be temporarily unavailable.';
+            }
+
+            setError(errorMessage);
             setMessages(prev => prev.slice(0, -1));
             if (err.response?.status === 401) handleLogout(true);
         } finally {
@@ -192,6 +336,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
         }
     }, [inputText, isProcessing, loadingStates, messages, sessionId, editableSystemPromptText, isDeepSearchEnabled, handleLogout]);
 
+    // Message editing functionality (currently unused in UI)
+    /*
     const handleSaveEdit = useCallback(async () => {
         if (!editingMessage) return;
         const messageIndex = messages.findIndex(m => m.id === editingMessage.id);
@@ -204,28 +350,68 @@ const ChatPage = ({ setIsAuthenticated }) => {
         setLoadingStates(prev => ({ ...prev, chat: true }));
 
         try {
-             const payload = { 
-                query: editingMessage.text, 
-                history: [...historyBeforeEdit, updatedUserMessage], 
-                sessionId, 
+             const payload = {
+                query: editingMessage.text,
+                history: [...historyBeforeEdit, updatedUserMessage],
+                sessionId,
                 systemPrompt: editableSystemPromptText,
                 deepSearch: isDeepSearchEnabled // Pass deep search flag to API
             };
+
+            // Add debugging for DeepSearch
+            if (isDeepSearchEnabled) {
+                console.log('🔍 DeepSearch enabled for edited query:', editingMessage.text);
+            }
+
             const response = await apiSendMessage(payload);
+
+            // Check if DeepSearch was actually used and provide feedback
+            const metadata = response.data.metadata;
+            let responseText = response.data.response;
+
+            if (isDeepSearchEnabled && metadata) {
+                console.log('🔍 DeepSearch metadata:', metadata);
+
+                // Add status indicator to response if DeepSearch had issues
+                if (metadata.searchType === 'quota_exceeded_fallback') {
+                    responseText = `⚠️ **DeepSearch quota exceeded** - Using fallback response.\n\n${responseText}`;
+                } else if (metadata.searchType === 'offline_deep_search') {
+                    responseText = `🔄 **DeepSearch offline mode** - Limited web access.\n\n${responseText}`;
+                } else if (metadata.searchType === 'standard_deep_search') {
+                    responseText = `✅ **DeepSearch active** - Enhanced with web research.\n\n${responseText}`;
+                }
+            } else if (isDeepSearchEnabled && !metadata) {
+                console.warn('🔍 DeepSearch was enabled but no metadata returned - may have fallen back to standard chat');
+                responseText = `⚠️ **DeepSearch unavailable** - Using standard chat mode.\n\n${responseText}`;
+            }
+
             const assistantMessage = {
                 id: uuidv4(),
                 role: 'assistant',
-                parts: [{ text: response.data.response }],
+                parts: [{ text: responseText }],
                 followUpQuestions: response.data.followUpQuestions || [],
-                timestamp: new Date()
+                timestamp: new Date(),
+                metadata: metadata
             };
             setMessages(prev => [...prev, assistantMessage]);
         } catch (err) {
-            setError(err.response?.data?.error || 'Chat error.');
+            console.error('Chat error during edit:', err);
+
+            // Enhanced error handling for DeepSearch
+            let errorMessage = err.response?.data?.error || err.response?.data?.message || 'Chat error.';
+
+            if (isDeepSearchEnabled && err.response?.status === 404) {
+                errorMessage = 'DeepSearch found no relevant results. Try rephrasing your question or disable DeepSearch for a general response.';
+            } else if (isDeepSearchEnabled && err.response?.status === 500) {
+                errorMessage = 'DeepSearch service encountered an error. The service may be temporarily unavailable.';
+            }
+
+            setError(errorMessage);
         } finally {
             setLoadingStates(prev => ({ ...prev, chat: false }));
         }
     }, [editingMessage, messages, sessionId, editableSystemPromptText, isDeepSearchEnabled]);
+    */
 
     const handleStartMicButtonClick = useCallback(() => { if (recognitionRef.current && !loadingStates.listening) recognitionRef.current.start(); }, [loadingStates.listening]);
     const handleStopMicButtonClick = useCallback(() => { if (recognitionRef.current && loadingStates.listening) recognitionRef.current.stop(); }, [loadingStates.listening]);
@@ -334,6 +520,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     <h1>Engineering Tutor</h1>
                     <div className="header-controls">
                         <span className="username-display">Hi, {username}!</span>
+                        <button onClick={() => navigate('/training')} className="header-button training-button" disabled={isProcessing} title="LLM Training Dashboard">
+                            🧠 Training
+                        </button>
                         <button onClick={() => setShowHistoryModal(true)} className="header-button" disabled={isProcessing}>History</button>
                         <button onClick={handleNewChat} className="header-button" disabled={isProcessing}>New Chat</button>
                         <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
@@ -389,7 +578,43 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 </div>
                 <div className="modern-input-bar">
                     <div className="input-bar-left">
-                        <button type="button" className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''}`} title="Deep Research" onClick={() => setIsDeepSearchEnabled(v => !v)} disabled={isProcessing}>DS</button>
+                        <button
+                            type="button"
+                            className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''} ${deepSearchStatus !== 'available' && isDeepSearchEnabled ? 'warning' : ''}`}
+                            title={
+                                isDeepSearchEnabled
+                                    ? `Deep Research: ON ${
+                                        deepSearchStatus === 'quota_exceeded' ? '(Quota Exceeded - Using Fallback)' :
+                                        deepSearchStatus === 'limited' ? '(Limited Mode - Offline Search)' :
+                                        deepSearchStatus === 'unavailable' ? '(Service Unavailable)' :
+                                        deepSearchStatus === 'available' ? '(Fully Operational)' :
+                                        '(Status Unknown)'
+                                    } - Click to disable`
+                                    : "Deep Research: OFF - Click to enable AI-enhanced web research"
+                            }
+                            onClick={handleDeepSearchToggle}
+                            disabled={isProcessing}
+                        >
+                            {isDeepSearchEnabled ? (
+                                deepSearchStatus === 'quota_exceeded' ? '⚠️' :
+                                deepSearchStatus === 'limited' ? '🔄' :
+                                deepSearchStatus === 'unavailable' ? '❌' :
+                                deepSearchStatus === 'available' ? '🔍' : '🔍'
+                            ) : 'DS'}
+                        </button>
+                        <button
+                            type="button"
+                            className={`input-action-btn${isWebSearchEnabled ? ' active' : ''}`}
+                            title={
+                                isWebSearchEnabled
+                                    ? "Web Search: ON - Simple web search enabled - Click to disable"
+                                    : "Web Search: OFF - Click to enable simple web search"
+                            }
+                            onClick={handleWebSearchToggle}
+                            disabled={isProcessing}
+                        >
+                            {isWebSearchEnabled ? '🌐' : 'WS'}
+                        </button>
                     </div>
                     <input type="text" value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleEnterKey} placeholder="Ask your AI tutor anything..." className="modern-input" disabled={isProcessing} />
                     <div className="input-bar-right">
@@ -404,6 +629,20 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     </div>
                 </div>
                 {error && <p className="error-message">{error}</p>}
+
+                {/* Search status notifications */}
+                {isDeepSearchEnabled && deepSearchStatus !== 'unknown' && deepSearchStatus !== 'available' && (
+                    <div className={`status-notification ${deepSearchStatus}`}>
+                        {deepSearchStatus === 'quota_exceeded' && '⚠️ DeepSearch quota exceeded - using fallback responses'}
+                        {deepSearchStatus === 'limited' && '🔄 DeepSearch in limited mode - offline search only'}
+                        {deepSearchStatus === 'unavailable' && '❌ DeepSearch service temporarily unavailable'}
+                    </div>
+                )}
+                {isWebSearchEnabled && (
+                    <div className="status-notification available">
+                        🌐 WebSearch active - Simple web search enabled
+                    </div>
+                )}
             </div>
             {showHistoryModal && <HistoryModal isOpen={showHistoryModal} onClose={() => setShowHistoryModal(false)} onLoadSession={handleLoadSession} />}
         </div>

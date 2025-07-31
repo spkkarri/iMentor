@@ -196,3 +196,292 @@
         flex-direction: column;
     }
 }
+
+/* Domain Management Styles */
+.domain-management {
+    background: var(--bg-color);
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.current-domains {
+    margin-bottom: 12px;
+}
+
+.domain-label {
+    font-weight: 600;
+    color: var(--primary-text-color);
+    margin-bottom: 8px;
+    display: block;
+    font-size: 0.9rem;
+}
+
+.domain-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.domain-tag {
+    background: var(--surface-color);
+    color: var(--secondary-text-color);
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+}
+
+.domain-tag.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.add-domain-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background-color 0.2s ease;
+}
+
+.add-domain-btn:hover {
+    background: #218838;
+}
+
+.custom-domain-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.custom-domain-input input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.875rem;
+    background: var(--surface-color);
+    color: var(--primary-text-color);
+}
+
+.custom-domain-input button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background-color 0.2s ease;
+}
+
+.custom-domain-input button:first-of-type {
+    background: var(--primary-color);
+    color: white;
+}
+
+.custom-domain-input button:last-of-type {
+    background: #6c757d;
+    color: white;
+}
+
+/* Supported Formats Styles */
+.supported-formats {
+    background: var(--bg-color);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.supported-formats h4 {
+    margin: 0 0 16px 0;
+    color: var(--primary-text-color);
+    font-size: 1.1rem;
+}
+
+.format-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.format-item {
+    background: var(--surface-color);
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    transition: transform 0.2s ease;
+}
+
+.format-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.format-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.format-name {
+    font-weight: 600;
+    color: var(--primary-text-color);
+}
+
+.format-extensions {
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+    background: var(--bg-color);
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.format-method {
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+    margin-bottom: 4px;
+}
+
+.format-description {
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+    line-height: 1.4;
+}
+
+/* Enhanced Text Editor Styles */
+.text-input-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.text-input-header p {
+    margin: 0;
+    font-weight: 600;
+    color: var(--primary-text-color);
+}
+
+.text-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.format-selector {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--surface-color);
+    color: var(--primary-text-color);
+    font-size: 0.875rem;
+}
+
+.clear-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background-color 0.2s ease;
+}
+
+.clear-btn:hover {
+    background: #c82333;
+}
+
+.text-editor-container {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.training-text-editor {
+    width: 100%;
+    min-height: 300px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--surface-color);
+    color: var(--primary-text-color);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 0.2s ease;
+}
+
+.training-text-editor:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.training-text-editor::placeholder {
+    color: var(--secondary-text-color);
+    opacity: 0.7;
+}
+
+.text-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: var(--secondary-text-color);
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg-color);
+    border-radius: 4px;
+}
+
+.text-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.text-actions button {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.upload-btn.primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.upload-btn.primary:hover {
+    background: #0056b3;
+}
+
+.format-btn {
+    background: #17a2b8;
+    color: white;
+}
+
+.format-btn:hover {
+    background: #138496;
+}
+
+.validate-btn {
+    background: #ffc107;
+    color: #212529;
+}
+
+.validate-btn:hover {
+    background: #e0a800;
+}

@@ -4,8 +4,8 @@ import {
     getTrainingModels,
     getTrainingStatus,
     getTrainingProgress,
-    startTraining as startTrainingAPI,
-    stopTraining as stopTrainingAPI
+    startTrainingAPI,
+    stopTrainingAPI
 } from '../services/api';
 import DataManager from './DataManager';
 import AdvancedTrainingConfig from './AdvancedTrainingConfig';
@@ -139,7 +139,7 @@ const TrainingDashboard = () => {
     const startTraining = async () => {
         try {
             setTrainingStatus('starting');
-            const response = await startTrainingAPI(selectedSubject, trainingConfig);
+            const response = await startTrainingAPI({ subject: selectedSubject, config: trainingConfig });
 
             if (response.data.success) {
                 setTrainingStatus('training');
@@ -172,6 +172,8 @@ const TrainingDashboard = () => {
     const pollTrainingProgress = () => {
         const interval = setInterval(async () => {
             try {
+                // We might need to pass a training ID here, but for now we'll call it without parameters
+                // This might need to be updated based on how the backend API works
                 const response = await getTrainingProgress();
                 const data = response.data;
 

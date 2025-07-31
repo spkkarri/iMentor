@@ -391,10 +391,20 @@ class EnhancedDeepSearchService extends DeepSearchService {
         try {
             const result = await super.performSearch(query, history);
 
+            // Ensure metadata exists and is properly structured
+            const metadata = result.metadata || {
+                searchType: 'standard_deep_search',
+                sources: result.sources || [],
+                resultsCount: result.sources ? result.sources.length : 0,
+                aiGenerated: result.aiGenerated || true,
+                query: result.query,
+                timestamp: result.timestamp || new Date().toISOString()
+            };
+
             return {
                 ...result,
                 metadata: {
-                    ...result.metadata,
+                    ...metadata,
                     searchType: 'standard_deep_search',
                     multi_model_available: this.multiModelInitialized
                 }

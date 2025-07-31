@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple DeepSearch Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .test-box { background: #f0f8ff; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        button { background: #4CAF50; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; margin: 10px 5px; }
+        button:hover { background: #45a049; }
+        .result { background: #f9f9f9; padding: 15px; border-radius: 4px; margin: 10px 0; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        .success { color: #155724; background: #d4edda; }
+        .error { color: #721c24; background: #f8d7da; }
+        input { width: 70%; padding: 8px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Simple DeepSearch Test</h1>
+    
+    <div class="test-box">
+        <h3>Test DeepSearch Service</h3>
+        <input type="text" id="query" placeholder="Enter your question..." value="What is artificial intelligence?">
+        <br>
+        <button onclick="testDeepSearch()">🔍 Test DeepSearch</button>
+        <button onclick="testWebSearch()">🌐 Test WebSearch</button>
+        <button onclick="testStandard()">💬 Test Standard</button>
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-box">
+        <h3>Direct Service Test</h3>
+        <button onclick="testService()">🧪 Test Service Directly</button>
+        <div id="service-result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5007/api';
+
+        function showResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${isError ? 'error' : 'success'}`;
+            element.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        }
+
+        async function testDeepSearch() {
+            const query = document.getElementById('query').value;
+            try {
+                const response = await fetch(`${API_BASE}/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': 'test-user-123'  // Using temp auth
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        sessionId: 'test-session-' + Date.now(),
+                        history: [],
+                        systemPrompt: 'You are a helpful AI assistant.',
+                        deepSearch: true
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('result', {
+                        status: '✅ DeepSearch Success',
+                        searchType: data.metadata?.searchType,
+                        responseLength: data.response?.length,
+                        sources: data.metadata?.sources?.length || 0,
+                        response: data.response?.substring(0, 200) + '...'
+                    });
+                } else {
+                    showResult('result', `❌ Error: ${data.message || data.error}`, true);
+                }
+            } catch (error) {
+                showResult('result', `❌ Network Error: ${error.message}`, true);
+            }
+        }
+
+        async function testWebSearch() {
+            const query = document.getElementById('query').value;
+            try {
+                const response = await fetch(`${API_BASE}/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': 'test-user-123'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        sessionId: 'test-session-' + Date.now(),
+                        history: [],
+                        systemPrompt: 'You are a helpful AI assistant.',
+                        webSearch: true
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('result', {
+                        status: '✅ WebSearch Success',
+                        searchType: data.metadata?.searchType,
+                        responseLength: data.response?.length,
+                        sources: data.metadata?.sources?.length || 0,
+                        response: data.response?.substring(0, 200) + '...'
+                    });
+                } else {
+                    showResult('result', `❌ Error: ${data.message || data.error}`, true);
+                }
+            } catch (error) {
+                showResult('result', `❌ Network Error: ${error.message}`, true);
+            }
+        }
+
+        async function testStandard() {
+            const query = document.getElementById('query').value;
+            try {
+                const response = await fetch(`${API_BASE}/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': 'test-user-123'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        sessionId: 'test-session-' + Date.now(),
+                        history: [],
+                        systemPrompt: 'You are a helpful AI assistant.'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('result', {
+                        status: '✅ Standard Chat Success',
+                        responseLength: data.response?.length,
+                        response: data.response?.substring(0, 200) + '...'
+                    });
+                } else {
+                    showResult('result', `❌ Error: ${data.message || data.error}`, true);
+                }
+            } catch (error) {
+                showResult('result', `❌ Network Error: ${error.message}`, true);
+            }
+        }
+
+        async function testService() {
+            try {
+                const response = await fetch(`${API_BASE}/chat/test-deep-search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': 'test-user-123'
+                    },
+                    body: JSON.stringify({
+                        query: 'What is artificial intelligence?'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('service-result', {
+                        status: '✅ Service Test Success',
+                        step: data.step,
+                        searchType: data.metadata?.searchType,
+                        hasResults: !!data.results
+                    });
+                } else {
+                    showResult('service-result', `❌ Service Error: ${data.error}`, true);
+                }
+            } catch (error) {
+                showResult('service-result', `❌ Network Error: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>

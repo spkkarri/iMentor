@@ -34,4 +34,7 @@ const SystemPromptWidget = ({ selectedPromptId, promptText, onSelectChange, onTe
     );
 };
 
+// Export the getPromptTextById function
+export { getPromptTextById } from '../../utils/prompts';
+
 export default SystemPromptWidget;

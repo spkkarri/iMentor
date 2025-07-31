@@ -1,10 +1,10 @@
 {
-  "timestamp": 1753903787570,
+  "timestamp": 1753903907576,
   "summary": {
     "uptime": {
-      "milliseconds": 1020307,
-      "hours": 0.2834186111111111,
-      "formatted": "17m 0s"
+      "milliseconds": 1140313,
+      "hours": 0.3167536111111111,
+      "formatted": "19m 0s"
     },
     "requests": {
       "total": 0,
@@ -30,7 +30,7 @@
     },
     "models": [],
     "system": {
-      "memoryUsage": 42.588523864746094,
+      "memoryUsage": 43.24047088623047,
       "cpuUsage": 0,
       "peakMemoryUsage": 43.24396514892578,
       "requestsPerMinute": 0
@@ -182,6 +182,20 @@
           "heapTotal": 48078848,
           "external": 21404883,
           "rss": 12308480
+        },
+        {
+          "timestamp": 1753903847570,
+          "heapUsed": 44999840,
+          "heapTotal": 48078848,
+          "external": 21424087,
+          "rss": 15683584
+        },
+        {
+          "timestamp": 1753903907575,
+          "heapUsed": 45338280,
+          "heapTotal": 48078848,
+          "external": 21435396,
+          "rss": 9879552
         }
       ],
       "cpuUsageHistory": [
@@ -269,6 +283,16 @@
           "timestamp": 1753903787569,
           "user": 5515000,
           "system": 3859000
+        },
+        {
+          "timestamp": 1753903847570,
+          "user": 5546000,
+          "system": 3906000
+        },
+        {
+          "timestamp": 1753903907575,
+          "user": 5546000,
+          "system": 3937000
         }
       ],
       "errorRateHistory": []
@@ -278,10 +302,10 @@
       "requestsPerMinute": 0,
       "averageResponseTime": 0,
       "errorRate": 0,
-      "memoryUsage": 42.588523864746094,
+      "memoryUsage": 43.24047088623047,
       "cpuUsage": 0
     },
-    "uptime": 1020308,
-    "timestamp": 1753903787571
+    "uptime": 1140313,
+    "timestamp": 1753903907576
   }
 }

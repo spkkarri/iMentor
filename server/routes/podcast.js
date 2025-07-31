@@ -9,6 +9,11 @@ const { generatePodcastAudio } = require('../services/podcastGenerator');
 const path = require('path');
 const fs = require('fs');
 
+// In-memory podcast script (replace with DB for production)
+let podcastScript = [
+    // Initial segments...
+];
+
 // @route   POST /api/podcast/generate
 // @desc    Generate a podcast from a file
 // @access  Private
@@ -91,6 +96,39 @@ router.post('/generate', tempAuth, async (req, res) => {
         console.error('Error generating podcast:', error);
         res.status(500).json({ message: 'Failed to generate podcast.', error: error.message });
     }
+});
+
+// @route   POST /api/podcast/ask
+// @desc    Ask a question and get a podcast-style answer
+// @access  Public
+router.post('/ask', async (req, res) => {
+    const { question } = req.body;
+    if (!question) return res.status(400).json({ error: 'Question required' });
+
+    // Generate answer (replace with Gemini/OpenAI integration)
+    const answerSegment = {
+        speaker: 'Host A',
+        text: `Great question! Here's what I think: ${question}`,
+        duration: 15,
+        focus: 'User Q&A'
+    };
+
+    // Append user question and host answer to the script
+    podcastScript.push({
+        speaker: 'User',
+        text: question,
+        duration: 10,
+        focus: 'User Question'
+    });
+    podcastScript.push(answerSegment);
+
+    // Regenerate podcast audio
+    const audioUrl = await generatePodcastAudio(podcastScript, 'interactive_podcast');
+
+    res.json({
+        transcript: podcastScript,
+        audioUrl
+    });
 });
 
 module.exports = router;

@@ -59,6 +59,8 @@ export const getUserFiles = () => api.get('/files');
 export const deleteUserFile = (fileId) => api.delete(`/files/${fileId}`);
 export const generatePodcast = (fileId) => api.post('/podcast/generate', { fileId });
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
+export const generatePPT = (topic) => api.post('/files/generate-ppt', { topic }, { responseType: 'blob' });
+export const generateReport = (topic) => api.post('/files/generate-report', { topic }, { responseType: 'blob' });
 export const performDeepSearch = (query, history = []) => api.post('/chat/deep-search', { query, history });
 export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${fileId}`, { newOriginalName });
 export const getFileOverview = (fileId) => api.post('/files/overview', { fileId });

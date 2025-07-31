@@ -859,44 +859,27 @@ Please try rephrasing your question or use the search links above! 🔍`;
             }
 
 
+            // Step 6: Generate AI synthesis
+            this.updateProgress(7, 'Generating AI synthesis...');
 
-            // Step 6: Generate initial AI synthesis
-            this.updateProgress(7);
-            // --- Reasoning/chain-of-thought steps ---
-            reasoningTrace.push('Synthesizing context from top reranked results.');
-            this.updateProgress(8, 'Chain-of-thought step 1: synthesizing context from top results');
-            reasoningTrace.push('Prepared answer prompt for LLM synthesis.');
-            this.updateProgress(9, 'Chain-of-thought step 2: preparing answer prompt');
-            reasoningTrace.push('Validated and formatted sources for answer.');
-            this.updateProgress(10, 'Iterative refinement: validating and formatting sources');
-            reasoningTrace.push('Final answer assembly.');
-            this.updateProgress(11, 'Final answer assembly.');
-            const context = topResults.map(result => 
-                `Title: ${result.title}\nURL: ${result.url}\nSnippet: ${result.snippet || result.chunkText}`
-            ).join('\n\n');
 
-            const synthesisPrompt = `Based on the following search results, provide a comprehensive and accurate answer to the query: "${query}"
+            // Extract subtopics from top results titles (limit to 3 for brevity)
+            const subtopics = topResults.slice(0, 3).map(r => r.title);
 
-Search Results:
-${context}
+            let combinedReport = `Comprehensive report on "${query}":\n\n`;
 
-Please provide a well-structured response that:
-1. Directly answers the query
-2. Breaks down the answer into clear sections for each possible sub-question or aspect (for example: "Scientific Explanation", "Why is it not arbitrary?", "Formula", "Further Reading", etc.)
-3. Uses section headings (e.g., ## Scientific Explanation) for each part
-4. Cites relevant sources when possible (use markdown links)
-5. Is informative and helpful
-6. Formats the answer with bullet points or a table if appropriate
 
-IMPORTANT: Do NOT include any "Limitations" section or discuss limitations of the information. Focus only on providing the requested information in a clear and helpful manner.`;
-
-            const aiResponse = await this.callGeminiWithRetry(synthesisPrompt, context);
+            for (const subtopic of subtopics) {
+                const sectionPrompt = `Write a detailed section for a report on the topic: "${subtopic}". Include explanations, examples, and relevant data. Make it informative and suitable for a professional report.`;
+                const sectionResponse = await this.callGeminiWithRetry(sectionPrompt, '');
+                combinedReport += `Section: ${subtopic}\n${sectionResponse}\n\n`;
+            }
 
             // Step 7: Prepare final result
             this.updateProgress(12);
             const result = {
-                summary: aiResponse,
-                sources: topResults.map(r => ({ title: r.title, url: r.url, snippet: r.snippet || r.chunkText })),
+                summary: combinedReport,
+                sources: topResults.map(r => ({ title: r.title, url: r.url })),
                 aiGenerated: true,
                 rawResults: topResults,
                 query: query,

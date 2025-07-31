@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>Training API Test</h1>
+    <button onclick="testAPI()">Test Training Status API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Get user ID from localStorage (simulating the app)
+                const userId = '507f1f77bcf86cd799439011'; // Mock ObjectId
+                
+                const response = await fetch('/api/training/status', {
+                    headers: {
+                        'X-User-ID': userId
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                const contentType = response.headers.get('content-type');
+                console.log('Content-Type:', contentType);
+                
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<pre>Success: ${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    const text = await response.text();
+                    resultDiv.innerHTML = `<pre>Non-JSON Response: ${text}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<pre>Error: ${error.message}</pre>`;
+                console.error('API Test Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+Metric,Value
+Timestamp,2025-07-29T15:26:58.852Z
+Classification Avg Response Time,9.40ms
+Classification Success Rate,0.0%
+End-to-End Avg Response Time,5.32ms
+End-to-End Success Rate,0.0%
+P95 Response Time,12.00ms
+P99 Response Time,17.00ms
+Max Throughput,400.00 req/s
+Overall Accuracy,NaN%
+Total Errors,90

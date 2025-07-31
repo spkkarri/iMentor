@@ -77,3 +77,57 @@ export const getQuotaStatus = () => api.get('/chat/quota-status');
 
 // User Details (from team4)
 export const getCurrentUser = () => api.get('/auth/me');
+
+// Training functions
+export const getBaseModels = (includeCustom = false) => api.get(`/training/models/base?includeCustom=${includeCustom}`);
+export const getCheckpoints = (subject = null) => api.get(`/training/checkpoints${subject ? `?subject=${subject}` : ''}`);
+export const getCustomModels = () => api.get('/training/models/custom');
+export const deleteCustomModel = (modelId) => api.delete(`/training/models/custom/${modelId}`);
+export const uploadCustomModel = (formData) => api.post('/training/models/custom', formData, {
+    headers: {
+        'Content-Type': 'multipart/form-data'
+    }
+});
+
+// Training data functions
+export const getTrainingDataStats = () => api.get('/training/data/stats');
+export const uploadTrainingData = (formData) => api.post('/training/data', formData, {
+    headers: {
+        'Content-Type': 'multipart/form-data'
+    }
+});
+export const addTextTrainingData = (data) => api.post('/training/data/text', data);
+
+// Database functions
+export const getSupportedDatabaseTypes = () => api.get('/database/types');
+export const getDataFormats = () => api.get('/database/formats');
+export const testDatabaseConnection = (config) => api.post('/database/test-connection', config);
+export const getDatabaseSchema = (connectionId) => api.get(`/database/schema/${connectionId}`);
+export const extractTrainingData = (config) => api.post('/database/extract', config);
+export const validateTrainingData = (data) => api.post('/training/data/validate', data);
+
+// Chat session functions
+export const deleteChatSession = (sessionId) => api.delete(`/chat/sessions/${sessionId}`);
+
+// Ollama functions
+export const getOllamaStatus = () => api.get('/ollama/status');
+export const configureOllama = (config) => api.post('/ollama/configure', config);
+export const getOllamaModels = () => api.get('/ollama/models');
+export const getPopularOllamaModels = () => api.get('/ollama/models/popular');
+export const getRunningOllamaModels = () => api.get('/ollama/models/running');
+export const deleteOllamaModel = (modelName) => api.delete(`/ollama/models/${modelName}`);
+export const loadOllamaModel = (modelName) => api.post(`/ollama/models/${modelName}/load`);
+export const unloadOllamaModel = (modelName) => api.post(`/ollama/models/${modelName}/unload`);
+
+// Training dashboard functions
+export const getTrainingModels = () => api.get('/training/models');
+export const getTrainingStatus = () => api.get('/training/status');
+export const startTrainingAPI = (data) => api.post('/training/start', data);
+export const stopTrainingAPI = () => api.post(`/training/stop`);
+export const getTrainingProgress = () => api.get(`/training/progress`);
+
+// Sample data generation
+export const generateSampleData = (subject, count) => api.post('/training/data/generate', { subject, count });
+
+// Ollama functions
+export const pullOllamaModel = (modelName) => api.post('/ollama/pull', { modelName });

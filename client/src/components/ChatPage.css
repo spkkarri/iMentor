@@ -625,6 +625,107 @@
 .input-action-btn.send-button, .input-action-btn.mic-button { padding: 8px; width: 40px; height: 40px; font-size: 1.2rem; border-radius: 50%; }
 .input-action-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 .input-action-btn.active { background-color: var(--user-gradient-end); color: white; }
+
+/* Enhanced DeepSearch button styles */
+.input-action-btn.active {
+    background: linear-gradient(135deg, #4CAF50, #2E7D32);
+    color: white;
+    border-color: #4CAF50;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+    animation: pulse-glow 2s infinite;
+}
+
+/* WebSearch button gets a different color when active */
+.input-bar-left .input-action-btn:nth-child(2).active {
+    background: linear-gradient(135deg, #2196F3, #1565C0);
+    color: white;
+    border-color: #2196F3;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+    animation: pulse-glow-blue 2s infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3); }
+    50% { box-shadow: 0 2px 12px rgba(76, 175, 80, 0.5); }
+}
+
+@keyframes pulse-glow-blue {
+    0%, 100% { box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3); }
+    50% { box-shadow: 0 2px 12px rgba(33, 150, 243, 0.5); }
+}
+
+.input-action-btn:hover.active {
+    background: linear-gradient(135deg, #66BB6A, #388E3C);
+    transform: translateY(-1px);
+}
+
+/* Warning state for DeepSearch when services are limited */
+.input-action-btn.warning {
+    background: linear-gradient(135deg, #FF9800, #F57C00);
+    color: white;
+    border-color: #FF9800;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+}
+
+.input-action-btn:hover.warning {
+    background: linear-gradient(135deg, #FFB74D, #FB8C00);
+}
+
+/* Status notification styles */
+.status-notification {
+    background: rgba(255, 152, 0, 0.1);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 0.9rem;
+    text-align: center;
+    animation: slideIn 0.3s ease-out;
+}
+
+.status-notification.quota_exceeded {
+    background: rgba(255, 152, 0, 0.1);
+    border-color: rgba(255, 152, 0, 0.3);
+    color: #FF9800;
+}
+
+.status-notification.limited {
+    background: rgba(33, 150, 243, 0.1);
+    border-color: rgba(33, 150, 243, 0.3);
+    color: #2196F3;
+}
+
+.status-notification.unavailable {
+    background: rgba(244, 67, 54, 0.1);
+    border-color: rgba(244, 67, 54, 0.3);
+    color: #F44336;
+}
+
+.status-notification.available {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: rgba(76, 175, 80, 0.3);
+    color: #4CAF50;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Training button styling */
+.header-button.training-button {
+    background: linear-gradient(135deg, #9C27B0, #673AB7);
+    color: white;
+    border: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.header-button.training-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #AB47BC, #7986CB);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+}
 .error-message { color: #f48fb1; text-align: center; font-size: 0.9rem; margin-top: 8px; }
 .ppt-generator-input {
     width: 95%;

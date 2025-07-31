@@ -88,6 +88,8 @@ You must respond with ONLY a valid JSON object in the following format. Do not i
         };
     }
 
+
+
     async generateSummary(documentContent, options = {}) {
         if (!this.geminiService?.model) {
             console.error('Gemini summary error: Gemini service or model is not initialized.');
@@ -304,9 +306,22 @@ mindmap
             return response.text().trim();
         } catch (error) {
             console.error('Gemini text generation error:', error.message);
+
+            // Record failed request
+            this.quotaManager.recordFailure(error);
+
             throw new Error('Failed to generate text response');
         }
     }
+
+    /**
+     * Check current quota status
+     */
+    async checkQuota() {
+        return this.quotaManager.getQuotaStatus();
+    }
+
+
 
     buildContext(documentChunks) {
         if (!Array.isArray(documentChunks)) {

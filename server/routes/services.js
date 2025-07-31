@@ -9,10 +9,9 @@ const aiSearch = require('../services/aiSearch');
 const aiService = require('../services/aiService');
 const cacheService = require('../services/cacheService');
 const DeepSearchService = require('../deep_search/services/deepSearchService');
-const geminiAI = require('../services/geminiAI');
+const { GeminiAI } = require('../services/geminiAI');
 const documentProcessor = require('../services/documentProcessor');
-const duckduckgo = require('../services/duckduckgo');
-const geminiAI = require('../services/geminiAI');
+const DuckDuckGoService = require('../utils/duckduckgo');
 const geminiService = require('../services/geminiService');
 const geminiServiceDS = require('../services/geminiServiceDS');
 const podcastGenerator = require('../services/podcastGenerator');
@@ -25,10 +24,10 @@ router.get('/status', (req, res) => {
     aiSearch: !!aiSearch,
     aiService: !!aiService,
     cacheService: !!cacheService,
-    deepSearch: !!deepSearch,
+    deepSearch: !!DeepSearchService,
     documentProcessor: !!documentProcessor,
-    duckduckgo: !!duckduckgo,
-    geminiAI: !!geminiAI,
+    duckduckgo: !!DuckDuckGoService,
+    geminiAI: !!GeminiAI,
     geminiService: !!geminiService,
     geminiServiceDS: !!geminiServiceDS,
     podcastGenerator: !!podcastGenerator,
@@ -97,7 +96,13 @@ router.post('/deep-search/search', async (req, res) => {
   if (!validateField('query', query, res)) return;
   if (!validateField('sessionId', sessionId, res)) return;
   try {
-    const deepSearchService = new DeepSearchService(sessionId, geminiAI);
+    // Create instances of required services
+    const geminiService = new geminiService();
+    await geminiService.initialize();
+    const duckDuckGoService = new DuckDuckGoService();
+    
+    // Create DeepSearchService instance with correct parameters
+    const deepSearchService = new DeepSearchService(sessionId, geminiService, duckDuckGoService);
     const result = await deepSearchService.performSearch(query, history || []);
     res.json({ success: true, result });
   } catch (err) {

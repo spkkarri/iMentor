@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Setup Test User for Training Dashboard</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #131314; 
+            color: #e3e3e3; 
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #1e1f20; 
+            border-radius: 12px; 
+            border: 1px solid #3c4043; 
+        }
+        button { 
+            background: linear-gradient(135deg, #8957E9, #7094E6);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 12px 24px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 10px 5px;
+        }
+        button:hover { opacity: 0.9; }
+        .success { 
+            background: #e8f5e8; 
+            color: #2e7d32; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 15px 0; 
+        }
+        .info { 
+            background: #e3f2fd; 
+            color: #1976d2; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 15px 0; 
+        }
+        pre { 
+            background: #2a2a2a; 
+            padding: 10px; 
+            border-radius: 5px; 
+            overflow-x: auto; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Setup Test User for Training Dashboard</h1>
+        
+        <div class="info">
+            <strong>Instructions:</strong><br>
+            1. Click "Setup Test User" to configure localStorage<br>
+            2. Go to the Training Dashboard<br>
+            3. You should now be able to add training data
+        </div>
+
+        <button onclick="setupTestUser()">Setup Test User</button>
+        <button onclick="goToTraining()">Go to Training Dashboard</button>
+        <button onclick="clearUser()">Clear User Data</button>
+        
+        <div id="result"></div>
+
+        <h3>Current localStorage Status:</h3>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        function setupTestUser() {
+            // Set up test user credentials
+            const testUserId = '507f1f77bcf86cd799439011';
+            const testUsername = 'testuser';
+            
+            localStorage.setItem('userId', testUserId);
+            localStorage.setItem('username', testUsername);
+            localStorage.setItem('token', 'test-token-123'); // Optional: for other API calls
+            
+            document.getElementById('result').innerHTML = `
+                <div class="success">
+                    ✅ <strong>Test user setup complete!</strong><br><br>
+                    The following has been saved to localStorage:<br>
+                    • User ID: ${testUserId}<br>
+                    • Username: ${testUsername}<br><br>
+                    You can now use the Training Dashboard to add training data.
+                </div>
+            `;
+            
+            updateStatus();
+        }
+        
+        function clearUser() {
+            localStorage.removeItem('userId');
+            localStorage.removeItem('username');
+            localStorage.removeItem('token');
+            
+            document.getElementById('result').innerHTML = `
+                <div class="info">
+                    🗑️ User data cleared from localStorage.
+                </div>
+            `;
+            
+            updateStatus();
+        }
+        
+        function goToTraining() {
+            window.location.href = '/training';
+        }
+        
+        function updateStatus() {
+            const userId = localStorage.getItem('userId');
+            const username = localStorage.getItem('username');
+            const token = localStorage.getItem('token');
+            
+            let statusHtml = '<pre>';
+            statusHtml += `userId: ${userId || 'Not set'}\n`;
+            statusHtml += `username: ${username || 'Not set'}\n`;
+            statusHtml += `token: ${token || 'Not set'}`;
+            statusHtml += '</pre>';
+            
+            if (userId && username) {
+                statusHtml += '<div class="success">✅ Ready for Training Dashboard</div>';
+            } else {
+                statusHtml += '<div class="info">⚠️ User not configured</div>';
+            }
+            
+            document.getElementById('status').innerHTML = statusHtml;
+        }
+        
+        // Update status on page load
+        updateStatus();
+    </script>
+</body>
+</html>

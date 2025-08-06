@@ -1,8 +1,12 @@
+// client/src/components/FileManagerWidget/index.js
 import React, { useState } from 'react';
-import { Popover } from 'react-tiny-popover';
-import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots } from 'react-icons/fa';
-import './index.css';
-import PPTGenerator from '../PPTGenerator';
+import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots, FaFile } from 'react-icons/fa'; // Added FaFile for generic file icon
+import { Box, Typography, List, ListItem, ListItemText, IconButton, CircularProgress, Paper, Menu, MenuItem, Tooltip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import PPTGenerator from '../PPTGenerator'; // Assuming this is also styled with MUI
+
+// Make sure these imports are correct based on your project structure
+import './index.css'; // This CSS file is correctly referenced and should contain the styles
 
 function FileManagerWidget({
     files,
@@ -12,90 +16,141 @@ function FileManagerWidget({
     onRenameFile,
     onGeneratePodcast,
     onGenerateMindMap,
-    onChatWithFile,
+    onChatWithFile, // This prop seems unused in the provided code, but kept
     isProcessing,
     onActionTaken // New prop to notify parent of an action
 }) {
-    const [openMenuId, setOpenMenuId] = useState(null);
+    const theme = useTheme();
+    const [anchorEl, setAnchorEl] = useState(null); // For MUI Menu
+    const [selectedFileForMenu, setSelectedFileForMenu] = useState(null); // Stores the file object for the open menu
 
-    // This function now wraps all actions to ensure the sidebar can be closed
-    const handleActionClick = (action, fileId, fileName) => {
-        setOpenMenuId(null);
-        action(fileId, fileName);
-        if (onActionTaken) {
-            onActionTaken();
-        }
+    const handleMenuOpen = (event, file) => {
+        setAnchorEl(event.currentTarget);
+        setSelectedFileForMenu(file);
     };
 
-    // Added missing handleRename function
-    const handleRename = (fileId, fileName) => {
-        setOpenMenuId(null);
-        if (onRenameFile) {
-            onRenameFile(fileId, fileName);
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+        setSelectedFileForMenu(null);
+    };
+
+    // This function now wraps all actions to ensure the menu is closed
+    const handleActionClick = (action, fileId, fileName) => {
+        handleMenuClose(); // Close the menu first
+        if (action) {
+            action(fileId, fileName);
         }
         if (onActionTaken) {
-            onActionTaken();
+            onActionTaken(); // Notify parent (e.g., to close sidebar)
         }
     };
 
     return (
-        <div className="file-manager-widget">
-            <h3>My Files</h3>
+        <Paper elevation={3} sx={{ p: 3, borderRadius: '12px', bgcolor: 'background.paper', border: `1px solid ${theme.palette.grey[200]}` }}>
+            <Typography variant="h6" component="h3" sx={{ mb: 2, color: 'text.primary', fontWeight: 600, borderBottom: `1px solid ${theme.palette.grey[100]}`, pb: 1 }}>
+                My Files
+            </Typography>
+
             {isLoading ? (
-                <div className="file-manager-loading">Loading...</div>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 3, color: 'text.secondary' }}>
+                    <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
+                    <Typography variant="body2" sx={{ fontStyle: 'italic' }}>Loading files...</Typography>
+                </Box>
             ) : error ? (
-                <div className="file-manager-error">{error}</div>
+                <Typography color="error" sx={{ textAlign: 'center', py: 2 }}>{error}</Typography>
             ) : (
                 <>
-                    <ul className="file-list">
-                        {files.map(file => (
-                            <li key={file._id} className="file-item">
-                                <span className="file-name" title={file.originalname}>
-                                    {file.originalname}
-                                </span>
-                                
-                                <Popover
-                                    isOpen={openMenuId === file._id}
-                                    positions={['right', 'left', 'bottom', 'top']} 
-                                    align="center"
-                                    padding={10}
-                                    onClickOutside={() => setOpenMenuId(null)}
-                                    content={
-                                        <div className="popover-menu">
-                                            <button onClick={() => handleActionClick(onGeneratePodcast, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
-                                                <FaFileAudio /> Generate Podcast
-                                            </button>
-                                            <button onClick={() => handleActionClick(onGenerateMindMap, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
-                                                <FaProjectDiagram /> Generate Mind Map
-                                            </button>
-                                            <button onClick={() => handleRename(file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item">
-                                                <FaEdit /> Rename
-                                            </button>
-                                            <div className="popover-divider" />
-                                            <button onClick={() => handleActionClick(onDeleteFile, file._id, file.originalname)} disabled={isProcessing} className="popover-menu-item danger">
-                                                <FaTrash /> Delete
-                                            </button>
-                                        </div>
-                                    }
+                    <List sx={{ maxHeight: 200, overflowY: 'auto', p: 0, '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.700', borderRadius: '3px' } }}>
+                        {files.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3, fontStyle: 'italic' }}>
+                                No files uploaded yet.
+                            </Typography>
+                        ) : (
+                            files.map(file => (
+                                <ListItem
+                                    key={file._id}
+                                    disablePadding
+                                    sx={{
+                                        mb: 1, bgcolor: 'grey.800', borderRadius: '8px',
+                                        border: `1px solid ${theme.palette.grey[700]}`,
+                                        '&:hover': { bgcolor: 'grey.700' }
+                                    }}
                                 >
-                                    <button 
-                                        onClick={() => setOpenMenuId(openMenuId === file._id ? null : file._id)} 
-                                        className="icon-button menu-button"
-                                        title="More options"
-                                    >
-                                        <FaEllipsisV />
-                                    </button>
-                                </Popover>
-                            </li>
-                        ))}
-                    </ul>
-                    <div style={{ marginTop: 20 }}>
+                                    <ListItemText
+                                        primary={<Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            <FaFile style={{ marginRight: '8px', color: theme.palette.text.secondary }} />
+                                            {file.originalname}
+                                        </Typography>}
+                                        sx={{ p: 1.5, pr: 0 }}
+                                    />
+
+                                    <Tooltip title="More options">
+                                        <IconButton
+                                            aria-controls={`file-menu-${file._id}`}
+                                            aria-haspopup="true"
+                                            onClick={(e) => handleMenuOpen(e, file)}
+                                            disabled={isProcessing}
+                                            sx={{
+                                                color: 'text.secondary',
+                                                '&:hover': { bgcolor: 'grey.700', color: 'text.primary' },
+                                                p: 1.5,
+                                            }}
+                                        >
+                                            <FaEllipsisV />
+                                        </IconButton>
+                                    </Tooltip>
+                                </ListItem>
+                            ))
+                        )}
+                    </List>
+
+                    <Menu
+                        id="file-menu"
+                        anchorEl={anchorEl}
+                        open={Boolean(anchorEl)}
+                        onClose={handleMenuClose}
+                        MenuListProps={{
+                            'aria-labelledby': 'basic-button',
+                        }}
+                        PaperProps={{ // Apply theme styles to the Menu Paper
+                            sx: {
+                                bgcolor: 'background.paper',
+                                borderRadius: '8px',
+                                border: `1px solid ${theme.palette.grey[200]}`,
+                                boxShadow: theme.shadows[5], // Consistent shadow
+                            }
+                        }}
+                    >
+                        {selectedFileForMenu && (
+                            <>
+                                <MenuItem onClick={() => handleActionClick(onGeneratePodcast, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: 'text.primary', '&:hover': { bgcolor: 'grey.100' } }}>
+                                    <FaFileAudio style={{ marginRight: '12px' }} /> Generate Podcast
+                                </MenuItem>
+                                <MenuItem onClick={() => handleActionClick(onGenerateMindMap, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: 'text.primary', '&:hover': { bgcolor: 'grey.100' } }}>
+                                    <FaProjectDiagram style={{ marginRight: '12px' }} /> Generate Mind Map
+                                </MenuItem>
+                                {/* onChatWithFile is commented out in original, but if used, uncomment below */}
+                                {/* <MenuItem onClick={() => handleActionClick(onChatWithFile, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: 'text.primary', '&:hover': { bgcolor: 'grey.100' } }}>
+                                    <FaCommentDots style={{ marginRight: '12px' }} /> Chat with File
+                                </MenuItem> */}
+                                <MenuItem onClick={() => handleActionClick(onRenameFile, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: 'text.primary', '&:hover': { bgcolor: 'grey.100' } }}>
+                                    <FaEdit style={{ marginRight: '12px' }} /> Rename
+                                </MenuItem>
+                                <MenuItem onClick={() => handleActionClick(onDeleteFile, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: 'error.main', '&:hover': { bgcolor: 'error.dark', color: 'white' } }}>
+                                    <FaTrash style={{ marginRight: '12px' }} /> Delete
+                                </MenuItem>
+                            </>
+                        )}
+                    </Menu>
+
+                    <Box sx={{ mt: 3 }}>
+                        {/* PPTGenerator is a separate component, ensure it's imported and styled correctly */}
                         <PPTGenerator />
-                    </div>
+                    </Box>
                 </>
             )}
-        </div>
+        </Paper>
     );
-};
+}
 
 export default FileManagerWidget;

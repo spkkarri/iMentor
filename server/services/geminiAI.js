@@ -19,10 +19,22 @@ class GeminiAI {
         const context = this.buildContext(documentChunks);
         const historyString = chatHistory.map(msg => `${msg.role}: ${msg.parts[0].text}`).join('\n');
 
+        // Enhanced prompt for RAG to prevent hallucination
+        const ragInstructions = context ? `
+
+## IMPORTANT RAG INSTRUCTIONS:
+- You have been provided with relevant document content below
+- Base your answer STRICTLY on the information found in these documents
+- If the documents don't contain enough information to fully answer the question, clearly state what information is missing
+- DO NOT add information that is not explicitly mentioned in the provided documents
+- If you cannot find relevant information in the documents, say so clearly
+- When listing items (like skills, features, etc.), only include those explicitly mentioned in the documents` : '';
+
         const prompt = `
 ${systemPrompt}
 
 ${context ? `\n\n## Relevant Context from Documents:\n${context}` : ''}
+${ragInstructions}
 
 ## Conversation History:
 ${historyString}

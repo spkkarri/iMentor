@@ -739,3 +739,69 @@
     margin-bottom: 10px;
     font-size: 16px;
 }
+
+/* --- RAG Sources Display --- */
+.rag-sources {
+    margin-top: 15px;
+    padding: 12px;
+    background-color: rgba(76, 175, 80, 0.1);
+    border-left: 4px solid #4caf50;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.sources-header {
+    font-weight: 600;
+    color: #4caf50;
+    margin-bottom: 8px;
+}
+
+.sources-list {
+    margin: 8px 0;
+}
+
+.source-item {
+    padding: 4px 0;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.sources-footer {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #b0b0b0;
+    font-style: italic;
+}
+
+/* --- Deep Search Sources Display --- */
+.deep-search-sources {
+    margin-top: 15px;
+    padding: 12px;
+    background-color: rgba(33, 150, 243, 0.1);
+    border-left: 4px solid #2196f3;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.deep-search-sources .sources-header {
+    color: #2196f3;
+}
+
+.deep-search-sources .source-item {
+    padding: 6px 0;
+}
+
+.source-link {
+    color: #64b5f6;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.source-link:hover {
+    color: #90caf9;
+    text-decoration: underline;
+}
+
+.deep-search-sources .sources-footer {
+    color: #b0b0b0;
+}

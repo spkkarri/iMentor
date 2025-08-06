@@ -138,8 +138,14 @@ class VectorStore {
     // Sort by score (descending)
     results.sort((a, b) => b.score - a.score);
 
+    // Apply minimum relevance threshold (default 0.3, can be overridden in options)
+    const minThreshold = options.minThreshold || 0.3;
+    const relevantResults = results.filter(result => result.score >= minThreshold);
+
+    console.log(`[VectorStore] Found ${results.length} total results, ${relevantResults.length} above threshold ${minThreshold}`);
+
     // Limit results and format output
-    return results.slice(0, options.limit || 5).map(result => ({
+    return relevantResults.slice(0, options.limit || 5).map(result => ({
       content: result.content,
       metadata: result.metadata,
       score: result.score

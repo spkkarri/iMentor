@@ -4,6 +4,7 @@ const router = express.Router();
 const { tempAuth } = require('../middleware/authMiddleware');
 const { ChatSession, MESSAGE_TYPES } = require('../models/ChatSession');
 const DeepSearchService = require('../deep_search/services/deepSearchService');
+const RealTimeDeepSearch = require('../services/realTimeDeepSearch');
 
 const createSession = async (req, res) => {
     try {
@@ -81,67 +82,168 @@ const saveChatHistory = async (req, res) => {
 
 const handleStandardMessage = async (req, res) => {
     try {
-        const { query, sessionId, history = [], systemPrompt, deepSearch = false, webSearch = false } = req.body;
+        const { query, sessionId, history = [], systemPrompt, ragEnabled = false, deepSearch = false, webSearch = false } = req.body;
         const userId = req.user.id;
 
         if (!query || !sessionId) {
             return res.status(400).json({ message: 'Query and Session ID are required.' });
         }
 
-        if (deepSearch) {
-            // Handle DeepSearch
-            console.log(`[DeepSearch] Processing request for user: ${userId}, query: "${query}"`);
+        if (ragEnabled) {
+            // Handle RAG-enabled message
+            console.log('[RAG] Processing RAG-enabled message:', query);
+            const { vectorStore, geminiAI } = req.serviceManager.getServices();
+
+            // Search for relevant documents across all user's uploaded files
+            const filters = { userId };
+            let relevantChunks = [];
+            try {
+                // Use a higher threshold for better relevance (0.4 instead of default 0.3)
+                relevantChunks = await vectorStore.searchDocuments(query, {
+                    filters,
+                    limit: 8,
+                    minThreshold: 0.4
+                });
+                console.log(`[RAG] Found ${relevantChunks.length} relevant chunks with scores:`,
+                    relevantChunks.map(chunk => ({ source: chunk.metadata?.source, score: chunk.score.toFixed(3) })));
+            } catch (docErr) {
+                console.error('[RAG] Error during document search:', docErr);
+                return res.status(500).json({ message: 'Error searching documents for RAG.', error: docErr.message });
+            }
+
+            let session = await ChatSession.findOne({ sessionId, user: userId });
+            if (!session) {
+                session = new ChatSession({
+                    sessionId,
+                    user: userId,
+                    title: query.substring(0, 50),
+                    systemPrompt: systemPrompt || "You are a helpful AI assistant with access to uploaded documents."
+                });
+            }
+
+            session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+            const aiHistory = session.messages.map(m => ({ role: m.role, parts: m.parts.map(p => ({ text: p.text })) }));
+
+            let aiResponse;
+            let responseMetadata;
+
+            if (relevantChunks.length === 0) {
+                // No relevant documents found, provide a helpful message
+                console.log('[RAG] No relevant documents found with sufficient relevance, providing fallback response');
+                try {
+                    aiResponse = await geminiAI.generateChatResponse(
+                        `The user asked: "${query}"\n\nI searched through their uploaded documents but couldn't find any content that's sufficiently relevant to answer this question. Please provide a helpful response explaining that the uploaded documents don't contain information about this topic, and suggest they either upload more relevant documents or ask about topics covered in their existing files.`,
+                        [],
+                        aiHistory,
+                        session.systemPrompt
+                    );
+                    responseMetadata = {
+                        searchType: 'rag_no_documents',
+                        sources: [],
+                        documentsFound: 0,
+                        note: 'No sufficiently relevant documents found in uploaded files (threshold: 0.4)'
+                    };
+                } catch (aiErr) {
+                    console.error('[RAG] Error generating fallback response:', aiErr);
+                    return res.status(500).json({ message: 'Error generating AI response.', error: aiErr.message });
+                }
+            } else {
+                // Found relevant documents, use them for RAG
+                try {
+                    aiResponse = await geminiAI.generateChatResponse(query, relevantChunks, aiHistory, session.systemPrompt);
+                    console.log('[RAG] AI response generated with document context.');
+
+                    const sources = [...new Set(relevantChunks.map(chunk => chunk.metadata?.source))];
+                    responseMetadata = {
+                        searchType: 'rag',
+                        sources: sources,
+                        documentsFound: relevantChunks.length,
+                        enhanced: true
+                    };
+                } catch (aiErr) {
+                    console.error('[RAG] Error generating AI response:', aiErr);
+                    return res.status(500).json({ message: 'Error generating AI response.', error: aiErr.message });
+                }
+            }
+
+            session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', aiResponse.response);
+            await session.save();
+
+            res.json({
+                response: aiResponse.response,
+                followUpQuestions: aiResponse.followUpQuestions,
+                sessionId: session.sessionId,
+                history: session.messages,
+                metadata: responseMetadata
+            });
+        } else if (deepSearch) {
+            // Handle Real-Time DeepSearch (ChatGPT/Gemini style)
+            console.log(`[RealTimeDeepSearch] Processing request for user: ${userId}, query: "${query}"`);
 
             try {
-                const deepSearchService = req.serviceManager.getDeepSearchService(userId);
-                if (!deepSearchService) {
-                    console.error('[DeepSearch] Service not available from ServiceManager');
-                    throw new Error('DeepSearchService not available');
-                }
+                const realTimeSearch = new RealTimeDeepSearch();
+                console.log('[RealTimeDeepSearch] Starting real-time search...');
 
-                console.log('[DeepSearch] Service obtained, performing search...');
-                const results = await deepSearchService.performSearch(query, history);
-                console.log('[DeepSearch] Search completed, processing results...');
+                const searchResults = await realTimeSearch.performRealTimeSearch(query);
+                console.log(`[RealTimeDeepSearch] Search completed in ${searchResults.searchTime}ms`);
 
-                if (!results) {
-                    console.warn(`[DeepSearch] No results returned for query: "${query}"`);
-                    return res.status(500).json({
-                        response: 'DeepSearch service returned no results. Please try again.',
-                        metadata: {
-                            sources: [],
-                            searchType: 'error',
-                            error: 'No results returned'
-                        }
+                // Create or get session
+                let session = await ChatSession.findOne({ sessionId, user: userId });
+                if (!session) {
+                    session = new ChatSession({
+                        sessionId,
+                        user: userId,
+                        title: query.substring(0, 50),
+                        systemPrompt: systemPrompt || "You are a helpful AI assistant with real-time web search capabilities."
                     });
                 }
 
-                const message = results.summary || results.message || 'No response generated';
-                const metadata = results.metadata || {
-                    sources: results.sources || [],
-                    searchType: results.searchType || (results.summary ? 'deep_search' : 'fallback'),
-                    aiGenerated: results.aiGenerated !== undefined ? results.aiGenerated : true,
-                    query: results.query || query,
-                    note: results.note,
-                    timestamp: results.timestamp || new Date().toISOString()
-                };
-
-                console.log(`[DeepSearch] Sending response with searchType: ${metadata.searchType}`);
+                // Add messages to session
+                session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', searchResults.response);
+                await session.save();
 
                 res.json({
-                    response: message,
-                    metadata: metadata
+                    response: searchResults.response,
+                    followUpQuestions: [
+                        "Can you search for more recent information about this topic?",
+                        "What are the latest developments in this area?",
+                        "Are there any related topics I should know about?"
+                    ],
+                    sessionId: session.sessionId,
+                    history: session.messages,
+                    metadata: searchResults.metadata
                 });
-            } catch (deepSearchError) {
-                console.error('[DeepSearch] Error during search:', deepSearchError);
+            } catch (error) {
+                console.error('[RealTimeDeepSearch] Error:', error);
 
-                // Provide a helpful fallback response
+                // Fallback to basic response
+                let session = await ChatSession.findOne({ sessionId, user: userId });
+                if (!session) {
+                    session = new ChatSession({
+                        sessionId,
+                        user: userId,
+                        title: query.substring(0, 50),
+                        systemPrompt: systemPrompt || "You are a helpful AI assistant."
+                    });
+                }
+
+                const fallbackResponse = `I encountered an issue while searching the web for "${query}". Let me provide a general response based on my knowledge instead.`;
+
+                session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', fallbackResponse);
+                await session.save();
+
                 res.json({
-                    response: `I encountered an issue while performing deep search for "${query}". The service may be temporarily unavailable. Please try again or disable DeepSearch for a standard response.`,
+                    response: fallbackResponse,
+                    followUpQuestions: [],
+                    sessionId: session.sessionId,
+                    history: session.messages,
                     metadata: {
+                        searchType: 'real_time_search_error',
                         sources: [],
-                        searchType: 'deep_search_error',
-                        error: deepSearchError.message,
-                        timestamp: new Date().toISOString()
+                        error: error.message,
+                        fallback: true
                     }
                 });
             }
@@ -265,7 +367,7 @@ const handleRagMessage = async (req, res) => {
     try {
         const { query, sessionId, fileId } = req.body;
         const userId = req.user.id;
-        const { documentProcessor, geminiAI } = req.serviceManager.getServices();
+        const { vectorStore, geminiAI } = req.serviceManager.getServices();
 
         console.log('[RAG] Incoming request:', { userId, query, sessionId, fileId });
 
@@ -280,7 +382,7 @@ const handleRagMessage = async (req, res) => {
 
         let relevantChunks = [];
         try {
-            relevantChunks = await documentProcessor.searchDocuments(query, { filters });
+            relevantChunks = await vectorStore.searchDocuments(query, { filters });
             console.log(`[RAG] Found ${relevantChunks.length} relevant chunks.`);
         } catch (docErr) {
             console.error('[RAG] Error during document search:', docErr);

@@ -58,7 +58,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
         // Persist DeepSearch state in localStorage
         const saved = localStorage.getItem('deepSearchEnabled');
         return saved !== null ? JSON.parse(saved) : false;
-    }); // Added from 'main'
+    });
     const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(() => {
         // Persist WebSearch state in localStorage
         const saved = localStorage.getItem('webSearchEnabled');
@@ -91,33 +91,22 @@ const ChatPage = ({ setIsAuthenticated }) => {
         localStorage.setItem('webSearchEnabled', JSON.stringify(isWebSearchEnabled));
     }, [isWebSearchEnabled]);
 
-    // Ensure only one search mode is active at a time
+    // Ensure only one search mode is active at a time (RAG and DeepSearch only - WebSearch is automatic)
     const handleRagToggle = useCallback(() => {
         if (!isRagEnabled) {
             // Disable other search modes when enabling RAG
             if (isDeepSearchEnabled) setIsDeepSearchEnabled(false);
-            if (isWebSearchEnabled) setIsWebSearchEnabled(false);
         }
         setIsRagEnabled(v => !v);
-    }, [isRagEnabled, isDeepSearchEnabled, isWebSearchEnabled]);
+    }, [isRagEnabled, isDeepSearchEnabled]);
 
     const handleDeepSearchToggle = useCallback(() => {
         if (!isDeepSearchEnabled) {
             // Disable other search modes when enabling DeepSearch
-            if (isWebSearchEnabled) setIsWebSearchEnabled(false);
             if (isRagEnabled) setIsRagEnabled(false);
         }
         setIsDeepSearchEnabled(v => !v);
-    }, [isDeepSearchEnabled, isWebSearchEnabled, isRagEnabled]);
-
-    const handleWebSearchToggle = useCallback(() => {
-        if (!isWebSearchEnabled) {
-            // Disable other search modes when enabling WebSearch
-            if (isDeepSearchEnabled) setIsDeepSearchEnabled(false);
-            if (isRagEnabled) setIsRagEnabled(false);
-        }
-        setIsWebSearchEnabled(v => !v);
-    }, [isWebSearchEnabled, isDeepSearchEnabled, isRagEnabled]);
+    }, [isDeepSearchEnabled, isRagEnabled]);
 
     // Function to check DeepSearch service status (currently unused - using response-based status tracking)
     // const checkDeepSearchStatus = useCallback(async () => {
@@ -165,7 +154,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     setDeepSearchStatus('quota_exceeded');
                 } else if (metadata.searchType === 'offline_deep_search') {
                     setDeepSearchStatus('limited');
-                } else if (metadata.searchType === 'standard_deep_search' || metadata.searchType === 'enhanced_deep_search') {
+                } else if (metadata.searchType === 'standard_deep_search' || metadata.searchType === 'enhanced_deep_search' || metadata.searchType === 'gemini_style_search') {
                     setDeepSearchStatus('available');
                 } else {
                     setDeepSearchStatus('unknown');
@@ -290,7 +279,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 systemPrompt: editableSystemPromptText,
                 ragEnabled: isRagEnabled,        // Pass RAG flag to API
                 deepSearch: isDeepSearchEnabled, // Pass deep search flag to API
-                webSearch: isWebSearchEnabled   // Pass web search flag to API
+                autoDetectWebSearch: true       // Enable automatic web search detection
             };
 
             // Add debugging for search modes and show appropriate loading message
@@ -307,8 +296,8 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     isLoading: true
                 };
                 setMessages(prev => [...prev, loadingMessage]);
-            } else if (isWebSearchEnabled) {
-                console.log('🌐 WebSearch enabled for query:', trimmedInput);
+            } else {
+                console.log('🤖 Auto-detection enabled for query:', trimmedInput);
             }
 
             const response = await apiSendMessage(payload);
@@ -329,7 +318,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 console.log('🔍 DeepSearch metadata:', metadata);
 
                 // Enhanced indicators for real-time deep search
-                if (metadata.searchType === 'real_time_deep_search') {
+                if (metadata.searchType === 'gemini_style_search') {
                     const sourceCount = metadata.sources ? metadata.sources.length : 0;
                     const searchTime = metadata.searchTime ? `${metadata.searchTime}ms` : 'unknown time';
                     responseText = `🔍 **Real-Time Deep Search** - Found ${sourceCount} sources in ${searchTime}.\n\n${responseText}`;
@@ -342,11 +331,18 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 } else if (metadata.searchType === 'standard_deep_search') {
                     responseText = `✅ **DeepSearch active** - Enhanced with web research.\n\n${responseText}`;
                 }
-            } else if (isWebSearchEnabled && metadata) {
-                console.log('🌐 WebSearch metadata:', metadata);
-                responseText = `🌐 **WebSearch active** - Enhanced with web results.\n\n${responseText}`;
-            } else if ((isRagEnabled || isDeepSearchEnabled || isWebSearchEnabled) && !metadata) {
-                const searchType = isRagEnabled ? 'RAG' : isDeepSearchEnabled ? 'DeepSearch' : 'WebSearch';
+            } else if (metadata && (metadata.searchType === 'auto_web_search' || metadata.searchType === 'manual_web_search')) {
+                console.log('🔍 Auto web search metadata:', metadata);
+
+                // Show automatic web search indicators
+                const sourceCount = metadata.sources ? metadata.sources.length : 0;
+                const searchTime = metadata.searchTime ? `${metadata.searchTime}ms` : 'unknown time';
+                const confidence = metadata.confidence || 'medium';
+
+                responseText = `🔍 **Web search automatically activated** - Found ${sourceCount} sources in ${searchTime} (${confidence} confidence).\n\n${responseText}`;
+
+            } else if ((isRagEnabled || isDeepSearchEnabled) && !metadata) {
+                const searchType = isRagEnabled ? 'RAG' : 'DeepSearch';
                 console.warn(`${searchType} was enabled but no metadata returned - may have fallen back to standard chat`);
                 responseText = `⚠️ **${searchType} unavailable** - Using standard chat mode.\n\n${responseText}`;
             }
@@ -380,10 +376,6 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 errorMessage = 'DeepSearch found no relevant results. Try rephrasing your question or disable DeepSearch for a general response.';
             } else if (isDeepSearchEnabled && err.response?.status === 500) {
                 errorMessage = 'DeepSearch service encountered an error. The service may be temporarily unavailable.';
-            } else if (isWebSearchEnabled && err.response?.status === 404) {
-                errorMessage = 'WebSearch found no relevant results. Try rephrasing your question or disable WebSearch for a general response.';
-            } else if (isWebSearchEnabled && err.response?.status === 500) {
-                errorMessage = 'WebSearch service encountered an error. The service may be temporarily unavailable.';
             }
 
             setError(errorMessage);
@@ -392,7 +384,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } finally {
             setLoadingStates(prev => ({ ...prev, chat: false }));
         }
-    }, [inputText, isProcessing, loadingStates, messages, sessionId, editableSystemPromptText, isDeepSearchEnabled, handleLogout]);
+    }, [inputText, isProcessing, loadingStates, messages, sessionId, editableSystemPromptText, isRagEnabled, isDeepSearchEnabled, handleLogout]);
 
     // Message editing functionality (currently unused in UI)
     /*
@@ -770,23 +762,46 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                         </div>
                                     )}
 
-                                    {/* Deep Search Sources Display */}
-                                    {msg.role === 'assistant' && msg.metadata && msg.metadata.searchType === 'real_time_deep_search' && msg.metadata.sources && msg.metadata.sources.length > 0 && (
-                                        <div className="deep-search-sources">
+                                    {/* Gemini-Style Deep Search Sources Display */}
+                                    {msg.role === 'assistant' && msg.metadata && (msg.metadata.searchType === 'real_time_deep_search' || msg.metadata.searchType === 'gemini_style_search') && msg.metadata.sources && msg.metadata.sources.length > 0 && (
+                                        <div className="gemini-search-sources">
                                             <div className="sources-header">
-                                                🔍 <strong>Web sources found:</strong>
+                                                🔍 <strong>Real-time web search results:</strong>
+                                                {msg.metadata.confidence && (
+                                                    <span className={`confidence-badge confidence-${msg.metadata.confidence}`}>
+                                                        {msg.metadata.confidence === 'high' ? '🟢 High Confidence' :
+                                                         msg.metadata.confidence === 'medium' ? '🟡 Medium Confidence' : '🟠 Low Confidence'}
+                                                    </span>
+                                                )}
+                                                {msg.metadata.intent && (
+                                                    <span className="intent-badge">
+                                                        Intent: {msg.metadata.intent.replace('_', ' ')}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="sources-list">
                                                 {msg.metadata.sources.map((source, sourceIndex) => (
-                                                    <div key={sourceIndex} className="source-item">
+                                                    <div key={sourceIndex} className="source-item gemini-style">
                                                         <a href={source.url} target="_blank" rel="noopener noreferrer" className="source-link">
                                                             🌐 {source.title}
                                                         </a>
+                                                        {source.description && (
+                                                            <p className="source-description">{source.description}</p>
+                                                        )}
+                                                        {source.relevanceScore && (
+                                                            <div className="source-meta">
+                                                                <span className="relevance-score">Relevance: {source.relevanceScore}</span>
+                                                                {source.source && <span className="source-type">Source: {source.source}</span>}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
                                             <div className="sources-footer">
-                                                Found {msg.metadata.sources.length} web sources in {msg.metadata.searchTime || 'unknown time'}ms
+                                                🔍 Found {msg.metadata.resultsFound || msg.metadata.sources.length} results
+                                                {msg.metadata.searchTime && ` • Search time: ${msg.metadata.searchTime}ms`}
+                                                {msg.metadata.searchQueries && ` • Queries: ${msg.metadata.searchQueries.length}`}
+                                                • Confidence: {msg.metadata.confidence || 'medium'}
                                             </div>
                                         </div>
                                     )}
@@ -854,19 +869,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                 deepSearchStatus === 'available' ? '🔍' : '🔍'
                             ) : 'DS'}
                         </button>
-                        <button
-                            type="button"
-                            className={`input-action-btn${isWebSearchEnabled ? ' active' : ''}`}
-                            title={
-                                isWebSearchEnabled
-                                    ? "Web Search: ON - Simple web search enabled - Click to disable"
-                                    : "Web Search: OFF - Click to enable simple web search"
-                            }
-                            onClick={handleWebSearchToggle}
-                            disabled={isProcessing}
-                        >
-                            {isWebSearchEnabled ? '🌐' : 'WS'}
-                        </button>
+                        {/* WebSearch removed - now uses automatic detection */}
                     </div>
                     <input type="text" value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleEnterKey} placeholder="Ask your AI tutor anything..." className="modern-input" disabled={isProcessing} />
                     <div className="input-bar-right">
@@ -890,11 +893,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         {deepSearchStatus === 'unavailable' && '❌ DeepSearch service temporarily unavailable'}
                     </div>
                 )}
-                {isWebSearchEnabled && (
-                    <div className="status-notification available">
-                        🌐 WebSearch active - Simple web search enabled
-                    </div>
-                )}
+                {/* WebSearch removed - now uses automatic detection */}
             </div>
             {showHistoryModal && <HistoryModal isOpen={showHistoryModal} onClose={() => setShowHistoryModal(false)} onLoadSession={handleLoadSession} />}
         </div>

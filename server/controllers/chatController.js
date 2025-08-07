@@ -82,11 +82,51 @@ const saveChatHistory = async (req, res) => {
 
 const handleStandardMessage = async (req, res) => {
     try {
-        const { query, sessionId, history = [], systemPrompt, ragEnabled = false, deepSearch = false, webSearch = false } = req.body;
+        const { query, sessionId, history = [], systemPrompt, ragEnabled = false, deepSearch = false, autoDetectWebSearch = false } = req.body;
         const userId = req.user.id;
+
+        console.log(`[Chat] Request: query="${query.substring(0, 50)}...", ragEnabled=${ragEnabled}, deepSearch=${deepSearch}, autoDetectWebSearch=${autoDetectWebSearch}`);
 
         if (!query || !sessionId) {
             return res.status(400).json({ message: 'Query and Session ID are required.' });
+        }
+
+        // Automatic web search detection (like ChatGPT)
+        let shouldUseWebSearch = false;
+        let autoDetectionMetadata = {};
+
+        if (!ragEnabled && !deepSearch && autoDetectWebSearch) {
+            console.log('[Chat] 🧠 Analyzing prompt for automatic web search detection...');
+
+            try {
+                const IntelligentPromptAnalyzer = require('../services/intelligentPromptAnalyzer');
+                const promptAnalyzer = new IntelligentPromptAnalyzer();
+
+                // Convert history to expected format
+                const conversationHistory = history.map(item => ({
+                    role: item.role || 'user',
+                    content: item.content || item.parts?.[0]?.text || item.text || ''
+                })).filter(item => item.content.trim().length > 0);
+
+                const analysis = await promptAnalyzer.shouldUseWebSearch(query, conversationHistory);
+
+                console.log(`[Chat] 🔍 Auto-detection result: ${analysis.needsWebSearch ? 'WEB SEARCH' : 'STANDARD'} (${analysis.confidence} confidence)`);
+                console.log(`[Chat] 📋 Analysis: ${analysis.reasoning}`);
+
+                if (analysis.needsWebSearch && analysis.confidence !== 'low') {
+                    shouldUseWebSearch = true;
+                    autoDetectionMetadata = {
+                        autoDetected: true,
+                        analysisReasoning: analysis.reasoning,
+                        queryType: analysis.queryType,
+                        searchKeywords: analysis.searchKeywords,
+                        confidence: analysis.confidence
+                    };
+                }
+
+            } catch (analysisError) {
+                console.warn('[Chat] ⚠️ Auto-detection failed, using standard response:', analysisError.message);
+            }
         }
 
         if (ragEnabled) {
@@ -247,105 +287,95 @@ const handleStandardMessage = async (req, res) => {
                     }
                 });
             }
-        } else if (webSearch) {
-            // Handle WebSearch with enhanced simulated results
-            const services = req.serviceManager.getServices();
-            const { duckDuckGo, geminiAI } = services;
-
-            console.log(`[WebSearch] Services available:`, {
-                duckDuckGo: !!duckDuckGo,
-                geminiAI: !!geminiAI,
-                duckDuckGoType: duckDuckGo ? duckDuckGo.constructor.name : 'undefined'
-            });
+        } else if (shouldUseWebSearch) {
+            // Handle automatic web search using Gemini-style search
+            console.log(`[Chat] 🔍 Using Gemini-style web search (${autoDetectionMetadata.autoDetected ? 'auto-detected' : 'manual'})`);
 
             try {
-                console.log(`[WebSearch] Performing enhanced web search for: "${query}"`);
+                const GeminiStyleSearchEngine = require('../services/geminiStyleSearch');
+                const searchEngine = new GeminiStyleSearchEngine();
 
-                // Use the same DuckDuckGo service as DeepSearch for consistency
-                let searchResults = [];
-                try {
-                    console.log(`[WebSearch] Calling duckDuckGo.performSearchWithRetry for: "${query}"`);
-                    const searchResponse = await duckDuckGo.performSearchWithRetry(query, 'text');
-                    console.log(`[WebSearch] Raw search response:`, searchResponse ? searchResponse.length : 'null/undefined');
+                // Convert history to expected format
+                const conversationHistory = history.map(item => ({
+                    role: item.role || 'user',
+                    content: item.content || item.parts?.[0]?.text || item.text || ''
+                })).filter(item => item.content.trim().length > 0);
 
-                    if (searchResponse && searchResponse.length > 0) {
-                        searchResults = searchResponse.map(result => ({
-                            title: result.title,
-                            url: result.url,
-                            snippet: result.description || result.snippet || 'No description available'
-                        }));
-                        console.log(`[WebSearch] Found ${searchResults.length} enhanced search results`);
-                        console.log(`[WebSearch] First result:`, searchResults[0]);
-                    } else {
-                        console.log(`[WebSearch] No results found from DuckDuckGo service`);
-                    }
-                } catch (searchError) {
-                    console.warn('[WebSearch] Search error, using fallback:', searchError.message);
-                    console.warn('[WebSearch] Error stack:', searchError.stack);
-                }
+                const searchResult = await searchEngine.performGeminiStyleSearch(query, conversationHistory);
 
-                if (searchResults && searchResults.length > 0) {
-                    // Create context from search results
-                    const searchContext = searchResults
-                        .slice(0, 5) // Limit to top 5 results
-                        .map(result => `${result.title}: ${result.snippet}`)
-                        .join('\n\n');
 
-                    // Generate AI response with search context
-                    const enhancedPrompt = `Based on the following web search results, provide a comprehensive answer to: "${query}"\n\nWeb Search Results:\n${searchContext}\n\nPlease provide a helpful response based on this information.`;
-
-                    const aiResponse = await geminiAI.generateText(enhancedPrompt);
-
-                    res.json({
-                        response: `🌐 WebSearch active - Enhanced with web results.\n\n${aiResponse}`,
-                        metadata: {
-                            searchType: 'web_search',
-                            sources: searchResults.slice(0, 5).map(r => ({ title: r.title, url: r.url })),
-                            resultsCount: searchResults.length,
-                            enhanced: true
-                        }
-                    });
-                } else {
-                    // No search results found, fall back to standard chat
-                    console.log(`[WebSearch] No results found, falling back to standard chat`);
-                    const aiResponse = await geminiAI.generateText(query);
-
-                    res.json({
-                        response: `⚠️ WebSearch unavailable - Using standard AI response.\n\n${aiResponse}`,
-                        metadata: {
-                            searchType: 'web_search_fallback',
-                            sources: [],
-                            note: 'No web search results found, using AI knowledge'
-                        }
+                // Save to session
+                let session = await ChatSession.findOne({ sessionId, user: userId });
+                if (!session) {
+                    session = new ChatSession({
+                        sessionId,
+                        user: userId,
+                        title: query.substring(0, 50),
+                        systemPrompt: systemPrompt || "You are a helpful AI assistant with web search capabilities."
                     });
                 }
-            } catch (error) {
-                console.error('[WebSearch] Error:', error);
-                // Fall back to standard chat on error
-                const aiResponse = await geminiAI.generateText(query);
+
+                session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', searchResult.answer);
+                await session.save();
+
+                // Combine metadata
+                const responseMetadata = {
+                    ...autoDetectionMetadata,
+                    ...searchResult.metadata,
+                    searchType: autoDetectionMetadata.autoDetected ? 'auto_web_search' : 'manual_web_search'
+                };
 
                 res.json({
-                    response: aiResponse,
+                    response: searchResult.answer,
+                    metadata: responseMetadata,
+                    sessionId: session.sessionId,
+                    history: session.messages
+                });
+
+            } catch (searchError) {
+                console.warn('[Chat] ⚠️ Web search failed, falling back to standard response:', searchError.message);
+
+
+                // Fallback to standard Gemini AI
+                const { geminiAI } = req.serviceManager.getServices();
+                let session = await ChatSession.findOne({ sessionId, user: userId });
+                if (!session) {
+                    session = new ChatSession({ sessionId, user: userId, title: query.substring(0, 50), systemPrompt: systemPrompt || "You are a helpful general-purpose AI assistant." });
+                }
+
+                session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+                const aiHistory = session.messages.map(m => ({ role: m.role, parts: m.parts.map(p => ({ text: p.text })) }));
+                const aiResponse = await geminiAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', aiResponse.response);
+                await session.save();
+
+                res.json({
+                    response: aiResponse.response,
+                    followUpQuestions: aiResponse.followUpQuestions,
                     metadata: {
-                        searchType: 'web_search_error',
-                        sources: [],
-                        error: error.message
-                    }
+                        ...autoDetectionMetadata,
+                        searchType: 'web_search_fallback',
+                        fallbackReason: searchError.message
+                    },
+                    sessionId: session.sessionId,
+                    history: session.messages
                 });
             }
         } else {
-            // Handle standard message
+            // Handle standard message (no search needed)
+            console.log('[Chat] 🤖 Using standard Gemini AI');
             const { geminiAI } = req.serviceManager.getServices();
             let session = await ChatSession.findOne({ sessionId, user: userId });
             if (!session) {
                 session = new ChatSession({ sessionId, user: userId, title: query.substring(0, 50), systemPrompt: systemPrompt || "You are a helpful general-purpose AI assistant." });
             }
-            
+
             session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
 
             const aiHistory = session.messages.map(m => ({ role: m.role, parts: m.parts.map(p => ({ text: p.text })) }));
             const aiResponse = await geminiAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
-            
+
             session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', aiResponse.response);
             await session.save();
 
@@ -353,6 +383,7 @@ const handleStandardMessage = async (req, res) => {
             res.json({
                 response: aiResponse.response,
                 followUpQuestions: aiResponse.followUpQuestions,
+                metadata: { searchType: 'standard_ai' },
                 sessionId: session.sessionId,
                 history: session.messages
             });
@@ -444,63 +475,94 @@ const handleDeepSearch = async (req, res) => {
     try {
         const { query, history = [] } = req.body;
         const userId = req.user.id;
-        
-        console.log(`[DeepSearch] Request received: query="${query}", userId=${userId}`);
-        
-        if (!query) {
+
+        console.log(`🔍 Gemini-style search request: "${query}" from user ${userId}`);
+
+        if (!query || query.trim().length === 0) {
             return res.status(400).json({ message: 'Query is required for deep search.' });
         }
 
-        const deepSearchService = req.serviceManager.getDeepSearchService(userId);
-        if (!deepSearchService) {
-            throw new Error('DeepSearchService not available');
-        }
-        
-        const results = await deepSearchService.performSearch(query, history);
-        
-        console.log(`[DeepSearch] Service returned:`, {
-            hasResults: !!results,
-            hasSummary: !!results?.summary,
-            hasMessage: !!results?.message,
-            messageLength: results?.summary?.length || results?.message?.length,
-            metadata: results?.metadata,
-            hasSources: !!results?.sources
+        // Import and initialize Gemini-style search engine
+        const GeminiStyleSearchEngine = require('../services/geminiStyleSearch');
+        const geminiSearchEngine = new GeminiStyleSearchEngine();
+
+        // Convert history to the expected format
+        const conversationHistory = history.map(item => ({
+            role: item.role || 'user',
+            content: item.content || item.message || item.text || ''
+        })).filter(item => item.content.trim().length > 0);
+
+        console.log(`🚀 Starting Gemini-style search with ${conversationHistory.length} context messages`);
+
+        // Perform Gemini-style search
+        const results = await geminiSearchEngine.performGeminiStyleSearch(query, conversationHistory);
+
+        console.log(`✅ Gemini-style search completed:`, {
+            hasAnswer: !!results.answer,
+            answerLength: results.answer?.length,
+            sourcesCount: results.sources?.length,
+            confidence: results.metadata?.confidence,
+            intent: results.metadata?.intent
         });
 
-        if (!results || (!results.summary && !results.message)) {
-            console.warn(`[DeepSearch] No valid summary or message returned for query: "${query}"`);
+        if (!results || !results.answer) {
+            console.warn(`🚫 No valid response generated for query: "${query}"`);
             return res.status(404).json({
-                message: 'No relevant results found from deep search.',
-                metadata: { sources: [], searchType: 'none' }
+                message: 'I apologize, but I could not find relevant information for your query. Please try rephrasing your question or being more specific.',
+                metadata: {
+                    sources: [],
+                    searchType: 'gemini_style_search_failed',
+                    confidence: 'low'
+                }
             });
         }
 
-        const message = results.summary || results.message;
-        const metadata = results.metadata || {
-            sources: results.sources || [],
-            searchType: results.searchType || (results.summary ? 'deep_search' : 'fallback'),
-            aiGenerated: results.aiGenerated,
-            query: results.query,
-            note: results.note
-        };
-        
         const response = {
-            message: message,
-            metadata: metadata
+            message: results.answer,
+            metadata: {
+                sources: results.sources || [],
+                searchType: 'gemini_style_search',
+                intent: results.metadata?.intent,
+                confidence: results.metadata?.confidence,
+                resultsFound: results.metadata?.resultsFound,
+                searchQueries: results.metadata?.searchQueries,
+                searchTime: Date.now() - results.metadata?.searchTime,
+                aiGenerated: true
+            }
         };
-        
-        console.log(`[DeepSearch] Sending response:`, {
+
+        console.log(`✅ Sending Gemini-style response:`, {
             messageLength: response.message.length,
-            metadata: response.metadata
+            sourcesCount: response.metadata.sources.length,
+            confidence: response.metadata.confidence,
+            intent: response.metadata.intent
         });
 
         res.json(response);
+
     } catch (error) {
-        console.error('Deep Search error:', error);
-        res.status(500).json({
-            message: error.message || 'Deep search failed.',
-            metadata: { sources: [], searchType: 'error', note: error.message }
-        });
+        console.error('🚫 Gemini-style search error:', error);
+
+        // Provide a helpful fallback response
+        const fallbackResponse = {
+            message: `I apologize, but I encountered an issue while searching for information about "${query}". This could be due to network connectivity or search service limitations.
+
+**What you can try:**
+- Rephrase your question to be more specific
+- Try breaking down complex questions into simpler parts
+- Check your internet connection and try again
+
+If you have a specific question, I can try to help based on my general knowledge without web search.`,
+            metadata: {
+                sources: [],
+                searchType: 'gemini_style_search_error',
+                confidence: 'low',
+                error: error.message,
+                aiGenerated: true
+            }
+        };
+
+        res.status(200).json(fallbackResponse);
     }
 };
 

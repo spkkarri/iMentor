@@ -368,35 +368,82 @@ class MindMapGenerator {
      * @returns {string} A Mermaid syntax string.
      */
     static createMermaidFallback(content, title) {
-        console.log("[MindMapGenerator] Creating Mermaid fallback.");
-        
+        console.log("[MindMapGenerator] Creating enhanced Mermaid fallback.");
+
         // Sanitize title for the root node
-        const rootTitle = this.escapeMermaidText(title);
+        const rootTitle = this.escapeMermaidText(title || "Document");
         let mermaidString = `mindmap\n  root((${rootTitle}))\n`;
 
-        // Extract a few lines or sentences to serve as main topics
-        const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 10);
-        
+        // Extract meaningful content sections
+        const lines = content.split('\n')
+            .map(l => l.trim())
+            .filter(l => l.length > 15 && !l.match(/^[0-9\s\-\*\.]+$/)); // Filter out numbering/bullets
+
         if (lines.length === 0) {
-            mermaidString += `    No content to display.`;
+            mermaidString += `    No_Content\n      Empty_Document\n`;
+            mermaidString += `\nclick No_Content handleMermaidNodeClick\n`;
+            mermaidString += `click Empty_Document handleMermaidNodeClick\n`;
             return mermaidString;
         }
 
-        // Take up to 5 lines as main topics
-        const mainTopics = lines.slice(0, 5);
+        // Group content into logical sections
+        const sections = this.extractSections(lines);
+        const clickEvents = [];
 
-        mainTopics.forEach((topic, index) => {
-            // Truncate and escape the topic text for the node label
-            const nodeLabel = this.escapeMermaidText(topic.substring(0, 50) + (topic.length > 50 ? '...' : ''));
-            // Create a unique ID for the node
-            const nodeId = `fallback_topic_${index}`;
-            // Escape the full topic content for the click interaction
-            const nodeContent = this.escapeMermaidText(topic);
+        sections.forEach((section, index) => {
+            const sectionId = `Section_${index + 1}`;
+            const sectionLabel = this.createNodeLabel(section.title);
 
-            mermaidString += `    Topic ${index + 1}("${nodeLabel}"):::${nodeId}("${nodeContent}")\n`;
+            mermaidString += `    ${sectionId}[${sectionLabel}]\n`;
+            clickEvents.push(`click ${sectionId} handleMermaidNodeClick`);
+
+            // Add subsections
+            section.items.forEach((item, itemIndex) => {
+                const itemId = `Item_${index + 1}_${itemIndex + 1}`;
+                const itemLabel = this.createNodeLabel(item);
+
+                mermaidString += `      ${itemId}[${itemLabel}]\n`;
+                clickEvents.push(`click ${itemId} handleMermaidNodeClick`);
+            });
         });
 
+        // Add click events
+        mermaidString += '\n' + clickEvents.join('\n') + '\n';
+
         return mermaidString;
+    }
+
+    static extractSections(lines) {
+        const sections = [];
+        let currentSection = null;
+
+        lines.slice(0, 20).forEach((line, index) => { // Limit to first 20 lines
+            if (index % 4 === 0 || line.length > 100) {
+                // Start new section
+                if (currentSection) {
+                    sections.push(currentSection);
+                }
+                currentSection = {
+                    title: line.substring(0, 60),
+                    items: []
+                };
+            } else if (currentSection && currentSection.items.length < 3) {
+                // Add to current section
+                currentSection.items.push(line.substring(0, 50));
+            }
+        });
+
+        if (currentSection) {
+            sections.push(currentSection);
+        }
+
+        return sections.slice(0, 5); // Max 5 sections
+    }
+
+    static createNodeLabel(text) {
+        return this.escapeMermaidText(
+            text.substring(0, 25) + (text.length > 25 ? '...' : '')
+        );
     }
 
     /**

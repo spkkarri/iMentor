@@ -230,32 +230,43 @@ Respond with ONLY a valid JSON array of script segments.
         const truncatedContent = documentContent.substring(0, 8000);
 
         const prompt = `
-You are an expert in creating mind maps using Mermaid syntax. Based on the following content from the document titled "${title}", generate a hierarchical mind map.
+Create a comprehensive mind map in Mermaid syntax for the following document content.
 
+Document: "${title}"
 Content:
 ---
 ${truncatedContent}
 ---
 
-Instructions:
-1.  The output MUST be ONLY the Mermaid syntax string, starting with 'mindmap'.
-2.  Create a central root node for the main topic: "root((${title}))".
-3.  Branch out to 3-5 main ideas.
-4.  For each main idea, add 2-4 key concepts or sub-topics.
-5.  Use indentation to represent the hierarchy.
-6.  Keep labels concise and informative.
-7.  To make nodes clickable and provide more detail, append ':::id' to the node text, where 'id' is a unique identifier for that node. For example: "Main Topic 1:::topic1".
+Requirements:
+1. Output ONLY Mermaid syntax starting with 'mindmap'
+2. Create central root: "root((${title}))"
+3. Identify 4-6 main themes from the document
+4. Add 2-4 subtopics under each main theme
+5. Use proper indentation (2 spaces per level)
+6. Keep labels concise (max 25 characters)
+7. Use descriptive node IDs without spaces (use underscores)
+8. Add click events for interactivity
 
-Example of desired output format:
+Format:
 mindmap
   root((${title}))
-    Introduction:::intro
-      Background:::intro_bg
-      Objective:::intro_obj
-    Core Concepts:::core
-      Concept A:::core_a
-      Concept B:::core_b
-    Conclusion:::conclusion
+    Main_Topic_1
+      Subtopic_1_1
+      Subtopic_1_2
+    Main_Topic_2
+      Subtopic_2_1
+      Subtopic_2_2
+    Main_Topic_3
+      Subtopic_3_1
+
+After the mindmap structure, add click events:
+click Main_Topic_1 handleMermaidNodeClick
+click Subtopic_1_1 handleMermaidNodeClick
+click Subtopic_1_2 handleMermaidNodeClick
+(continue for all nodes)
+
+Generate the mind map now:
 `;
 
         try {

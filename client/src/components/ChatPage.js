@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     sendMessage as apiSendMessage, saveChatHistory,
-    getUserFiles, deleteUserFile, renameUserFile, generateMindMap, getFileOverview,
+    getUserFiles, deleteUserFile, renameUserFile, generateMindMap, generatePodcast, getFileOverview,
 } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -491,6 +491,48 @@ const ChatPage = ({ setIsAuthenticated }) => {
         window.speechSynthesis.speak(utterance);
     }, [currentlySpeakingIndex]);
 
+    const playPodcast = useCallback((script, index) => {
+        if (!('speechSynthesis' in window)) {
+            setError('Text-to-speech not supported in your browser.');
+            return;
+        }
+
+        // If already playing this podcast, pause it
+        if (currentlySpeakingIndex === index) {
+            if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+                window.speechSynthesis.pause();
+                setCurrentlySpeakingIndex(null);
+            } else if (window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+                setCurrentlySpeakingIndex(index);
+            }
+            return;
+        }
+
+        // Stop any current speech and start new podcast
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(script);
+        utterance.rate = 0.9; // Slightly slower for better comprehension
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        utterance.onstart = () => setCurrentlySpeakingIndex(index);
+        utterance.onend = () => setCurrentlySpeakingIndex(null);
+        utterance.onerror = () => {
+            setError('Podcast playback error.');
+            setCurrentlySpeakingIndex(null);
+        };
+
+        setCurrentlySpeakingIndex(index);
+        window.speechSynthesis.speak(utterance);
+    }, [currentlySpeakingIndex]);
+
+    const stopPodcast = useCallback(() => {
+        window.speechSynthesis.cancel();
+        setCurrentlySpeakingIndex(null);
+    }, []);
+
     const handleDeleteFile = async (fileId, fileName) => {
         if (window.confirm(`Are you sure you want to delete "${fileName}"? This will also remove it from RAG.`)) {
             try {
@@ -533,14 +575,65 @@ const ChatPage = ({ setIsAuthenticated }) => {
         const tempMessageId = uuidv4();
         setMessages(prev => [...prev, { id: tempMessageId, role: 'system', type: 'system-info', parts: [{ text: `*Generating mind map for "${fileName}"...*` }], timestamp: new Date() }]);
         try {
+            console.log(`🧠 Generating mind map for file: ${fileName} (ID: ${fileId})`);
             const response = await generateMindMap(fileId);
-            const mindMapMessage = { id: uuidv4(), role: 'assistant', type: 'mindmap', parts: [{ text: `Here is the mind map for "${fileName}".` }], mermaidData: response.data.mermaidData, timestamp: new Date() };
-            setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), mindMapMessage]);
+            console.log(`🧠 Mind map API response:`, response.data);
+
+            if (response.data && response.data.mermaidData) {
+                console.log(`🧠 Mermaid data received:`, response.data.mermaidData);
+                const mindMapMessage = {
+                    id: uuidv4(),
+                    role: 'assistant',
+                    type: 'mindmap',
+                    parts: [{ text: `🧠 **Mind Map Generated for "${fileName}"**\n\nClick on any node in the mind map below to explore details.` }],
+                    mermaidData: response.data.mermaidData,
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), mindMapMessage]);
+            } else {
+                console.error('🧠 No mermaidData in response:', response.data);
+                const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error: No mind map data received for "${fileName}"*` }], timestamp: new Date() };
+                setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
+            }
         } catch (err) {
             const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error generating mind map for "${fileName}": ${err.response?.data?.message || 'Failed'}` }], timestamp: new Date() };
             setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
         } finally {
             setLoadingStates(prev => ({ ...prev, mindMap: false }));
+        }
+    }, []);
+
+    const handleGeneratePodcast = useCallback(async (fileId, fileName) => {
+        setLoadingStates(prev => ({ ...prev, podcast: true }));
+        const tempMessageId = uuidv4();
+        setMessages(prev => [...prev, { id: tempMessageId, role: 'system', type: 'system-info', parts: [{ text: `*Generating podcast for "${fileName}"...*` }], timestamp: new Date() }]);
+
+        try {
+            console.log(`🎙️ Generating podcast for file: ${fileName} (ID: ${fileId})`);
+            const response = await generatePodcast(fileId);
+
+            if (response.data && response.data.success) {
+                // Show success message with podcast player
+                const podcastData = response.data;
+                const podcastMessage = {
+                    id: uuidv4(),
+                    role: 'assistant',
+                    type: 'podcast',
+                    parts: [{ text: `🎙️ **Podcast Generated: ${podcastData.title}**\n\nDuration: ${podcastData.duration_estimate || podcastData.estimated_duration}\n\nClick the play button below to listen to the podcast.` }],
+                    podcastData: podcastData,
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), podcastMessage]);
+            } else {
+                const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error generating podcast for "${fileName}": ${response.data?.error || 'Unknown error'}*` }], timestamp: new Date() };
+                setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
+            }
+        } catch (err) {
+            console.error('Podcast generation error:', err);
+            const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error generating podcast for "${fileName}": ${err.response?.data?.message || err.message}*` }], timestamp: new Date() };
+            setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
+        } finally {
+            setLoadingStates(prev => ({ ...prev, podcast: false }));
         }
     }, []);
 
@@ -569,14 +662,15 @@ const ChatPage = ({ setIsAuthenticated }) => {
                     onTextChange={(text) => { setEditableSystemPromptText(text); setCurrentSystemPromptId('custom'); }} 
                 />
                 <FileUploadWidget onUploadSuccess={handleUploadSuccess} />
-                <FileManagerWidget 
-                    files={files} 
-                    isLoading={loadingStates.files} 
-                    error={fileError} 
-                    onDeleteFile={handleDeleteFile} 
-                    onRenameFile={handleRenameFile} 
-                    onGenerateMindMap={handleGenerateMindMap} 
-                    isProcessing={isProcessing} 
+                <FileManagerWidget
+                    files={files}
+                    isLoading={loadingStates.files}
+                    error={fileError}
+                    onDeleteFile={handleDeleteFile}
+                    onRenameFile={handleRenameFile}
+                    onGeneratePodcast={handleGeneratePodcast}
+                    onGenerateMindMap={handleGenerateMindMap}
+                    isProcessing={isProcessing}
                 />
             </div>
             <div className="chat-container">
@@ -597,20 +691,61 @@ const ChatPage = ({ setIsAuthenticated }) => {
                         if (!msg?.role || !msg?.parts?.length) return null;
                         const messageText = msg.parts[0]?.text || '';
                         const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                        
+
+                        // Debug logging for mind map messages
+                        if (msg.type === 'mindmap') {
+                            console.log(`🧠 Rendering mindmap message ${index}:`, {
+                                type: msg.type,
+                                hasMermaidData: !!msg.mermaidData,
+                                mermaidDataLength: msg.mermaidData?.length,
+                                mermaidDataPreview: msg.mermaidData?.substring(0, 100)
+                            });
+                        }
+
                         return (
                             <div key={index} className={`message-wrapper ${msg.role}`}>
                                 <div className={`message-content ${msg.type || ''}`}>
                                     {/* Main message body */}
-                                    {msg.type === 'mindmap' && msg.mindMapData ? (
-                                        <div id={`mindmap-container-${index}`} className="mindmap-container">
-                                            <MindMap mindMapData={msg.mindMapData} />
+                                    {msg.type === 'mindmap' && msg.mermaidData ? (
+                                        <div>
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                                            <div id={`mindmap-container-${index}`} className="mindmap-container">
+                                                <MindMap mermaidData={msg.mermaidData} />
+                                            </div>
                                         </div>
                                     ) : msg.type === 'audio' && msg.audioUrl ? (
                                         <div className="audio-player-container">
                                             <p>{messageText}</p>
                                             <audio controls src={msg.audioUrl} />
                                             {/* Removed Join Now button as per user request */}
+                                        </div>
+                                    ) : msg.type === 'podcast' && msg.podcastData ? (
+                                        <div className="podcast-player-container">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                                            <div className="podcast-controls">
+                                                <button
+                                                    className="podcast-play-btn"
+                                                    onClick={() => playPodcast(msg.podcastData.script, index)}
+                                                    disabled={currentlySpeakingIndex === index}
+                                                >
+                                                    {currentlySpeakingIndex === index ? '⏸️ Pause' : '▶️ Play Podcast'}
+                                                </button>
+                                                <button
+                                                    className="podcast-stop-btn"
+                                                    onClick={() => stopPodcast()}
+                                                    disabled={currentlySpeakingIndex !== index}
+                                                >
+                                                    ⏹️ Stop
+                                                </button>
+                                            </div>
+                                            <div className="podcast-script">
+                                                <details>
+                                                    <summary>📄 View Podcast Script</summary>
+                                                    <div className="script-content">
+                                                        {msg.podcastData.script}
+                                                    </div>
+                                                </details>
+                                            </div>
                                         </div>
                                     ) : (
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>

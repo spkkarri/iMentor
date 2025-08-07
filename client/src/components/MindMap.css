@@ -1,7 +1,47 @@
 /* client/src/components/MindMap.css */
 
+.mindmap-container {
+  width: 100%;
+  height: 500px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #374151;
+}
+
 .react-flow-mindmap {
-  background-color: #1a1a1a;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.react-flow-mindmap svg {
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent;
+}
+
+/* Mermaid mind map node styling */
+.react-flow-mindmap .mindmap-node {
+  fill: #4f46e5 !important;
+  stroke: #6366f1 !important;
+  stroke-width: 2px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+}
+
+.react-flow-mindmap .mindmap-node:hover {
+  fill: #5b21b6 !important;
+  stroke: #7c3aed !important;
+  transform: scale(1.05) !important;
+}
+
+.react-flow-mindmap text {
+  fill: #ffffff !important;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
 }
 
 .mindmap-loading,
@@ -10,8 +50,17 @@
   justify-content: center;
   align-items: center;
   height: 100%;
-  color: #a0a0a0;
+  color: #e5e7eb;
   font-style: italic;
+  font-size: 16px;
+}
+
+.mindmap-error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px;
 }
 
 /* --- Base Custom Node Styling --- */
@@ -102,36 +151,60 @@
 .mindmap-modal {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
+
 .mindmap-modal-content {
-  background: #fff;
+  background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
   padding: 2rem;
-  border-radius: 10px;
-  max-width: 80vw;
+  border-radius: 16px;
+  max-width: 600px;
   max-height: 80vh;
   overflow: auto;
-  box-shadow: 0 4px 32px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid #4b5563;
+  color: #e5e7eb;
 }
+
 .mindmap-modal-content h2 {
   margin-top: 0;
+  color: #f3f4f6;
+  font-size: 1.5rem;
+  font-weight: 600;
+  border-bottom: 2px solid #4f46e5;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
 }
+
+.mindmap-modal-content p {
+  line-height: 1.6;
+  color: #d1d5db;
+  margin-bottom: 1.5rem;
+}
+
 .mindmap-modal-content button {
   margin-top: 1rem;
-  padding: 0.5rem 1.5rem;
-  background: #1976d2;
-  color: #fff;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
+
 .mindmap-modal-content button:hover {
-  background: #1565c0;
+  background: linear-gradient(135deg, #5b21b6 0%, #8b5cf6 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
 }
 
 .custom-node.custom-default-node {

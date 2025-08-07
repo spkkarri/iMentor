@@ -4,8 +4,8 @@ const express = require('express');
 const router = express.Router();
 const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
-const { documentProcessor, geminiAI } = require('../services/serviceManager');
-const { generatePodcastAudio } = require('../services/podcastGenerator');
+const { documentProcessor } = require('../services/serviceManager');
+const SimplePodcastGenerator = require('../services/simplePodcastGenerator');
 const path = require('path');
 const fs = require('fs');
 
@@ -71,25 +71,32 @@ router.post('/generate', tempAuth, async (req, res) => {
         
         console.log(`[Podcast] Generating script for "${file.originalname}"...`);
 
-        // 4. Use GeminiAI service to generate the podcast script (always English)
-        const script = await geminiAI.generatePodcastScript(documentContent);
-        // Add debug log for script
-        console.log(`[Podcast][Debug] Podcast script:`, script);
+        // 4. Use SimplePodcastGenerator to create the podcast script (Gemini AI only)
+        const podcastGenerator = new SimplePodcastGenerator();
+        const podcastResult = await podcastGenerator.generateSimplePodcast(documentContent, file.originalname);
 
-        console.log(`[Podcast] Script generated. Generating audio...`);
+        console.log(`[Podcast][Debug] Podcast generation result:`, podcastResult);
 
-        // 5. Use the podcastGenerator service to create the audio file (always English)
-        const podcastUrl = await generatePodcastAudio(script, file.originalname);
-        // Add debug log for podcastAudio
-        console.log(`[Podcast][Debug] Podcast audio result:`, podcastUrl);
-        
-        console.log(`[Podcast] Audio generated and saved at ${podcastUrl}`);
+        if (!podcastResult.success) {
+            console.log(`[Podcast] Failed to generate podcast for "${file.originalname}"`);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to generate podcast script.',
+                error: podcastResult.error
+            });
+        }
 
-        // 6. Send back the path to the generated podcast
+        console.log(`[Podcast] Podcast script generated successfully for "${file.originalname}"`);
+
+        // 5. Send back the podcast data (no audio file, uses browser TTS)
         res.json({
+            success: true,
             message: 'Podcast generated successfully!',
-            podcastUrl: podcastUrl,
-            script: script, // Optionally return the script
+            title: podcastResult.title,
+            script: podcastResult.script,
+            duration_estimate: podcastResult.duration_estimate,
+            key_points: podcastResult.key_points,
+            instructions: podcastResult.instructions
         });
 
     } catch (error) {

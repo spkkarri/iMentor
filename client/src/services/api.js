@@ -131,3 +131,19 @@ export const generateSampleData = (subject, count) => api.post('/training/data/g
 
 // Ollama functions
 export const pullOllamaModel = (modelName) => api.post('/ollama/pull', { modelName });
+
+// User API Keys Management
+export const getUserApiKeys = () => api.get('/user-api-keys');
+export const updateUserApiKeys = (data) => api.put('/user-api-keys', data);
+export const testUserServices = () => api.post('/user-api-keys/test');
+export const requestAdminAccess = (data) => api.post('/user-api-keys/request-admin-access', data);
+
+// Admin Dashboard
+export const getAdminDashboard = () => api.get('/admin/dashboard');
+export const getAllUsers = () => api.get('/admin/users');
+export const getUserDetails = (userId) => api.get(`/admin/users/${userId}`);
+export const approveAdminAccess = (userId, data) => api.post(`/admin/users/${userId}/approve`, data);
+export const denyAdminAccess = (userId, data) => api.post(`/admin/users/${userId}/deny`, data);
+export const revokeAdminAccess = (userId, data) => api.post(`/admin/users/${userId}/revoke`, data);
+export const updateUserConfig = (userId, data) => api.put(`/admin/users/${userId}`, data);
+export const getSystemStats = () => api.get('/admin/stats');

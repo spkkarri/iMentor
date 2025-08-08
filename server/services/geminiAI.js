@@ -19,8 +19,10 @@ class GeminiAI {
         const context = this.buildContext(documentChunks);
         const historyString = chatHistory.map(msg => `${msg.role}: ${msg.parts[0].text}`).join('\n');
 
-        // Enhanced prompt for RAG to prevent hallucination
-        const ragInstructions = context ? `
+        // Only add RAG instructions if we actually have document context
+        const hasDocuments = documentChunks && documentChunks.length > 0 && context && context !== 'No relevant document context available.';
+
+        const ragInstructions = hasDocuments ? `
 
 ## IMPORTANT RAG INSTRUCTIONS:
 - You have been provided with relevant document content below
@@ -30,11 +32,21 @@ class GeminiAI {
 - If you cannot find relevant information in the documents, say so clearly
 - When listing items (like skills, features, etc.), only include those explicitly mentioned in the documents` : '';
 
+        const normalInstructions = !hasDocuments ? `
+
+## INSTRUCTIONS:
+- You are a helpful AI assistant with broad knowledge
+- Provide accurate, informative, and helpful responses
+- Use your training knowledge to answer questions
+- Be conversational and engaging
+- If you're unsure about something, acknowledge the uncertainty` : '';
+
         const prompt = `
 ${systemPrompt}
 
-${context ? `\n\n## Relevant Context from Documents:\n${context}` : ''}
+${hasDocuments ? `\n\n## Relevant Context from Documents:\n${context}` : ''}
 ${ragInstructions}
+${normalInstructions}
 
 ## Conversation History:
 ${historyString}

@@ -14,6 +14,7 @@ import FileUploadWidget from './FileUploadWidget';
 import FileManagerWidget from './FileManagerWidget';
 import MindMap from './MindMap';
 import HistoryModal from './HistoryModal';
+import ResearchMetadata from './ResearchMetadata';
 
 
 import './ChatPage.css';
@@ -804,6 +805,11 @@ const ChatPage = ({ setIsAuthenticated }) => {
                                                 • Confidence: {msg.metadata.confidence || 'medium'}
                                             </div>
                                         </div>
+                                    )}
+
+                                    {/* Advanced Deep Research Metadata */}
+                                    {msg.role === 'assistant' && msg.metadata && (
+                                        <ResearchMetadata metadata={msg.metadata} />
                                     )}
 
                                     {/* Footer with timestamp and TTS button */}

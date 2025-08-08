@@ -9,6 +9,8 @@ const AuthPage = React.lazy(() => import('./components/AuthPage'));
 const ChatPage = React.lazy(() => import('./components/ChatPage'));
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
 const TrainingDashboard = React.lazy(() => import('./components/TrainingDashboard'));
+const ApiKeySetupPage = React.lazy(() => import('./components/ApiKeySetupPage'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
 
 const darkTheme = createTheme({
     palette: {
@@ -121,6 +123,26 @@ function App() {
                             element={
                                 isAuthenticated ? (
                                     <TrainingDashboard />
+                                ) : (
+                                    <Navigate to="/login" replace />
+                                )
+                            }
+                        />
+                        <Route
+                            path="/setup-api-keys"
+                            element={
+                                isAuthenticated ? (
+                                    <ApiKeySetupPage setIsAuthenticated={setIsAuthenticated} />
+                                ) : (
+                                    <Navigate to="/login" replace />
+                                )
+                            }
+                        />
+                        <Route
+                            path="/admin"
+                            element={
+                                isAuthenticated ? (
+                                    <AdminDashboard setIsAuthenticated={setIsAuthenticated} />
                                 ) : (
                                     <Navigate to="/login" replace />
                                 )

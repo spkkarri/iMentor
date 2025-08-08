@@ -120,7 +120,12 @@ router.post('/signin', async (req, res) => {
             console.log('[Auth] Sign-in successful, JWT generated for user:', username);
             res.json({
                 token,
-                user: { id: user.id, username: user.username } // Return user object without email
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    isAdmin: user.username === 'admin@gmail.com' || user.email === 'admin@gmail.com'
+                }
             });
         });
     } catch (err) {

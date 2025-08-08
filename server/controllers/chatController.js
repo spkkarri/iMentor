@@ -5,6 +5,7 @@ const { tempAuth } = require('../middleware/authMiddleware');
 const { ChatSession, MESSAGE_TYPES } = require('../models/ChatSession');
 const DeepSearchService = require('../deep_search/services/deepSearchService');
 const RealTimeDeepSearch = require('../services/realTimeDeepSearch');
+const userServiceManager = require('../services/userServiceManager');
 
 const createSession = async (req, res) => {
     try {
@@ -132,7 +133,8 @@ const handleStandardMessage = async (req, res) => {
         if (ragEnabled) {
             // Handle RAG-enabled message
             console.log('[RAG] Processing RAG-enabled message:', query);
-            const { vectorStore, geminiAI } = req.serviceManager.getServices();
+            const { vectorStore } = req.serviceManager.getServices();
+            const userAI = await userServiceManager.getUserAIService(userId);
 
             // Search for relevant documents across all user's uploaded files
             const filters = { userId };
@@ -171,7 +173,7 @@ const handleStandardMessage = async (req, res) => {
                 // No relevant documents found, provide a helpful message
                 console.log('[RAG] No relevant documents found with sufficient relevance, providing fallback response');
                 try {
-                    aiResponse = await geminiAI.generateChatResponse(
+                    aiResponse = await userAI.generateChatResponse(
                         `The user asked: "${query}"\n\nI searched through their uploaded documents but couldn't find any content that's sufficiently relevant to answer this question. Please provide a helpful response explaining that the uploaded documents don't contain information about this topic, and suggest they either upload more relevant documents or ask about topics covered in their existing files.`,
                         [],
                         aiHistory,
@@ -190,7 +192,7 @@ const handleStandardMessage = async (req, res) => {
             } else {
                 // Found relevant documents, use them for RAG
                 try {
-                    aiResponse = await geminiAI.generateChatResponse(query, relevantChunks, aiHistory, session.systemPrompt);
+                    aiResponse = await userAI.generateChatResponse(query, relevantChunks, aiHistory, session.systemPrompt);
                     console.log('[RAG] AI response generated with document context.');
 
                     const sources = [...new Set(relevantChunks.map(chunk => chunk.metadata?.source))];
@@ -217,15 +219,22 @@ const handleStandardMessage = async (req, res) => {
                 metadata: responseMetadata
             });
         } else if (deepSearch) {
-            // Handle Real-Time DeepSearch (ChatGPT/Gemini style)
-            console.log(`[RealTimeDeepSearch] Processing request for user: ${userId}, query: "${query}"`);
+            // Handle Advanced Deep Research with 6-stage verification process
+            console.log(`[AdvancedDeepResearch] Starting 6-stage deep research for user: ${userId}, query: "${query}"`);
 
             try {
-                const realTimeSearch = new RealTimeDeepSearch();
-                console.log('[RealTimeDeepSearch] Starting real-time search...');
+                const AdvancedDeepResearch = require('../services/advancedDeepResearch');
+                const researchEngine = new AdvancedDeepResearch();
+                console.log('[AdvancedDeepResearch] Initializing advanced research engine...');
 
-                const searchResults = await realTimeSearch.performRealTimeSearch(query);
-                console.log(`[RealTimeDeepSearch] Search completed in ${searchResults.searchTime}ms`);
+                // Convert history to expected format
+                const conversationHistory = history.map(item => ({
+                    role: item.role || 'user',
+                    content: item.content || item.parts?.[0]?.text || item.text || ''
+                })).filter(item => item.content.trim().length > 0);
+
+                const researchResults = await researchEngine.conductDeepResearch(query, conversationHistory);
+                console.log(`[AdvancedDeepResearch] Research completed in ${researchResults.metadata.researchTime}ms`);
 
                 // Create or get session
                 let session = await ChatSession.findOne({ sessionId, user: userId });
@@ -234,58 +243,99 @@ const handleStandardMessage = async (req, res) => {
                         sessionId,
                         user: userId,
                         title: query.substring(0, 50),
-                        systemPrompt: systemPrompt || "You are a helpful AI assistant with real-time web search capabilities."
+                        systemPrompt: systemPrompt || "You are an advanced AI research assistant with multi-stage verification capabilities."
                     });
                 }
 
                 // Add messages to session
                 session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
-                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', searchResults.response);
+                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', researchResults.answer);
                 await session.save();
 
                 res.json({
-                    response: searchResults.response,
+                    response: researchResults.answer,
                     followUpQuestions: [
-                        "Can you search for more recent information about this topic?",
-                        "What are the latest developments in this area?",
-                        "Are there any related topics I should know about?"
+                        "Can you conduct deeper research on any specific aspect?",
+                        "What are the confidence levels for different parts of this information?",
+                        "Are there any contradictory sources I should be aware of?",
+                        "Can you verify this information with additional sources?"
                     ],
                     sessionId: session.sessionId,
                     history: session.messages,
-                    metadata: searchResults.metadata
+                    metadata: researchResults.metadata
                 });
-            } catch (error) {
-                console.error('[RealTimeDeepSearch] Error:', error);
+            } catch (researchError) {
+                console.error('[AdvancedDeepResearch] Research failed, falling back to real-time search:', researchError);
 
-                // Fallback to basic response
-                let session = await ChatSession.findOne({ sessionId, user: userId });
-                if (!session) {
-                    session = new ChatSession({
-                        sessionId,
-                        user: userId,
-                        title: query.substring(0, 50),
-                        systemPrompt: systemPrompt || "You are a helpful AI assistant."
+                // Fallback to real-time search
+                try {
+                    const realTimeSearch = new RealTimeDeepSearch();
+                    console.log('[AdvancedDeepResearch] Falling back to real-time search...');
+
+                    const searchResults = await realTimeSearch.performRealTimeSearch(query);
+
+                    let session = await ChatSession.findOne({ sessionId, user: userId });
+                    if (!session) {
+                        session = new ChatSession({
+                            sessionId,
+                            user: userId,
+                            title: query.substring(0, 50),
+                            systemPrompt: systemPrompt || "You are a helpful AI assistant with web search capabilities."
+                        });
+                    }
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', searchResults.response);
+                    await session.save();
+
+                    res.json({
+                        response: searchResults.response,
+                        followUpQuestions: [
+                            "Can you search for more recent information about this topic?",
+                            "What are the latest developments in this area?",
+                            "Are there any related topics I should know about?"
+                        ],
+                        sessionId: session.sessionId,
+                        history: session.messages,
+                        metadata: {
+                            ...searchResults.metadata,
+                            searchType: 'real_time_search_fallback',
+                            fallbackReason: 'Advanced research failed, used real-time search'
+                        }
+                    });
+                } catch (searchError) {
+                    console.error('[AdvancedDeepResearch] All search methods failed, using standard AI:', searchError);
+
+                    // Final fallback to standard AI
+                    const standardUserAI = await userServiceManager.getUserAIService(userId);
+                    let session = await ChatSession.findOne({ sessionId, user: userId });
+                    if (!session) {
+                        session = new ChatSession({
+                            sessionId,
+                            user: userId,
+                            title: query.substring(0, 50),
+                            systemPrompt: systemPrompt || "You are a helpful AI assistant."
+                        });
+                    }
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+                    const aiHistory = session.messages.map(m => ({ role: m.role, parts: m.parts.map(p => ({ text: p.text })) }));
+                    const aiResponse = await standardUserAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', aiResponse.response);
+                    await session.save();
+
+                    res.json({
+                        response: aiResponse.response,
+                        followUpQuestions: aiResponse.followUpQuestions || [],
+                        sessionId: session.sessionId,
+                        history: session.messages,
+                        metadata: {
+                            searchType: 'deep_search_final_fallback',
+                            fallbackReason: 'All search methods failed, used standard AI',
+                            error: researchError.message
+                        }
                     });
                 }
-
-                const fallbackResponse = `I encountered an issue while searching the web for "${query}". Let me provide a general response based on my knowledge instead.`;
-
-                session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
-                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', fallbackResponse);
-                await session.save();
-
-                res.json({
-                    response: fallbackResponse,
-                    followUpQuestions: [],
-                    sessionId: session.sessionId,
-                    history: session.messages,
-                    metadata: {
-                        searchType: 'real_time_search_error',
-                        sources: [],
-                        error: error.message,
-                        fallback: true
-                    }
-                });
             }
         } else if (shouldUseWebSearch) {
             // Handle automatic web search using Gemini-style search
@@ -337,8 +387,8 @@ const handleStandardMessage = async (req, res) => {
                 console.warn('[Chat] ⚠️ Web search failed, falling back to standard response:', searchError.message);
 
 
-                // Fallback to standard Gemini AI
-                const { geminiAI } = req.serviceManager.getServices();
+                // Fallback to user's AI service
+                const fallbackUserAI = await userServiceManager.getUserAIService(userId);
                 let session = await ChatSession.findOne({ sessionId, user: userId });
                 if (!session) {
                     session = new ChatSession({ sessionId, user: userId, title: query.substring(0, 50), systemPrompt: systemPrompt || "You are a helpful general-purpose AI assistant." });
@@ -346,7 +396,7 @@ const handleStandardMessage = async (req, res) => {
 
                 session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
                 const aiHistory = session.messages.map(m => ({ role: m.role, parts: m.parts.map(p => ({ text: p.text })) }));
-                const aiResponse = await geminiAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+                const aiResponse = await fallbackUserAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
                 session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', aiResponse.response);
                 await session.save();
 
@@ -364,8 +414,8 @@ const handleStandardMessage = async (req, res) => {
             }
         } else {
             // Handle standard message (no search needed)
-            console.log('[Chat] 🤖 Using standard Gemini AI');
-            const { geminiAI } = req.serviceManager.getServices();
+            console.log('[Chat] 🤖 Using user AI service');
+            const standardUserAI = await userServiceManager.getUserAIService(userId);
             let session = await ChatSession.findOne({ sessionId, user: userId });
             if (!session) {
                 session = new ChatSession({ sessionId, user: userId, title: query.substring(0, 50), systemPrompt: systemPrompt || "You are a helpful general-purpose AI assistant." });
@@ -374,7 +424,7 @@ const handleStandardMessage = async (req, res) => {
             session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
 
             const aiHistory = session.messages.map(m => ({ role: m.role, parts: m.parts.map(p => ({ text: p.text })) }));
-            const aiResponse = await geminiAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+            const aiResponse = await standardUserAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
 
             session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', aiResponse.response);
             await session.save();
@@ -398,7 +448,8 @@ const handleRagMessage = async (req, res) => {
     try {
         const { query, sessionId, fileId } = req.body;
         const userId = req.user.id;
-        const { vectorStore, geminiAI } = req.serviceManager.getServices();
+        const { vectorStore } = req.serviceManager.getServices();
+        const ragUserAI = await userServiceManager.getUserAIService(userId);
 
         console.log('[RAG] Incoming request:', { userId, query, sessionId, fileId });
 
@@ -450,7 +501,7 @@ const handleRagMessage = async (req, res) => {
 
         let aiResponse;
         try {
-            aiResponse = await geminiAI.generateChatResponse(query, relevantChunks, aiHistory, session.systemPrompt);
+            aiResponse = await ragUserAI.generateChatResponse(query, relevantChunks, aiHistory, session.systemPrompt);
             console.log('[RAG] AI response generated.');
         } catch (aiErr) {
             console.error('[RAG] Error generating AI response:', aiErr);

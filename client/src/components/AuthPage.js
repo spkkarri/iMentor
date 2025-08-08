@@ -32,7 +32,33 @@ const AuthPage = ({ setIsAuthenticated }) => {
             localStorage.setItem('userId', String(userId));
             localStorage.setItem('username', response.data.user.username);
             setIsAuthenticated(true);
-            navigate('/chat');
+
+            // Check for admin login
+            console.log('AuthPage: User data:', response.data.user);
+            console.log('AuthPage: isAdmin flag:', response.data.user.isAdmin);
+            console.log('AuthPage: username:', response.data.user.username);
+            console.log('AuthPage: email:', response.data.user.email);
+
+            const isAdminUser = response.data.user.isAdmin ||
+                               response.data.user.username === 'admin@gmail.com' ||
+                               response.data.user.email === 'admin@gmail.com';
+
+            console.log('AuthPage: Final admin check:', isAdminUser);
+
+            if (isAdminUser) {
+                console.log('AuthPage: Admin detected, redirecting to /admin');
+                alert('Admin login successful! Redirecting to admin dashboard...');
+                navigate('/admin');
+            } else if (!isLogin) {
+                // Redirect to API key setup for new signups
+                console.log('AuthPage: New signup, redirecting to API key setup');
+                alert('Signup successful! Redirecting to API key setup...');
+                navigate('/setup-api-keys');
+            } else {
+                // Regular login goes to chat
+                console.log('AuthPage: Regular login, redirecting to chat');
+                navigate('/chat');
+            }
         } catch (err) {
             console.error('AuthPage: Auth error:', err.response ? err.response.data : err.message);
             const errorMessage = err.response?.data?.message || `Failed to ${isLogin ? 'sign in' : 'sign up'}. Please try again.`;
@@ -78,6 +104,25 @@ const AuthPage = ({ setIsAuthenticated }) => {
                         <Button type="submit" variant="contained" size="large" sx={{ mt: 2, py: 1.5 }} disabled={isLoading}>
                             {isLoading ? <CircularProgress size={24} color="inherit" /> : (isLogin ? 'Sign In' : 'Sign Up')}
                         </Button>
+
+                        {/* Temporary test links */}
+                        <Box sx={{ mt: 2, textAlign: 'center' }}>
+                            <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => navigate('/admin')}
+                                sx={{ mr: 1 }}
+                            >
+                                Test Admin Page
+                            </Button>
+                            <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => navigate('/setup-api-keys')}
+                            >
+                                Test API Setup
+                            </Button>
+                        </Box>
                     </Box>
                 </CardContent>
             </Card>

@@ -47,6 +47,10 @@ const startServer = async () => {
 
         await serviceManager.initialize();
 
+        // Initialize user service manager
+        const userServiceManager = require('./services/userServiceManager');
+        await userServiceManager.initialize();
+
         try {
             await performAssetCleanup();
         } catch (cleanupError) {
@@ -73,6 +77,9 @@ const startServer = async () => {
         app.use('/api/multi-model', require('./routes/multiModel')); // Multi-model LLM routes
         app.use('/api/training', require('./routes/training')); // LLM Training routes
         app.use('/api/subjects', require('./routes/subjects')); // Custom subjects and model management
+        app.use('/api/user-api-keys', require('./routes/userApiKeys')); // User API key management
+        app.use('/api/admin', require('./routes/admin')); // Admin dashboard and user management
+        app.use('/api/research', require('./routes/testResearch')); // Advanced Deep Research testing
 
         // Initialize monitoring routes with metrics collector
         const monitoringRoutes = require('./routes/monitoring');

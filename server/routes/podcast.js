@@ -73,7 +73,9 @@ router.post('/generate', tempAuth, async (req, res) => {
 
         // 4. Use SimplePodcastGenerator to create the podcast script (Gemini AI only)
         const podcastGenerator = new SimplePodcastGenerator();
-        const podcastResult = await podcastGenerator.generateSimplePodcast(documentContent, file.originalname);
+
+        // Always use single-host style
+        const podcastResult = await podcastGenerator.generateSingleHostPodcast(documentContent, file.originalname);
 
         console.log(`[Podcast][Debug] Podcast generation result:`, podcastResult);
 

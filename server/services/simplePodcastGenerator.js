@@ -36,48 +36,54 @@ class SimplePodcastGenerator {
             throw new Error('Document content is too short to generate a meaningful podcast');
         }
 
-        const prompt = `Create an engaging podcast script based on the following document content. The podcast should be conversational, informative, and suitable for audio consumption.
+        const prompt = `Create an engaging podcast script based on the following document content. Make it sound like a natural conversation between a male and female voice.
 
 DOCUMENT CONTENT:
 ${documentContent}
 
 INSTRUCTIONS:
 - Create a 2-3 minute podcast script (approximately 300-450 words)
-- Use a conversational, engaging tone
-- Structure it as a single host presentation
-- Include an introduction, main content, and conclusion
-- Make it sound natural when spoken aloud
+- Format as a natural conversation between [Male Voice] and [Female Voice]
+- Use conversational, engaging tone with natural dialogue
+- Include an introduction, main discussion, and conclusion
+- Make it sound like real people talking, not reading from a script
+- Use natural speech patterns: "Well...", "You know...", "That's interesting..."
+- Add interruptions, agreements, and natural flow
 - Focus on the key points and insights from the document
-- Add natural transitions and pauses
-- Make it accessible to a general audience
+- Make it accessible and engaging for listeners
+- DO NOT use any actual names, just indicate [Male Voice] and [Female Voice]
 
-Format the response as a JSON object with this structure:
-{
-  "title": "Engaging podcast title based on the content",
-  "script": "The complete podcast script text",
-  "duration_estimate": "Estimated duration in minutes",
-  "key_points": ["key point 1", "key point 2", "key point 3"]
-}`;
+Write the script as natural dialogue only. Start directly with the conversation. Example format:
+
+[Female Voice]: Hey everyone, welcome back! Today we're diving into something really fascinating...
+
+[Male Voice]: Absolutely! I was just reading about this and it completely changed how I think about...
+
+[Female Voice]: Right? The part that really caught my attention was...
+
+Write ONLY the conversational dialogue with [Male Voice] and [Female Voice] labels, no JSON, no formatting, just natural conversation between the two voices discussing the document content.`;
 
         try {
-            console.log(`🎙️ Generating podcast script for "${filename}"...`);
+            console.log(`🎙️ Generating conversational podcast script for "${filename}"...`);
             const response = await this.geminiAI.generateText(prompt);
-            
-            // Try to parse as JSON, fallback to plain text if needed
-            let podcastData;
-            try {
-                podcastData = JSON.parse(response);
-            } catch (parseError) {
-                console.warn('Failed to parse JSON response, using fallback format');
-                podcastData = {
-                    title: `Podcast: ${filename}`,
-                    script: response,
-                    duration_estimate: "2-3 minutes",
-                    key_points: ["Generated from document content"]
-                };
-            }
 
-            console.log(`✅ Podcast script generated: "${podcastData.title}"`);
+            // Clean up the response to ensure it's natural dialogue
+            const cleanScript = response
+                .replace(/```[\s\S]*?```/g, '') // Remove any code blocks
+                .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold formatting
+                .replace(/\*([^*]+)\*/g, '$1') // Remove italic formatting
+                .replace(/#{1,6}\s+/g, '') // Remove markdown headers
+                .replace(/\n{3,}/g, '\n\n') // Normalize line breaks
+                .trim();
+
+            const podcastData = {
+                title: `Podcast Discussion: ${filename}`,
+                script: cleanScript,
+                duration_estimate: "2-3 minutes",
+                key_points: ["Natural conversation about document content"]
+            };
+
+            console.log(`✅ Conversational podcast script generated: "${podcastData.title}"`);
             return podcastData;
 
         } catch (error) {
@@ -123,28 +129,41 @@ Format the response as a JSON object with this structure:
     async generateSpeechOptimizedScript(documentContent, filename = 'document') {
         await this.initialize();
 
-        const prompt = `Create a podcast script optimized for text-to-speech synthesis based on the following document content.
+        const prompt = `Create a natural conversation between male and female voices discussing the following document content. Optimize for text-to-speech synthesis.
 
 DOCUMENT CONTENT:
 ${documentContent}
 
 INSTRUCTIONS:
-- Create a 2-3 minute script (300-450 words)
+- Create a 2-3 minute conversational script (300-450 words)
+- Format as dialogue between [Male Voice] and [Female Voice]
 - Use simple, clear sentences that sound natural when spoken
 - Add natural pauses with commas and periods
 - Avoid complex punctuation that might confuse TTS
 - Use conversational language and contractions
-- Include verbal transitions like "Now," "Next," "Finally"
+- Include natural speech patterns: "Well...", "You know...", "That's really interesting..."
+- Make voices interrupt each other naturally and agree/disagree
+- Include verbal transitions and natural flow
 - Make it engaging and easy to follow when listened to
-- Structure: Brief intro, main points, conclusion
+- DO NOT use any actual names, just indicate [Male Voice] and [Female Voice]
 
-Return ONLY the script text, no JSON formatting:`;
+Write ONLY the conversational dialogue, no formatting or JSON. Example:
+
+[Female Voice]: Welcome back everyone! Today we're talking about something really fascinating...
+[Male Voice]: Oh absolutely! When I first read about this, I was completely surprised by...
+[Female Voice]: Right? The thing that really stood out to me was...
+
+Return ONLY the natural conversation between [Male Voice] and [Female Voice]:`;
 
         try {
             const script = await this.geminiAI.generateText(prompt);
-            
-            // Clean up the script for better TTS
+
+            // Clean up the script for better TTS and natural conversation
             const cleanScript = script
+                .replace(/```[\s\S]*?```/g, '') // Remove any code blocks
+                .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold formatting
+                .replace(/\*([^*]+)\*/g, '$1') // Remove italic formatting
+                .replace(/#{1,6}\s+/g, '') // Remove markdown headers
                 .replace(/[""]/g, '"')  // Normalize quotes
                 .replace(/['']/g, "'")  // Normalize apostrophes
                 .replace(/\s+/g, ' ')   // Normalize whitespace
@@ -153,7 +172,7 @@ Return ONLY the script text, no JSON formatting:`;
 
             return {
                 success: true,
-                title: `Podcast: ${filename}`,
+                title: `Podcast Discussion: ${filename}`,
                 script: cleanScript,
                 word_count: cleanScript.split(' ').length,
                 estimated_duration: Math.ceil(cleanScript.split(' ').length / 150) + " minutes"
@@ -161,6 +180,62 @@ Return ONLY the script text, no JSON formatting:`;
 
         } catch (error) {
             console.error('Error generating speech-optimized script:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generate a single-host podcast script
+     */
+    async generateSingleHostPodcast(documentContent, filename = 'document') {
+        await this.initialize();
+
+        const prompt = `Create an engaging single-host podcast script based on the following document content.
+
+DOCUMENT CONTENT:
+${documentContent}
+
+INSTRUCTIONS:
+- Create a 2-3 minute podcast script (approximately 300-450 words)
+- Format as a single host presentation with no names mentioned
+- Use conversational, engaging tone as if talking directly to listeners
+- Include an introduction, main content, and conclusion
+- Make it sound natural and personal, like a friend explaining something interesting
+- Use natural speech patterns: "You know...", "Here's what's fascinating...", "Let me tell you about..."
+- Address the audience directly: "you", "imagine this", "think about it"
+- Focus on the key points and insights from the document
+- Make it accessible and engaging for listeners
+- DO NOT mention any host names or introduce yourself by name
+
+Write the script as natural monologue only. Start directly with the content. Example format:
+
+Hey there, welcome back! Today I want to share something absolutely fascinating with you...
+
+Write ONLY the natural monologue without any names, no JSON, no formatting, just natural single-host presentation.`;
+
+        try {
+            const script = await this.geminiAI.generateText(prompt);
+
+            // Clean up the script
+            const cleanScript = script
+                .replace(/```[\s\S]*?```/g, '') // Remove any code blocks
+                .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold formatting
+                .replace(/\*([^*]+)\*/g, '$1') // Remove italic formatting
+                .replace(/#{1,6}\s+/g, '') // Remove markdown headers
+                .replace(/\n{3,}/g, '\n\n') // Normalize line breaks
+                .trim();
+
+            return {
+                success: true,
+                title: `Podcast: ${filename}`,
+                script: cleanScript,
+                word_count: cleanScript.split(' ').length,
+                estimated_duration: Math.ceil(cleanScript.split(' ').length / 150) + " minutes",
+                format: "single-host"
+            };
+
+        } catch (error) {
+            console.error('Error generating single-host script:', error);
             throw error;
         }
     }

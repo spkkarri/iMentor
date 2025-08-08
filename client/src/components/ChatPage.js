@@ -669,7 +669,7 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
         try {
             console.log(`🎙️ Generating podcast for file: ${fileName} (ID: ${fileId})`);
-            const response = await generatePodcast(fileId);
+            const response = await generatePodcast(fileId, 'single-host');
 
             if (response.data && response.data.success) {
                 // Show success message with podcast player

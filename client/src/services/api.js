@@ -57,7 +57,7 @@ export const getSessionDetails = (sessionId) => api.get(`/chat/session/${session
 export const uploadFile = (formData) => api.post('/upload', formData);
 export const getUserFiles = () => api.get('/files');
 export const deleteUserFile = (fileId) => api.delete(`/files/${fileId}`);
-export const generatePodcast = (fileId) => api.post('/podcast/generate', { fileId });
+export const generatePodcast = (fileId, style = 'single-host') => api.post('/podcast/generate', { fileId, style });
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
 export const generatePPT = (topic) => api.post('/files/generate-ppt', { topic }, { responseType: 'blob' });
 export const generateReport = (topic) => api.post('/files/generate-report', { topic }, { responseType: 'blob' });

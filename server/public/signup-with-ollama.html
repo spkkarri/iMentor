@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - AI Chatbot with Ollama</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .signup-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .logo p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .ollama-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
+            border-left: 4px solid #28a745;
+        }
+        
+        .ollama-section h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .ollama-section p {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .url-examples {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .url-examples h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+        
+        .url-examples ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .url-examples li {
+            background: white;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #495057;
+        }
+        
+        .test-connection {
+            margin-top: 10px;
+        }
+        
+        .test-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s ease;
+        }
+        
+        .test-btn:hover {
+            background: #138496;
+        }
+        
+        .test-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .connection-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-testing {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .signup-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .signup-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .signup-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .login-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <div class="logo">
+            <h1>🤖 AI Chatbot</h1>
+            <p>Sign up for intelligent conversations</p>
+        </div>
+        
+        <div id="message-container"></div>
+        
+        <form id="signupForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="Enter your username" minlength="3">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Enter your password" minlength="8">
+            </div>
+            
+            <div class="ollama-section">
+                <h3>🦙 Ollama Configuration</h3>
+                <p>Connect to your own Ollama server for enhanced AI capabilities. If you have Ollama running on your system or a remote server, provide the URL below.</p>
+                
+                <div class="form-group">
+                    <label for="ollamaUrl">Ollama Server URL (Optional)</label>
+                    <input type="url" id="ollamaUrl" name="ollamaUrl" 
+                           placeholder="http://localhost:11434" 
+                           value="http://localhost:11434">
+                </div>
+                
+                <div class="url-examples">
+                    <h4>📋 Example URLs:</h4>
+                    <ul>
+                        <li>http://localhost:11434 (Local installation)</li>
+                        <li>http://192.168.1.100:11434 (Local network)</li>
+                        <li>http://your-server.com:11434 (Remote server)</li>
+                        <li>https://ollama.yourcompany.com (HTTPS)</li>
+                    </ul>
+                </div>
+                
+                <div class="test-connection">
+                    <button type="button" class="test-btn" id="testConnectionBtn">
+                        🔌 Test Connection
+                    </button>
+                    <div id="connectionStatus" class="connection-status" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <button type="submit" class="signup-btn" id="signupBtn">
+                Create Account
+            </button>
+        </form>
+        
+        <div class="login-link">
+            <p>Already have an account? <a href="/login">Sign in here</a></p>
+        </div>
+    </div>
+
+    <script>
+        const signupForm = document.getElementById('signupForm');
+        const testConnectionBtn = document.getElementById('testConnectionBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const messageContainer = document.getElementById('message-container');
+        const ollamaUrlInput = document.getElementById('ollamaUrl');
+
+        // Test Ollama connection
+        testConnectionBtn.addEventListener('click', async () => {
+            const ollamaUrl = ollamaUrlInput.value.trim();
+            
+            if (!ollamaUrl) {
+                showConnectionStatus('Please enter an Ollama URL first', 'error');
+                return;
+            }
+
+            testConnectionBtn.disabled = true;
+            testConnectionBtn.textContent = '🔄 Testing...';
+            showConnectionStatus('Testing connection to Ollama server...', 'testing');
+
+            try {
+                // Test connection by trying to reach the /api/tags endpoint
+                const response = await fetch(`${ollamaUrl}/api/tags`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const modelCount = data.models ? data.models.length : 0;
+                    showConnectionStatus(
+                        `✅ Connection successful! Found ${modelCount} models on server.`, 
+                        'success'
+                    );
+                } else {
+                    showConnectionStatus(
+                        `❌ Connection failed: Server responded with status ${response.status}`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                let errorMessage = '❌ Connection failed: ';
+                if (error.name === 'TimeoutError') {
+                    errorMessage += 'Request timed out. Check if the server is running.';
+                } else if (error.message.includes('fetch')) {
+                    errorMessage += 'Cannot reach server. Check URL and network connection.';
+                } else {
+                    errorMessage += error.message;
+                }
+                showConnectionStatus(errorMessage, 'error');
+            } finally {
+                testConnectionBtn.disabled = false;
+                testConnectionBtn.textContent = '🔌 Test Connection';
+            }
+        });
+
+        function showConnectionStatus(message, type) {
+            connectionStatus.textContent = message;
+            connectionStatus.className = `connection-status status-${type}`;
+            connectionStatus.style.display = 'block';
+        }
+
+        function showMessage(message, type) {
+            messageContainer.innerHTML = `<div class="${type}-message">${message}</div>`;
+        }
+
+        // Handle form submission
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(signupForm);
+            const signupData = {
+                username: formData.get('username'),
+                password: formData.get('password'),
+                ollamaUrl: formData.get('ollamaUrl') || 'http://localhost:11434'
+            };
+
+            const signupBtn = document.getElementById('signupBtn');
+            signupBtn.disabled = true;
+            signupBtn.textContent = 'Creating Account...';
+
+            try {
+                const response = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(signupData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('✅ Account created successfully! You can now sign in.', 'success');
+                    signupForm.reset();
+                    
+                    // Optionally redirect to login page
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                } else {
+                    showMessage(`❌ ${result.message || 'Failed to create account'}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Network error: ${error.message}`, 'error');
+            } finally {
+                signupBtn.disabled = false;
+                signupBtn.textContent = 'Create Account';
+            }
+        });
+
+        // Auto-fill localhost URL if empty
+        ollamaUrlInput.addEventListener('focus', () => {
+            if (!ollamaUrlInput.value.trim()) {
+                ollamaUrlInput.value = 'http://localhost:11434';
+            }
+        });
+    </script>
+</body>
+</html>

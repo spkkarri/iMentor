@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Switcher Demo - AI Chatbot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .demo-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .demo-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .demo-header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .demo-content {
+            display: flex;
+            min-height: 600px;
+        }
+        
+        .sidebar-demo {
+            width: 300px;
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            padding: 20px;
+        }
+        
+        .chat-demo {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .model-switcher-demo {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .model-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        
+        .model-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .refresh-btn {
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        
+        .refresh-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .model-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            background: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        
+        .model-select:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+        
+        .model-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .model-name {
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 4px;
+        }
+        
+        .model-description {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .specialties {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        
+        .specialty-tag {
+            background: #e7f3ff;
+            color: #0066cc;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+        
+        .specialty-tag.reasoning { background: #e3f2fd; color: #1976d2; }
+        .specialty-tag.technical { background: #fff3e0; color: #f57c00; }
+        .specialty-tag.creative { background: #fce4ec; color: #c2185b; }
+        .specialty-tag.research { background: #f3e5f5; color: #7b1fa2; }
+        .specialty-tag.chat { background: #e8f5e8; color: #2e7d32; }
+        
+        .chat-area {
+            flex: 1;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .message {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .message.user {
+            background: #e7f3ff;
+            margin-left: 20px;
+        }
+        
+        .message.assistant {
+            background: #f0f9ff;
+            margin-right: 20px;
+        }
+        
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .model-indicator {
+            background: #28a745;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .send-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .features-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .features-list h3 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .features-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .features-list li {
+            padding: 5px 0;
+            color: #6c757d;
+        }
+        
+        .features-list li:before {
+            content: "✅ ";
+            margin-right: 8px;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🤖 Multi-LLM Model Switcher</h1>
+            <p>Intelligent AI model routing for optimal responses</p>
+        </div>
+        
+        <div class="demo-content">
+            <div class="sidebar-demo">
+                <div class="model-switcher-demo">
+                    <div class="model-header">
+                        <span class="model-title">AI Model</span>
+                        <button class="refresh-btn" onclick="refreshModels()">🔄 Refresh</button>
+                    </div>
+                    
+                    <select class="model-select" id="modelSelect" onchange="switchModel()">
+                        <option value="gemini-flash">🔍 Gemini Flash</option>
+                        <option value="gemini-pro">🧠 Gemini Pro</option>
+                        <option value="llama3.2">🦙 Llama 3.2</option>
+                        <option value="deepseek">🧮 DeepSeek</option>
+                        <option value="qwen">⚡ Qwen</option>
+                    </select>
+                    
+                    <div class="model-info" id="modelInfo">
+                        <div class="model-name">Gemini Flash</div>
+                        <div class="model-description">Fast, accurate responses with web search capabilities</div>
+                        <div class="specialties">
+                            <span class="specialty-tag research">Research</span>
+                            <span class="specialty-tag">Facts</span>
+                            <span class="specialty-tag">Web Search</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="features-list">
+                    <h3>🚀 Features</h3>
+                    <ul>
+                        <li>Intelligent model routing</li>
+                        <li>Real-time model switching</li>
+                        <li>User-specific Ollama servers</li>
+                        <li>Automatic fallback</li>
+                        <li>Performance optimization</li>
+                        <li>Multi-provider support</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="chat-demo">
+                <div class="chat-area" id="chatArea">
+                    <div class="message assistant">
+                        <div class="message-header">
+                            <span>🤖 Assistant</span>
+                            <span class="model-indicator" id="currentModel">Gemini Flash</span>
+                        </div>
+                        <div>Hello! I'm your AI assistant with intelligent model routing. Try switching between different models to see how each one specializes in different types of conversations!</div>
+                    </div>
+                </div>
+                
+                <div class="input-area">
+                    <input type="text" class="message-input" id="messageInput" placeholder="Type your message..." onkeypress="handleEnter(event)">
+                    <button class="send-btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+
+    <script>
+        const models = {
+            'gemini-flash': {
+                name: 'Gemini Flash',
+                description: 'Fast, accurate responses with web search capabilities',
+                specialties: ['Research', 'Facts', 'Web Search'],
+                type: 'research'
+            },
+            'gemini-pro': {
+                name: 'Gemini Pro',
+                description: 'Comprehensive analysis and reasoning',
+                specialties: ['Analysis', 'Reasoning', 'Complex Tasks'],
+                type: 'reasoning'
+            },
+            'llama3.2': {
+                name: 'Llama 3.2',
+                description: 'Natural conversation and creative tasks',
+                specialties: ['Chat', 'Creative', 'Storytelling'],
+                type: 'chat'
+            },
+            'deepseek': {
+                name: 'DeepSeek',
+                description: 'Advanced reasoning and mathematical problem solving',
+                specialties: ['Reasoning', 'Math', 'Logic'],
+                type: 'reasoning'
+            },
+            'qwen': {
+                name: 'Qwen',
+                description: 'Technical discussions and programming assistance',
+                specialties: ['Programming', 'Technical', 'Code Review'],
+                type: 'technical'
+            }
+        };
+
+        let currentModelId = 'gemini-flash';
+
+        function switchModel() {
+            const select = document.getElementById('modelSelect');
+            const modelId = select.value;
+            const model = models[modelId];
+            
+            currentModelId = modelId;
+            
+            // Update model info
+            const modelInfo = document.getElementById('modelInfo');
+            modelInfo.innerHTML = `
+                <div class="model-name">${model.name}</div>
+                <div class="model-description">${model.description}</div>
+                <div class="specialties">
+                    ${model.specialties.map(s => `<span class="specialty-tag ${model.type}">${s}</span>`).join('')}
+                </div>
+            `;
+            
+            // Update current model indicator
+            document.getElementById('currentModel').textContent = model.name;
+            
+            // Show notification
+            showNotification(`Switched to ${model.name}`);
+            
+            // Add a demo message
+            addMessage('assistant', `Hello! I'm now using ${model.name}. ${getModelGreeting(modelId)}`);
+        }
+
+        function getModelGreeting(modelId) {
+            const greetings = {
+                'gemini-flash': 'I can help you with research and finding the latest information!',
+                'gemini-pro': 'I excel at complex analysis and comprehensive reasoning tasks.',
+                'llama3.2': 'I love creative conversations and storytelling!',
+                'deepseek': 'I specialize in mathematical reasoning and logical problem solving.',
+                'qwen': 'I\'m great with programming and technical discussions!'
+            };
+            return greetings[modelId] || 'How can I help you today?';
+        }
+
+        function refreshModels() {
+            showNotification('Refreshing available models...');
+            // Simulate refresh
+            setTimeout(() => {
+                showNotification('Models refreshed successfully!');
+            }, 1000);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            addMessage('user', message);
+            
+            // Clear input
+            input.value = '';
+            
+            // Simulate AI response
+            setTimeout(() => {
+                const response = generateResponse(message, currentModelId);
+                addMessage('assistant', response);
+            }, 1000);
+        }
+
+        function addMessage(role, content) {
+            const chatArea = document.getElementById('chatArea');
+            const model = models[currentModelId];
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            if (role === 'assistant') {
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <span>🤖 Assistant</span>
+                        <span class="model-indicator">${model.name}</span>
+                    </div>
+                    <div>${content}</div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <span>👤 You</span>
+                    </div>
+                    <div>${content}</div>
+                `;
+            }
+            
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function generateResponse(message, modelId) {
+            const responses = {
+                'gemini-flash': `Based on my research capabilities, here's what I found about "${message}". I can search the web for the latest information and provide comprehensive answers.`,
+                'gemini-pro': `Let me analyze "${message}" comprehensively. This requires careful reasoning and I'll break down the key aspects for you.`,
+                'llama3.2': `That's an interesting topic! Let me share some creative thoughts about "${message}". I love exploring ideas in engaging ways.`,
+                'deepseek': `I'll approach "${message}" with logical reasoning. Let me break this down step by step and provide a mathematical or analytical perspective.`,
+                'qwen': `From a technical standpoint, "${message}" involves several key concepts. Let me explain the technical details and implementation aspects.`
+            };
+            
+            return responses[modelId] || `I understand you're asking about "${message}". How can I help you with this?`;
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Initialize
+        switchModel();
+    </script>
+</body>
+</html>

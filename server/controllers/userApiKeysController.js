@@ -132,7 +132,7 @@ const validateUserServices = async (userApiKeys) => {
             try {
                 const { GoogleGenerativeAI } = require('@google/generative-ai');
                 const genAI = new GoogleGenerativeAI(userApiKeys.geminiApiKey);
-                const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+                const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
                 
                 // Test with a simple prompt
                 await model.generateContent('Hello');

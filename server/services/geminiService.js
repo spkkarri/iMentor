@@ -1,11 +1,11 @@
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const { handleGeminiError, handleRAGError } = require('../utils/errorUtils');
 
-// Using Gemini 2.0 Flash for higher rate limits:
-// - 200 requests per day (vs 50 for 1.5 Flash)
-// - 15 requests per minute
-// - 1,000,000 tokens per minute
-const MODEL_NAME = "gemini-2.0-flash";
+// Using Gemini 1.5 Flash for reliable performance:
+// - Stable and widely available
+// - Good rate limits
+// - Reliable response generation
+const MODEL_NAME = "gemini-1.5-flash";
 
 const baseGenerationConfig = {
     temperature: 0.7,

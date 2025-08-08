@@ -10,8 +10,16 @@ const User = require('../models/User');
 // @desc    Register a new user with username and password
 // @access  Public
 router.post('/signup', async (req, res) => {
-    // This route now correctly expects ONLY username and password
-    const { username, password } = req.body;
+    // Updated to include Ollama URL and API keys configuration
+    const {
+        username,
+        password,
+        ollamaUrl,
+        geminiApiKey,
+        deepseekApiKey,
+        qwenApiKey,
+        useOwnKeys
+    } = req.body;
 
     // --- Validation for username and password ---
     if (!username || !password) {
@@ -19,6 +27,17 @@ router.post('/signup', async (req, res) => {
     }
     if (password.length < 8) {
         return res.status(400).json({ message: 'Password must be at least 8 characters long.' });
+    }
+
+    // --- Validate Ollama URL if provided ---
+    if (ollamaUrl && ollamaUrl.trim()) {
+        try {
+            new URL(ollamaUrl);
+        } catch (error) {
+            return res.status(400).json({
+                message: 'Please provide a valid Ollama URL (e.g., http://localhost:11434 or http://your-server:11434)'
+            });
+        }
     }
 
     try {
@@ -30,7 +49,18 @@ router.post('/signup', async (req, res) => {
 
         // Create a new user. The password will be hashed automatically by the
         // pre-save hook we added to the User model.
-        user = new User({ username, password });
+        const userData = {
+            username,
+            password,
+            ollamaUrl: ollamaUrl && ollamaUrl.trim() ? ollamaUrl.trim() : 'http://localhost:11434',
+            apiKeys: {
+                gemini: geminiApiKey && geminiApiKey.trim() ? geminiApiKey.trim() : '',
+                deepseek: deepseekApiKey && deepseekApiKey.trim() ? deepseekApiKey.trim() : '',
+                qwen: qwenApiKey && qwenApiKey.trim() ? qwenApiKey.trim() : ''
+            },
+            useOwnKeys: useOwnKeys || false
+        };
+        user = new User(userData);
         await user.save();
 
         // Create JWT
@@ -43,7 +73,17 @@ router.post('/signup', async (req, res) => {
             if (err) throw err;
             res.status(201).json({
                 token,
-                user: { id: user.id, username: user.username } // Return user object without email
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    ollamaUrl: user.ollamaUrl,
+                    useOwnKeys: user.useOwnKeys,
+                    hasApiKeys: {
+                        gemini: !!(user.apiKeys?.gemini),
+                        deepseek: !!(user.apiKeys?.deepseek),
+                        qwen: !!(user.apiKeys?.qwen)
+                    }
+                }
             });
         });
     } catch (err) {

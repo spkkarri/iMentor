@@ -6,6 +6,12 @@ const { ChatSession, MESSAGE_TYPES } = require('../models/ChatSession');
 const DeepSearchService = require('../deep_search/services/deepSearchService');
 const RealTimeDeepSearch = require('../services/realTimeDeepSearch');
 const userServiceManager = require('../services/userServiceManager');
+const IntelligentMultiLLM = require('../services/intelligentMultiLLM');
+const userSpecificAI = require('../services/userSpecificAI');
+const GroqAI = require('../services/groqAI');
+const TogetherAI = require('../services/togetherAI');
+const CohereAI = require('../services/cohereAI');
+const HuggingFaceAI = require('../services/huggingFaceAI');
 
 const createSession = async (req, res) => {
     try {
@@ -83,10 +89,20 @@ const saveChatHistory = async (req, res) => {
 
 const handleStandardMessage = async (req, res) => {
     try {
-        const { query, sessionId, history = [], systemPrompt, ragEnabled = false, deepSearch = false, autoDetectWebSearch = false } = req.body;
+        const {
+            query,
+            sessionId,
+            history = [],
+            systemPrompt,
+            ragEnabled = false,
+            deepSearch = false,
+            autoDetectWebSearch = false,
+            multiLLM = false,
+            selectedModel = 'gemini-flash'
+        } = req.body;
         const userId = req.user.id;
 
-        console.log(`[Chat] Request: query="${query.substring(0, 50)}...", ragEnabled=${ragEnabled}, deepSearch=${deepSearch}, autoDetectWebSearch=${autoDetectWebSearch}`);
+        console.log(`[Chat] Request: query="${query.substring(0, 50)}...", ragEnabled=${ragEnabled}, deepSearch=${deepSearch}, autoDetectWebSearch=${autoDetectWebSearch}, multiLLM=${multiLLM}, selectedModel=${selectedModel}`);
 
         if (!query || !sessionId) {
             return res.status(400).json({ message: 'Query and Session ID are required.' });
@@ -412,10 +428,84 @@ const handleStandardMessage = async (req, res) => {
                     history: session.messages
                 });
             }
+        } else if (multiLLM) {
+            // Handle Multi-LLM routing
+            console.log('[Chat] 🧠 Using Intelligent Multi-LLM routing');
+
+            let session = await ChatSession.findOne({ sessionId, user: userId });
+            if (!session) {
+                session = new ChatSession({ sessionId, user: userId, title: query.substring(0, 50), systemPrompt: systemPrompt || "You are a helpful AI assistant." });
+            }
+
+            session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+
+            // Format conversation history for Multi-LLM
+            const conversationHistory = session.messages.map(m => ({
+                role: m.role,
+                content: m.parts.map(p => p.text).join(' ')
+            }));
+
+            try {
+                // Initialize Multi-LLM system
+                const multiLLMSystem = new IntelligentMultiLLM();
+
+                // Generate response using selected or optimal model
+                const multiLLMResponse = await multiLLMSystem.generateResponse(
+                    query,
+                    conversationHistory.slice(-10), // Last 10 messages for context
+                    {
+                        userId,
+                        selectedModel: selectedModel !== 'gemini-flash' ? selectedModel : null, // Use selected model if not default
+                        systemPrompt: session.systemPrompt
+                    }
+                );
+
+                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', multiLLMResponse.response);
+                await session.save();
+
+                // Send back the Multi-LLM response
+                res.json({
+                    response: multiLLMResponse.response,
+                    followUpQuestions: multiLLMResponse.followUpQuestions,
+                    metadata: {
+                        searchType: 'multi_llm',
+                        modelUsed: multiLLMResponse.model,
+                        conversationType: multiLLMResponse.conversationType,
+                        routingConfidence: multiLLMResponse.confidence,
+                        routingReasoning: multiLLMResponse.reasoning,
+                        ...multiLLMResponse.metadata
+                    },
+                    sessionId: session.sessionId,
+                    history: session.messages
+                });
+
+            } catch (multiLLMError) {
+                console.error('Multi-LLM failed, falling back to standard AI:', multiLLMError);
+
+                // Fallback to standard AI
+                const fallbackUserAI = await userServiceManager.getUserAIService(userId);
+                const aiHistory = session.messages.map(m => ({ role: m.role, parts: m.parts.map(p => ({ text: p.text })) }));
+                const aiResponse = await fallbackUserAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+
+                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', aiResponse.response);
+                await session.save();
+
+                res.json({
+                    response: aiResponse.response,
+                    followUpQuestions: aiResponse.followUpQuestions,
+                    metadata: {
+                        searchType: 'standard_ai_fallback',
+                        fallbackReason: 'Multi-LLM system unavailable',
+                        originalError: multiLLMError.message
+                    },
+                    sessionId: session.sessionId,
+                    history: session.messages
+                });
+            }
         } else {
-            // Handle standard message (no search needed)
-            console.log('[Chat] 🤖 Using user AI service');
-            const standardUserAI = await userServiceManager.getUserAIService(userId);
+            // Handle standard message with model selection
+            console.log(`[Chat] 🤖 Using selected model: ${selectedModel}`);
+
             let session = await ChatSession.findOne({ sessionId, user: userId });
             if (!session) {
                 session = new ChatSession({ sessionId, user: userId, title: query.substring(0, 50), systemPrompt: systemPrompt || "You are a helpful general-purpose AI assistant." });
@@ -424,7 +514,107 @@ const handleStandardMessage = async (req, res) => {
             session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
 
             const aiHistory = session.messages.map(m => ({ role: m.role, parts: m.parts.map(p => ({ text: p.text })) }));
-            const aiResponse = await standardUserAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+
+            let aiResponse;
+            let modelUsed = selectedModel;
+
+            // Route to appropriate service based on selected model
+            if (selectedModel.startsWith('gemini-') || selectedModel === 'gemini-pro') {
+                // Use user-specific Gemini service
+                const userServices = await userSpecificAI.getUserAIServices(userId);
+                if (userServices.gemini) {
+                    aiResponse = await userServices.gemini.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+                } else {
+                    // Fallback to standard user AI
+                    const standardUserAI = await userServiceManager.getUserAIService(userId);
+                    aiResponse = await standardUserAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+                    modelUsed = 'gemini-fallback';
+                }
+            } else if (selectedModel === 'llama-model') {
+                // Use real Ollama service for Llama model
+                try {
+                    const { OllamaService } = require('../services/ollamaService');
+                    const ollamaService = new OllamaService();
+
+                    // Check if Ollama is available
+                    const isConnected = await ollamaService.checkConnection();
+                    if (!isConnected) {
+                        throw new Error('Ollama service is not available');
+                    }
+
+                    // Modify system prompt for conversational Llama-style responses
+                    const llamaSystemPrompt = session.systemPrompt +
+                        "\n\nYou are a friendly, conversational AI assistant powered by Llama. " +
+                        "Be warm, engaging, and personable in your responses. " +
+                        "Provide helpful and detailed answers while maintaining a casual, approachable tone.";
+
+                    console.log('🦙 Using real Ollama service for Llama model');
+                    aiResponse = await ollamaService.generateChatResponse(query, [], aiHistory, llamaSystemPrompt);
+                    modelUsed = 'llama-model';
+
+                } catch (error) {
+                    console.warn('🦙 Ollama service failed:', error.message);
+                    // Return error message instead of fallback
+                    return res.status(503).json({
+                        success: false,
+                        error: 'Ollama service is currently unavailable',
+                        message: 'The Llama model server is not running. Please try using the Gemini model instead, or contact your administrator to start the Ollama service.',
+                        suggestedAction: 'switch_to_gemini',
+                        availableModels: ['gemini-flash', 'gemini-pro']
+                    });
+                }
+            } else if (selectedModel.startsWith('groq-')) {
+                // Use Groq service
+                const groqAI = new GroqAI();
+                const response = await groqAI.generateText(query);
+                aiResponse = { response, followUpQuestions: [] };
+            } else if (selectedModel.startsWith('together-')) {
+                // Use Together AI service
+                const togetherAI = new TogetherAI();
+                const response = await togetherAI.generateText(query);
+                aiResponse = { response, followUpQuestions: [] };
+            } else if (selectedModel.startsWith('cohere-')) {
+                // Use Cohere service
+                const cohereAI = new CohereAI();
+                const response = await cohereAI.generateText(query);
+                aiResponse = { response, followUpQuestions: [] };
+            } else if (selectedModel.startsWith('hf-')) {
+                // Use HuggingFace service
+                const hfAI = new HuggingFaceAI();
+                const response = await hfAI.generateText(query);
+                aiResponse = { response, followUpQuestions: [] };
+            } else if (selectedModel.startsWith('ollama-')) {
+                // Use user's Ollama service
+                const userServices = await userSpecificAI.getUserAIServices(userId);
+                if (userServices.ollama) {
+                    const modelName = selectedModel.replace('ollama-', '').replace('_', ':');
+                    const response = await userServices.ollama.generateResponse(query, modelName);
+                    aiResponse = { response, followUpQuestions: [] };
+                } else {
+                    throw new Error('Ollama service not available');
+                }
+            } else {
+                // Use Multi-LLM or fallback to standard
+                try {
+                    const multiLLMSystem = new IntelligentMultiLLM();
+                    const multiLLMResponse = await multiLLMSystem.generateResponse(
+                        query,
+                        aiHistory.slice(-10),
+                        {
+                            userId,
+                            selectedModel,
+                            systemPrompt: session.systemPrompt
+                        }
+                    );
+                    aiResponse = multiLLMResponse;
+                    modelUsed = multiLLMResponse.modelUsed || selectedModel;
+                } catch (error) {
+                    console.warn('Multi-LLM failed, using standard AI:', error);
+                    const standardUserAI = await userServiceManager.getUserAIService(userId);
+                    aiResponse = await standardUserAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+                    modelUsed = 'gemini-fallback';
+                }
+            }
 
             session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', aiResponse.response);
             await session.save();
@@ -433,7 +623,11 @@ const handleStandardMessage = async (req, res) => {
             res.json({
                 response: aiResponse.response,
                 followUpQuestions: aiResponse.followUpQuestions,
-                metadata: { searchType: 'standard_ai' },
+                metadata: {
+                    searchType: 'standard_ai',
+                    modelUsed: modelUsed,
+                    selectedModel: selectedModel
+                },
                 sessionId: session.sessionId,
                 history: session.messages
             });

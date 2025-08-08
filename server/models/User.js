@@ -26,6 +26,48 @@ const UserSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    // --- Ollama Configuration ---
+    ollamaUrl: {
+        type: String,
+        default: 'http://localhost:11434',
+        trim: true,
+        validate: {
+            validator: function(v) {
+                // Basic URL validation
+                if (!v) return true; // Allow empty/default
+                try {
+                    new URL(v);
+                    return true;
+                } catch {
+                    return false;
+                }
+            },
+            message: 'Please provide a valid Ollama URL (e.g., http://localhost:11434)'
+        }
+    },
+    // --- User-Specific API Keys ---
+    apiKeys: {
+        gemini: {
+            type: String,
+            default: '',
+            trim: true
+        },
+        deepseek: {
+            type: String,
+            default: '',
+            trim: true
+        },
+        qwen: {
+            type: String,
+            default: '',
+            trim: true
+        }
+    },
+    // --- API Key Preferences ---
+    useOwnKeys: {
+        type: Boolean,
+        default: false // Whether to use user's own keys or admin keys
+    },
     createdAt: {
         type: Date,
         default: Date.now

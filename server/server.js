@@ -75,6 +75,10 @@ const startServer = async () => {
         app.use('/api/mindmap', require('./routes/mindmap'));
         app.use('/api/memory', require('./routes/memory')); // <-- ADD THIS LINE
         app.use('/api/multi-model', require('./routes/multiModel')); // Multi-model LLM routes
+        app.use('/api/multi-llm', require('./routes/multiLLM')); // Intelligent Multi-LLM routing
+        app.use('/api/user-ollama', require('./routes/userOllama')); // User-specific Ollama configuration
+        app.use('/api/user', require('./routes/userSettings')); // User settings and API key management
+        app.use('/api/models', require('./routes/modelRouter')); // Model management and switching
         app.use('/api/training', require('./routes/training')); // LLM Training routes
         app.use('/api/subjects', require('./routes/subjects')); // Custom subjects and model management
         app.use('/api/user-api-keys', require('./routes/userApiKeys')); // User API key management

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - AI Chatbot with Personal API Keys</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .signup-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .logo p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 1em;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .api-keys-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
+            border-left: 4px solid #007bff;
+        }
+        
+        .api-keys-section h3 {
+            color: #007bff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .api-keys-section p {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .key-preference {
+            background: #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .key-preference label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .key-preference input[type="radio"] {
+            width: auto;
+            margin: 0;
+        }
+        
+        .api-key-fields {
+            display: none;
+            margin-top: 15px;
+        }
+        
+        .api-key-fields.show {
+            display: block;
+        }
+        
+        .api-key-group {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .api-key-group h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .api-key-group .description {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+        
+        .api-key-group input {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .ollama-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
+            border-left: 4px solid #28a745;
+        }
+        
+        .ollama-section h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .url-examples {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .url-examples h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+        
+        .url-examples ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .url-examples li {
+            background: white;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #495057;
+        }
+        
+        .signup-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .signup-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .signup-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .login-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .info-box {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 0.9em;
+            border: 1px solid #bee5eb;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        .password-field {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <div class="logo">
+            <h1>🤖 AI Chatbot</h1>
+            <p>Create your personalized AI experience</p>
+        </div>
+        
+        <div id="message-container"></div>
+        
+        <form id="signupForm">
+            <!-- Basic Account Info -->
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="Enter your username" minlength="3">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-field">
+                    <input type="password" id="password" name="password" required 
+                           placeholder="Enter your password" minlength="8">
+                    <button type="button" class="toggle-password" onclick="togglePassword()">👁️</button>
+                </div>
+            </div>
+            
+            <!-- API Keys Configuration -->
+            <div class="api-keys-section">
+                <h3>🔑 API Keys Configuration</h3>
+                <p>Choose how you want to use AI models. You can use your own API keys for full control and privacy, or use our admin keys with approval.</p>
+                
+                <div class="key-preference">
+                    <label>
+                        <input type="radio" name="keyPreference" value="own" onchange="toggleApiKeyFields()">
+                        <strong>Use My Own API Keys</strong> - Full control, privacy, and unlimited usage
+                    </label>
+                </div>
+                
+                <div class="key-preference">
+                    <label>
+                        <input type="radio" name="keyPreference" value="admin" checked onchange="toggleApiKeyFields()">
+                        <strong>Use Admin Keys</strong> - Quick start, requires approval for advanced features
+                    </label>
+                </div>
+                
+                <div id="apiKeyFields" class="api-key-fields">
+                    <div class="info-box">
+                        💡 <strong>Tip:</strong> You can always add or update your API keys later in the settings.
+                    </div>
+                    
+                    <div class="api-key-group">
+                        <h4>🔍 Gemini API Key</h4>
+                        <div class="description">For Google's Gemini models (research, analysis, web search)</div>
+                        <input type="password" id="geminiApiKey" name="geminiApiKey" 
+                               placeholder="Enter your Gemini API key (optional)">
+                    </div>
+                    
+                    <div class="api-key-group">
+                        <h4>🧠 DeepSeek API Key</h4>
+                        <div class="description">For advanced reasoning and mathematical problem solving</div>
+                        <input type="password" id="deepseekApiKey" name="deepseekApiKey" 
+                               placeholder="Enter your DeepSeek API key (optional)">
+                    </div>
+                    
+                    <div class="api-key-group">
+                        <h4>⚡ Qwen API Key</h4>
+                        <div class="description">For technical discussions and programming assistance</div>
+                        <input type="password" id="qwenApiKey" name="qwenApiKey" 
+                               placeholder="Enter your Qwen/DashScope API key (optional)">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ollama Configuration -->
+            <div class="ollama-section">
+                <h3>🦙 Ollama Configuration</h3>
+                <p>Connect to your own Ollama server for personal AI models and enhanced privacy.</p>
+                
+                <div class="form-group">
+                    <label for="ollamaUrl">Ollama Server URL</label>
+                    <input type="url" id="ollamaUrl" name="ollamaUrl" 
+                           placeholder="http://localhost:11434" 
+                           value="http://localhost:11434">
+                </div>
+                
+                <div class="url-examples">
+                    <h4>📋 Example URLs:</h4>
+                    <ul>
+                        <li>http://localhost:11434 (Local installation)</li>
+                        <li>http://192.168.1.100:11434 (Local network)</li>
+                        <li>http://your-server.com:11434 (Remote server)</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <button type="submit" class="signup-btn" id="signupBtn">
+                Create Account
+            </button>
+        </form>
+        
+        <div class="login-link">
+            <p>Already have an account? <a href="/login">Sign in here</a></p>
+        </div>
+    </div>
+
+    <script>
+        function toggleApiKeyFields() {
+            const ownKeys = document.querySelector('input[name="keyPreference"][value="own"]').checked;
+            const apiKeyFields = document.getElementById('apiKeyFields');
+            
+            if (ownKeys) {
+                apiKeyFields.classList.add('show');
+            } else {
+                apiKeyFields.classList.remove('show');
+            }
+        }
+
+        function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const toggleBtn = document.querySelector('.toggle-password');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleBtn.textContent = '🙈';
+            } else {
+                passwordField.type = 'password';
+                toggleBtn.textContent = '👁️';
+            }
+        }
+
+        function showMessage(message, type) {
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.innerHTML = `<div class="${type}-message">${message}</div>`;
+        }
+
+        // Handle form submission
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const useOwnKeys = formData.get('keyPreference') === 'own';
+            
+            const signupData = {
+                username: formData.get('username'),
+                password: formData.get('password'),
+                ollamaUrl: formData.get('ollamaUrl') || 'http://localhost:11434',
+                useOwnKeys: useOwnKeys
+            };
+            
+            // Add API keys if user chose to use their own
+            if (useOwnKeys) {
+                signupData.geminiApiKey = formData.get('geminiApiKey') || '';
+                signupData.deepseekApiKey = formData.get('deepseekApiKey') || '';
+                signupData.qwenApiKey = formData.get('qwenApiKey') || '';
+            }
+
+            const signupBtn = document.getElementById('signupBtn');
+            signupBtn.disabled = true;
+            signupBtn.textContent = 'Creating Account...';
+
+            try {
+                const response = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(signupData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('✅ Account created successfully! You can now sign in.', 'success');
+                    e.target.reset();
+                    
+                    // Show summary of configuration
+                    let summary = `Account created with ${useOwnKeys ? 'personal' : 'admin'} API keys.`;
+                    if (useOwnKeys) {
+                        const keyCount = [signupData.geminiApiKey, signupData.deepseekApiKey, signupData.qwenApiKey]
+                            .filter(key => key && key.trim()).length;
+                        summary += ` ${keyCount} API key(s) configured.`;
+                    }
+                    
+                    setTimeout(() => {
+                        showMessage(summary, 'success');
+                    }, 2000);
+                    
+                    // Optionally redirect to login page
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 4000);
+                } else {
+                    showMessage(`❌ ${result.message || 'Failed to create account'}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Network error: ${error.message}`, 'error');
+            } finally {
+                signupBtn.disabled = false;
+                signupBtn.textContent = 'Create Account';
+            }
+        });
+
+        // Initialize form
+        toggleApiKeyFields();
+    </script>
+</body>
+</html>

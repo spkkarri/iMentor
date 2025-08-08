@@ -184,6 +184,77 @@ class OllamaService {
     }
 
     /**
+     * Generate chat response using Ollama
+     */
+    async generateChatResponse(message, documentChunks = [], chatHistory = [], systemPrompt = '') {
+        if (!this.isConnected) {
+            await this.checkConnection();
+            if (!this.isConnected) {
+                throw new Error('Ollama service is not available');
+            }
+        }
+
+        try {
+            // Get the best available model
+            const models = await this.getAvailableModels();
+            if (!models || models.length === 0) {
+                throw new Error('No Ollama models available');
+            }
+
+            const modelName = models[0].name; // Use the first available model
+            console.log(`🦙 Using Ollama model: ${modelName}`);
+
+            // Build the prompt with context
+            let fullPrompt = systemPrompt || "You are a helpful AI assistant.";
+
+            // Add document context if available
+            if (documentChunks && documentChunks.length > 0) {
+                const context = documentChunks.map(chunk => chunk.pageContent).join('\n\n');
+                fullPrompt += `\n\nContext from documents:\n${context}`;
+            }
+
+            // Add chat history
+            if (chatHistory && chatHistory.length > 0) {
+                fullPrompt += '\n\nPrevious conversation:';
+                chatHistory.slice(-5).forEach(msg => {
+                    fullPrompt += `\n${msg.role}: ${msg.content}`;
+                });
+            }
+
+            fullPrompt += `\n\nUser: ${message}\nAssistant:`;
+
+            console.log(`🦙 Sending request to Ollama: ${this.baseUrl}/api/generate`);
+
+            const response = await axios.post(`${this.baseUrl}/api/generate`, {
+                model: modelName,
+                prompt: fullPrompt,
+                stream: false,
+                options: {
+                    temperature: 0.7,
+                    top_p: 0.9,
+                    num_predict: 1000
+                }
+            }, {
+                timeout: 30000 // 30 second timeout
+            });
+
+            if (response.data && response.data.response) {
+                console.log('✅ Ollama response generated successfully');
+                return {
+                    response: response.data.response.trim(),
+                    followUpQuestions: [] // Ollama doesn't provide follow-up questions by default
+                };
+            } else {
+                throw new Error('No response from Ollama');
+            }
+
+        } catch (error) {
+            console.error('❌ Ollama generation error:', error.message);
+            throw new Error(`Failed to generate response with Ollama: ${error.message}`);
+        }
+    }
+
+    /**
      * Get model information
      */
     async getModelInfo(modelName) {

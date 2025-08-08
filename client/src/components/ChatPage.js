@@ -15,6 +15,8 @@ import FileManagerWidget from './FileManagerWidget';
 import MindMap from './MindMap';
 import HistoryModal from './HistoryModal';
 import ResearchMetadata from './ResearchMetadata';
+import ModelSwitcher from './ModelSwitcher';
+import ApiKeyManager from './ApiKeyManager';
 
 
 import './ChatPage.css';
@@ -70,6 +72,18 @@ const ChatPage = ({ setIsAuthenticated }) => {
     const [editingMessage, setEditingMessage] = useState(null);
     const [deepSearchStatus, setDeepSearchStatus] = useState('unknown'); // 'available', 'quota_exceeded', 'unavailable', 'unknown'
 
+    // Model switching state
+    const [selectedModel, setSelectedModel] = useState(() => {
+        // Persist selected model in localStorage
+        const saved = localStorage.getItem('selectedModel');
+        return saved || 'gemini-flash';
+    });
+    const [isMultiLLMEnabled, setIsMultiLLMEnabled] = useState(() => {
+        // Persist Multi-LLM state in localStorage
+        const saved = localStorage.getItem('multiLLMEnabled');
+        return saved !== null ? JSON.parse(saved) : false;
+    });
+
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
     const navigate = useNavigate();
@@ -91,6 +105,16 @@ const ChatPage = ({ setIsAuthenticated }) => {
     useEffect(() => {
         localStorage.setItem('webSearchEnabled', JSON.stringify(isWebSearchEnabled));
     }, [isWebSearchEnabled]);
+
+    // Persist selected model to localStorage
+    useEffect(() => {
+        localStorage.setItem('selectedModel', selectedModel);
+    }, [selectedModel]);
+
+    // Persist Multi-LLM state to localStorage
+    useEffect(() => {
+        localStorage.setItem('multiLLMEnabled', JSON.stringify(isMultiLLMEnabled));
+    }, [isMultiLLMEnabled]);
 
     // Ensure only one search mode is active at a time (RAG and DeepSearch only - WebSearch is automatic)
     const handleRagToggle = useCallback(() => {
@@ -260,6 +284,40 @@ const ChatPage = ({ setIsAuthenticated }) => {
 
     const handleNewChat = useCallback(() => { if (!isProcessing) saveAndReset(false); }, [isProcessing, saveAndReset]);
 
+    // Handle model change
+    const handleModelChange = useCallback((model) => {
+        console.log('🔄 Switching to model:', model.name);
+        setSelectedModel(model.id);
+
+        // Enable Multi-LLM if selecting a Multi-LLM model
+        if (model.isMultiLLM || model.isOllama) {
+            setIsMultiLLMEnabled(true);
+        } else {
+            setIsMultiLLMEnabled(false);
+        }
+
+        // Show notification
+        const notification = document.createElement('div');
+        notification.className = 'model-switch-notification';
+        notification.textContent = `Switched to ${model.name}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }, []);
+
     const handleSendMessage = useCallback(async (e, overrideInput = null) => {
         if (e) e.preventDefault();
         const trimmedInput = (overrideInput || inputText).trim();
@@ -280,7 +338,9 @@ const ChatPage = ({ setIsAuthenticated }) => {
                 systemPrompt: editableSystemPromptText,
                 ragEnabled: isRagEnabled,        // Pass RAG flag to API
                 deepSearch: isDeepSearchEnabled, // Pass deep search flag to API
-                autoDetectWebSearch: true       // Enable automatic web search detection
+                autoDetectWebSearch: true,       // Enable automatic web search detection
+                multiLLM: isMultiLLMEnabled,     // Enable Multi-LLM routing
+                selectedModel: selectedModel     // Pass selected model for reference
             };
 
             // Add debugging for search modes and show appropriate loading message
@@ -370,10 +430,13 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } catch (err) {
             console.error('Chat error:', err);
 
-            // Enhanced error handling for search modes
+            // Enhanced error handling for search modes and Ollama service
             let errorMessage = err.response?.data?.error || err.response?.data?.message || 'Chat error.';
 
-            if (isDeepSearchEnabled && err.response?.status === 404) {
+            if (err.response?.status === 503 && err.response?.data?.suggestedAction === 'switch_to_gemini') {
+                // Ollama service unavailable
+                errorMessage = `🦙 ${err.response.data.message}\n\n💡 Available models: ${err.response.data.availableModels?.join(', ') || 'Gemini models'}`;
+            } else if (isDeepSearchEnabled && err.response?.status === 404) {
                 errorMessage = 'DeepSearch found no relevant results. Try rephrasing your question or disable DeepSearch for a general response.';
             } else if (isDeepSearchEnabled && err.response?.status === 500) {
                 errorMessage = 'DeepSearch service encountered an error. The service may be temporarily unavailable.';
@@ -454,10 +517,13 @@ const ChatPage = ({ setIsAuthenticated }) => {
         } catch (err) {
             console.error('Chat error during edit:', err);
 
-            // Enhanced error handling for DeepSearch
+            // Enhanced error handling for DeepSearch and Ollama service
             let errorMessage = err.response?.data?.error || err.response?.data?.message || 'Chat error.';
 
-            if (isDeepSearchEnabled && err.response?.status === 404) {
+            if (err.response?.status === 503 && err.response?.data?.suggestedAction === 'switch_to_gemini') {
+                // Ollama service unavailable
+                errorMessage = `🦙 ${err.response.data.message}\n\n💡 Available models: ${err.response.data.availableModels?.join(', ') || 'Gemini models'}`;
+            } else if (isDeepSearchEnabled && err.response?.status === 404) {
                 errorMessage = 'DeepSearch found no relevant results. Try rephrasing your question or disable DeepSearch for a general response.';
             } else if (isDeepSearchEnabled && err.response?.status === 500) {
                 errorMessage = 'DeepSearch service encountered an error. The service may be temporarily unavailable.';
@@ -648,11 +714,25 @@ const ChatPage = ({ setIsAuthenticated }) => {
     return (
         <div className="chat-page-container">
             <div className="sidebar-area">
-                <SystemPromptWidget 
-                    selectedPromptId={currentSystemPromptId} 
-                    promptText={editableSystemPromptText} 
-                    onSelectChange={(id) => { setCurrentSystemPromptId(id); setEditableSystemPromptText(getPromptTextById(id)); }} 
-                    onTextChange={(text) => { setEditableSystemPromptText(text); setCurrentSystemPromptId('custom'); }} 
+                {/* Model Switcher */}
+                <ModelSwitcher
+                    selectedModel={selectedModel}
+                    onModelChange={handleModelChange}
+                    isSidebarOpen={true}
+                    userId={userId}
+                />
+
+                {/* API Key Manager */}
+                <ApiKeyManager
+                    userId={userId}
+                    isSidebarOpen={true}
+                />
+
+                <SystemPromptWidget
+                    selectedPromptId={currentSystemPromptId}
+                    promptText={editableSystemPromptText}
+                    onSelectChange={(id) => { setCurrentSystemPromptId(id); setEditableSystemPromptText(getPromptTextById(id)); }}
+                    onTextChange={(text) => { setEditableSystemPromptText(text); setCurrentSystemPromptId('custom'); }}
                 />
                 <FileUploadWidget onUploadSuccess={handleUploadSuccess} />
                 <FileManagerWidget

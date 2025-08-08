@@ -7,8 +7,17 @@ import {
     Menu as MenuIcon, AddComment as AddCommentIcon, History as HistoryIcon,
     Logout as LogoutIcon, Settings as SettingsIcon, AccountCircle as AccountCircleIcon
 } from '@mui/icons-material';
+import ModelSwitcher from './ModelSwitcher';
 
-const ChatSidebar = ({ isSidebarOpen, toggleSidebar, handleNewChat, handleLogout }) => {
+const ChatSidebar = ({
+  isSidebarOpen,
+  toggleSidebar,
+  handleNewChat,
+  handleLogout,
+  selectedModel,
+  onModelChange,
+  userId
+}) => {
   const username = localStorage.getItem('username') || 'User';
 
   return (
@@ -43,6 +52,14 @@ const ChatSidebar = ({ isSidebarOpen, toggleSidebar, handleNewChat, handleLogout
       </Tooltip>
 
       <Divider sx={{ my: 1 }} />
+
+      {/* Model Switcher */}
+      <ModelSwitcher
+        selectedModel={selectedModel}
+        onModelChange={onModelChange}
+        isSidebarOpen={isSidebarOpen}
+        userId={userId}
+      />
 
       <Box className="sidebar-content">
         {/* All the widgets like FileManager, FileUpload will go here */}

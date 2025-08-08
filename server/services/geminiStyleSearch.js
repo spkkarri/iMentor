@@ -89,23 +89,41 @@ Focus on creating search queries that will find the most relevant, up-to-date in
      */
     async performMultiSourceSearch(analysis) {
         const searchPromises = [];
-        
-        // Search each query across multiple sources
-        for (const query of analysis.searchQueries.slice(0, 3)) {
+
+        // Enhanced search strategy for maximum user satisfaction
+        console.log(`🔍 Starting comprehensive multi-source search for maximum relevance...`);
+
+        // Search each query across multiple sources with enhanced coverage
+        for (const query of analysis.searchQueries.slice(0, 4)) { // Increased from 3 to 4 queries
+            // Core search engines
             searchPromises.push(this.searchDuckDuckGo(query));
             searchPromises.push(this.searchBing(query));
-            
-            // Add specialized searches based on intent
-            if (analysis.intent === 'current_events' || analysis.intent === 'news') {
+
+            // Add specialized searches based on intent for better coverage
+            if (analysis.intent === 'current_events' || analysis.intent === 'news' || query.includes('2024') || query.includes('latest')) {
                 searchPromises.push(this.searchNews(query));
+                searchPromises.push(this.searchDuckDuckGo(query + ' news recent'));
             }
-            if (analysis.intent === 'definition' || analysis.expectedSources.includes('wikipedia')) {
+
+            if (analysis.intent === 'definition' || analysis.intent === 'information_seeking' || analysis.expectedSources?.includes('wikipedia')) {
                 searchPromises.push(this.searchWikipedia(query));
+            }
+
+            // Add technical/academic searches for complex topics
+            if (analysis.complexity === 'moderate' || analysis.complexity === 'complex') {
+                searchPromises.push(this.searchDuckDuckGo(query + ' comprehensive guide'));
+                searchPromises.push(this.searchBing(query + ' detailed explanation'));
+            }
+
+            // Add practical application searches
+            if (analysis.intent === 'how_to' || analysis.intent === 'learning') {
+                searchPromises.push(this.searchDuckDuckGo(query + ' examples applications'));
+                searchPromises.push(this.searchBing(query + ' practical use cases'));
             }
         }
 
-        console.log(`🔍 Performing ${searchPromises.length} parallel searches...`);
-        
+        console.log(`🔍 Performing ${searchPromises.length} parallel searches for comprehensive coverage...`);
+
         const results = await Promise.allSettled(searchPromises);
         const allResults = [];
 
@@ -359,17 +377,25 @@ Focus on creating search queries that will find the most relevant, up-to-date in
             ? `\n\nConversation Context:\n${conversationHistory.slice(-2).map(msg => `${msg.role}: ${msg.content}`).join('\n')}`
             : '';
 
-        const geminiPrompt = `You are Gemini AI providing a comprehensive, accurate response based on real-time web search results. Your response should be natural, informative, and directly helpful.
+        const geminiPrompt = `You are Gemini AI providing a comprehensive, highly satisfying response based on real-time web search results. Your goal is to exceed user expectations by providing maximum value and comprehensive coverage.
 
 User Query: "${query}"
 Search Intent: ${analysis.intent}
-Query Complexity: ${analysis.complexity}${conversationContext}
+Query Complexity: ${analysis.complexity}
+Expected Information Types: ${analysis.expectedSources?.join(', ') || 'comprehensive information'}${conversationContext}
 
-Search Results:
+Search Results (${topResults.length} sources):
 ${context}
 
-Instructions:
-1. Provide a direct, comprehensive answer that addresses the user's specific question
+Instructions for Maximum User Satisfaction:
+1. Provide a direct, comprehensive answer that fully addresses the user's question
+2. Start with a clear, concise summary, then expand with detailed information
+3. Include specific data, statistics, and concrete examples from the search results
+4. Cover multiple aspects and perspectives of the topic
+5. Highlight recent developments and current trends when relevant
+6. Provide practical applications and real-world relevance
+7. Address common questions or misconceptions about the topic
+8. Use clear structure with headings and bullet points for readability
 2. Use information from the search results as supporting evidence
 3. Structure your response clearly with appropriate formatting
 4. Include relevant details, examples, and context

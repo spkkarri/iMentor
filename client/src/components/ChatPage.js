@@ -732,10 +732,12 @@ const ChatPage = () => {
                     <div ref={messagesEndRef} />
                 </div>
 
-                {/* Mode Selection Buttons - Above Chat Input */}
-                <div className="mode-selection-container">
+
+
+                {/* Mode Selection Buttons - Same Row as Current MCP Button */}
+                <div className="mode-buttons-row">
                     <button
-                        className={`mode-selection-btn ${isRagEnabled ? 'active' : ''}`}
+                        className={`mode-btn ${isRagEnabled ? 'active' : ''}`}
                         onClick={() => {
                             setIsRagEnabled(!isRagEnabled);
                             if (!isRagEnabled) {
@@ -746,12 +748,12 @@ const ChatPage = () => {
                         disabled={isProcessing}
                         title="RAG Mode - Search your uploaded documents"
                     >
-                        <FaDatabase className="mode-btn-icon" />
+                        <FaDatabase className="btn-icon" />
                         <span>RAG Mode</span>
                     </button>
 
                     <button
-                        className={`mode-selection-btn ${isDeepSearchEnabled ? 'active' : ''}`}
+                        className={`mode-btn ${isDeepSearchEnabled ? 'active' : ''}`}
                         onClick={() => {
                             setIsDeepSearchEnabled(!isDeepSearchEnabled);
                             if (!isDeepSearchEnabled) {
@@ -762,12 +764,12 @@ const ChatPage = () => {
                         disabled={isProcessing}
                         title="Deep Search - Web search + document analysis"
                     >
-                        <FaSearch className="mode-btn-icon" />
+                        <FaSearch className="btn-icon" />
                         <span>Deep Search</span>
                     </button>
 
                     <button
-                        className={`mode-selection-btn ${isMcpEnabled ? 'active' : ''}`}
+                        className={`mode-btn ${isMcpEnabled ? 'active' : ''}`}
                         onClick={() => {
                             setIsMcpEnabled(!isMcpEnabled);
                             if (!isMcpEnabled) {
@@ -778,14 +780,14 @@ const ChatPage = () => {
                         disabled={isProcessing}
                         title="MCP Agents - AI agents for specialized tasks"
                     >
-                        <span className="mode-btn-icon">🤖</span>
+                        <span className="btn-icon">🤖</span>
                         <span>MCP Agents</span>
                     </button>
                 </div>
 
                 {/* File Selection for RAG Mode */}
                 {isRagEnabled && (
-                    <div className="rag-file-selection-above-input">
+                    <div className="rag-file-selection">
                         <div className="file-selection-header">
                             <FaDatabase className="selection-icon" />
                             <span>Select documents to search:</span>

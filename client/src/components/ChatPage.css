@@ -1619,62 +1619,62 @@
   }
 }
 
-/* --- Mode Selection Buttons (Above Chat Input) --- */
-.mode-selection-container {
-  padding: 12px 24px 8px;
+/* --- Mode Buttons Row (Same Style as Current MCP Button) --- */
+.mode-buttons-row {
+  padding: 16px 24px;
   background-color: var(--secondary-bg);
   display: flex;
   gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
-  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.mode-selection-btn {
+.mode-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  border: 2px solid var(--border-color);
+  padding: 12px 24px;
+  border: none;
   border-radius: 25px;
-  background: var(--primary-bg);
-  color: var(--text-primary);
+  background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
+  color: white;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
-  min-width: 120px;
+  min-width: 140px;
   justify-content: center;
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
 }
 
-.mode-selection-btn:hover:not(:disabled) {
-  border-color: #9C27B0;
-  background-color: rgba(156, 39, 176, 0.1);
+.mode-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8E24AA 0%, #5E35B1 100%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.2);
+  box-shadow: 0 6px 20px rgba(156, 39, 176, 0.4);
 }
 
-.mode-selection-btn.active {
-  border-color: #9C27B0;
-  background-color: #9C27B0;
-  color: white;
-  box-shadow: 0 4px 16px rgba(156, 39, 176, 0.4);
+.mode-btn.active {
+  background: linear-gradient(135deg, #7B1FA2 0%, #512DA8 100%);
+  box-shadow: 0 6px 24px rgba(156, 39, 176, 0.5);
+  transform: translateY(-1px);
 }
 
-.mode-selection-btn:disabled {
-  opacity: 0.5;
+.mode-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
-.mode-btn-icon {
+.btn-icon {
   font-size: 16px;
 }
 
-/* RAG File Selection Above Input */
-.rag-file-selection-above-input {
-  margin: 0 24px 8px;
-  padding: 12px;
+/* RAG File Selection */
+.rag-file-selection {
+  margin: 0 24px 16px;
+  padding: 16px;
   background-color: rgba(76, 175, 80, 0.1);
   border-radius: 12px;
   border: 1px solid rgba(76, 175, 80, 0.3);
@@ -1684,7 +1684,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
   color: #4CAF50;
@@ -1702,18 +1702,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   background-color: var(--secondary-bg);
   border-radius: 8px;
   font-size: 13px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   border: 1px solid var(--border-color);
 }
 
 .file-selection-item:hover {
   background-color: var(--hover-bg);
   border-color: #4CAF50;
+  transform: translateY(-1px);
 }
 
 .file-selection-item input[type="checkbox"] {
@@ -1732,43 +1733,47 @@
 .no-files-message {
   grid-column: 1 / -1;
   text-align: center;
-  padding: 16px;
+  padding: 20px;
   color: var(--text-secondary);
   font-style: italic;
 }
 
 .selected-count {
-  margin-top: 8px;
+  margin-top: 12px;
   text-align: center;
   font-size: 12px;
   color: #4CAF50;
   font-weight: 600;
+  padding: 6px 12px;
+  background-color: rgba(76, 175, 80, 0.2);
+  border-radius: 16px;
+  display: inline-block;
 }
 
-/* Responsive adjustments for mode selection */
+/* Responsive adjustments for mode buttons */
 @media (max-width: 768px) {
-  .mode-selection-container {
-    padding: 8px 16px 6px;
+  .mode-buttons-row {
+    padding: 12px 16px;
     gap: 8px;
   }
 
-  .mode-selection-btn {
-    padding: 8px 16px;
+  .mode-btn {
+    padding: 10px 16px;
     font-size: 13px;
     min-width: 100px;
   }
 
-  .mode-selection-btn span:not(.mode-btn-icon) {
+  .mode-btn span:not(.btn-icon) {
     display: none;
   }
 
-  .rag-file-selection-above-input {
-    margin: 0 16px 6px;
-    padding: 8px;
+  .rag-file-selection {
+    margin: 0 16px 12px;
+    padding: 12px;
   }
 
   .file-selection-grid {
     grid-template-columns: 1fr;
-    max-height: 80px;
+    max-height: 100px;
   }
 }

@@ -36,6 +36,7 @@ import FileManagerWidget from './FileManagerWidget';
 import DSAWidget from './DSAWidget';
 import MediaRenderer from './MediaRenderer';
 import ModelSwitcher from './ModelSwitcher';
+import MindMap from './MindMap';
 import { ToastContainer, useToast } from './Toast';
 import useNetworkStatus from '../hooks/useNetworkStatus';
 
@@ -44,8 +45,8 @@ import './ChatPage.css';
 const ChatPage = () => {
     const navigate = useNavigate();
     const messagesEndRef = useRef(null);
-    const { toasts, removeToast, showSuccess, showError, showWarning, showInfo } = useToast();
-    const { isOnline, connectionType } = useNetworkStatus();
+    const { toasts, removeToast, showSuccess, showError, showWarning } = useToast();
+    const { isOnline } = useNetworkStatus();
 
     // Core state
     const [messages, setMessages] = useState([]);
@@ -91,9 +92,7 @@ const ChatPage = () => {
         return saved || 'gemini-flash';
     });
 
-    const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
-    const navigate = useNavigate();
 
     // Initialize user session
     useEffect(() => {
@@ -186,8 +185,10 @@ const ChatPage = () => {
         setMessages([]);
         setSessionId(uuidv4());
         setError('');
+        setSelectedFiles([]);
+        showSuccess('New chat started!');
         localStorage.setItem('sessionId', sessionId);
-    }, [sessionId]);
+    }, [sessionId, showSuccess]);
 
     // Model change handler
     const handleModelChange = useCallback((model) => {
@@ -268,7 +269,7 @@ const ChatPage = () => {
         } finally {
             setIsProcessing(false);
         }
-    }, [messages, sessionId, isProcessing]);
+    }, [messages, sessionId, isProcessing, userId]);
 
     // Send message handler
     const handleSendMessage = useCallback(async () => {
@@ -421,22 +422,26 @@ const ChatPage = () => {
     // File upload handler
     const handleUploadSuccess = useCallback((newFile) => {
         console.log('File uploaded:', newFile);
+        showSuccess(`File "${newFile.filename}" uploaded successfully!`);
         loadUserFiles(); // Reload files after upload
-    }, [loadUserFiles]);
+    }, [loadUserFiles, showSuccess]);
 
     // File management handlers
     const handleDeleteFile = useCallback(async (fileId, fileName) => {
         if (window.confirm(`Delete "${fileName}"?`)) {
             try {
                 await deleteUserFile(fileId);
+                showSuccess(`File "${fileName}" deleted successfully!`);
                 loadUserFiles();
                 // Remove from selected files if it was selected
                 setSelectedFiles(prev => prev.filter(id => id !== fileId));
             } catch (err) {
+                const errorMessage = err.response?.data?.message || err.message || 'Unknown error';
                 setFileError('Failed to delete file');
+                showError(`Failed to delete "${fileName}": ${errorMessage}`);
             }
         }
-    }, [loadUserFiles]);
+    }, [loadUserFiles, showSuccess, showError]);
 
     const handleRenameFile = useCallback(async (fileId, currentName) => {
         const newName = prompt('Enter new name:', currentName);
@@ -455,48 +460,200 @@ const ChatPage = () => {
         setFileError('');
 
         try {
+            // Add user action message to chat
+            const userMessage = {
+                id: uuidv4(),
+                role: 'user',
+                parts: [{ text: `🎙️ Generate podcast for "${fileName}"` }],
+                timestamp: new Date()
+            };
+            setMessages(prev => [...prev, userMessage]);
+
             console.log('Generating podcast for file:', fileId, fileName);
             const response = await generatePodcast(fileId);
             console.log('Podcast response:', response);
 
             if (response.data && response.data.success) {
-                showSuccess(`Podcast generated successfully for "${fileName}"! You can now use your browser's text-to-speech to listen to it.`);
+                // Add podcast content to chat messages
+                const podcastMessage = {
+                    id: uuidv4(),
+                    role: 'assistant',
+                    parts: [{ text: response.data.script || response.data.podcastScript || response.data.content || 'Podcast generated successfully!' }],
+                    timestamp: new Date(),
+                    type: 'podcast',
+                    fileName: fileName,
+                    audioUrl: response.data.audioUrl,
+                    hasAudio: !!response.data.audioUrl,
+                    fileSize: response.data.fileSize,
+                    duration: response.data.duration_estimate,
+                    script: response.data.script
+                };
+                setMessages(prev => [...prev, podcastMessage]);
+
+                const successMessage = response.data.audioUrl
+                    ? `Podcast MP3 generated successfully for "${fileName}"! Audio player and transcript displayed in chat.`
+                    : `Podcast script generated for "${fileName}"! Content displayed in chat.`;
+                showSuccess(successMessage);
             } else {
                 throw new Error(response.data?.message || 'Unknown error');
             }
         } catch (err) {
             console.error('Podcast generation error:', err);
             const errorMessage = err.response?.data?.message || err.message || 'Failed to generate podcast';
-            setFileError(`Podcast Error: ${errorMessage}`);
-            showError(`Failed to generate podcast for "${fileName}": ${errorMessage}`);
+
+            // Check if it's a quota/rate limit error
+            if (err.response?.status === 429 || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+                showWarning(`API quota exceeded for "${fileName}". Using fallback podcast generation...`);
+
+                // Fallback: Generate a simple text-based podcast script
+                const fallbackScript = `🎙️ PODCAST SCRIPT FOR: ${fileName}
+
+Welcome to your AI-generated podcast! This is a fallback version created when our advanced AI services are temporarily unavailable.
+
+📄 Document: ${fileName}
+🤖 Generated by: TutorAI Fallback System
+⏰ Generated at: ${new Date().toLocaleString()}
+
+To listen to this content:
+1. Use your browser's built-in text-to-speech feature
+2. Select the text and use "Speak" or similar option
+3. Or copy this text to any text-to-speech application
+
+This fallback ensures you can still access podcast-style content even when our premium AI services are temporarily unavailable.
+
+Thank you for using TutorAI!`;
+
+                // Create a downloadable text file
+                const blob = new Blob([fallbackScript], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `podcast-${fileName}-fallback.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // Also add fallback content to chat
+                const fallbackMessage = {
+                    id: uuidv4(),
+                    role: 'assistant',
+                    parts: [{ text: fallbackScript }],
+                    timestamp: new Date(),
+                    type: 'podcast-fallback',
+                    fileName: fileName
+                };
+                setMessages(prev => [...prev, fallbackMessage]);
+                showSuccess(`Fallback podcast script generated for "${fileName}"! Content displayed in chat and file downloaded.`);
+            } else {
+                setFileError(`Podcast Error: ${errorMessage}`);
+                showError(`Failed to generate podcast for "${fileName}": ${errorMessage}`);
+            }
         } finally {
             setIsProcessing(false);
         }
-    }, []);
+    }, [showSuccess, showError, showWarning]);
 
     const handleGenerateMindMap = useCallback(async (fileId, fileName) => {
         setIsProcessing(true);
         setFileError('');
 
         try {
+            // Add user action message to chat
+            const userMessage = {
+                id: uuidv4(),
+                role: 'user',
+                parts: [{ text: `🧠 Generate mind map for "${fileName}"` }],
+                timestamp: new Date()
+            };
+            setMessages(prev => [...prev, userMessage]);
+
             console.log('Generating mind map for file:', fileId, fileName);
             const response = await generateMindMap(fileId);
             console.log('Mind map response:', response);
 
             if (response.data && response.data.mermaidData) {
-                showSuccess(`Mind map generated successfully for "${fileName}"! The interactive mind map is ready to view.`);
+                // Use file content from server response
+                const fileContent = response.data.fileContent || '';
+
+                // Add mindmap content to chat messages
+                const mindmapMessage = {
+                    id: uuidv4(),
+                    role: 'assistant',
+                    parts: [{ text: `## 🧠 Mind Map for "${fileName}"\n\n\`\`\`mermaid\n${response.data.mermaidData}\n\`\`\`` }],
+                    timestamp: new Date(),
+                    type: 'mindmap',
+                    fileName: fileName,
+                    mermaidData: response.data.mermaidData,
+                    fileContent: fileContent
+                };
+                setMessages(prev => [...prev, mindmapMessage]);
+                showSuccess(`Mind map generated successfully for "${fileName}"! Interactive diagram displayed in chat.`);
             } else {
                 throw new Error('No mind map data received');
             }
         } catch (err) {
             console.error('Mind map generation error:', err);
             const errorMessage = err.response?.data?.message || err.message || 'Failed to generate mind map';
-            setFileError(`Mind Map Error: ${errorMessage}`);
-            showError(`Failed to generate mind map for "${fileName}": ${errorMessage}`);
+
+            // Check if it's a quota/rate limit error
+            if (err.response?.status === 429 || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+                showWarning(`API quota exceeded for "${fileName}". Using fallback mind map generation...`);
+
+                // Fallback: Generate a simple text-based mind map
+                const fallbackMindMap = `graph TD
+    A["📄 ${fileName}"] --> B["📚 Document Analysis"]
+    A --> C["🔍 Key Topics"]
+    A --> D["💡 Main Ideas"]
+
+    B --> B1["📊 Content Structure"]
+    B --> B2["📝 Summary Points"]
+    B --> B3["🎯 Focus Areas"]
+
+    C --> C1["🏷️ Primary Themes"]
+    C --> C2["🔗 Connections"]
+    C --> C3["📋 Categories"]
+
+    D --> D1["💭 Core Concepts"]
+    D --> D2["🚀 Action Items"]
+    D --> D3["📈 Insights"]
+
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style C fill:#e8f5e8
+    style D fill:#fff3e0`;
+
+                // Create a downloadable Mermaid file
+                const blob = new Blob([fallbackMindMap], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `mindmap-${fileName}-fallback.mmd`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // Also add fallback content to chat
+                const fallbackMessage = {
+                    id: uuidv4(),
+                    role: 'assistant',
+                    parts: [{ text: `## 🧠 Mind Map for "${fileName}" (Fallback)\n\n\`\`\`mermaid\n${fallbackMindMap}\n\`\`\`` }],
+                    timestamp: new Date(),
+                    type: 'mindmap-fallback',
+                    fileName: fileName,
+                    mermaidData: fallbackMindMap
+                };
+                setMessages(prev => [...prev, fallbackMessage]);
+                showSuccess(`Fallback mind map generated for "${fileName}"! Diagram displayed in chat and Mermaid file downloaded.`);
+            } else {
+                setFileError(`Mind Map Error: ${errorMessage}`);
+                showError(`Failed to generate mind map for "${fileName}": ${errorMessage}`);
+            }
         } finally {
             setIsProcessing(false);
         }
-    }, []);
+    }, [showSuccess, showError, showWarning]);
 
 
 
@@ -531,6 +688,7 @@ const ChatPage = () => {
                     setIsSidebarOpen(false);
                 }
 
+                showSuccess(`Session "${response.data.title || 'Chat'}" loaded successfully!`);
                 console.log('Session loaded successfully:', response.data.title);
             }
         } catch (err) {
@@ -783,9 +941,58 @@ const ChatPage = () => {
                             return (
                                 <div key={index} className={`message ${msg.role}`}>
                                     <div className="message-content">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                            {messageText}
-                                        </ReactMarkdown>
+                                        {/* Special handling for podcast messages with audio */}
+                                        {msg.type === 'podcast' && msg.hasAudio && msg.audioUrl ? (
+                                            <div className="podcast-message">
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                    {`## 🎙️ Podcast: ${msg.fileName}\n\n**Duration:** ${msg.duration || 'Unknown'}`}
+                                                </ReactMarkdown>
+
+                                                <div className="audio-player-section">
+                                                    <h4>🔊 Audio Player</h4>
+                                                    <audio
+                                                        controls
+                                                        style={{width: '100%', margin: '10px 0'}}
+                                                        preload="metadata"
+                                                    >
+                                                        <source src={`http://localhost:5007${msg.audioUrl}`} type="audio/mpeg" />
+                                                        Your browser does not support the audio element.
+                                                    </audio>
+                                                    <p><strong>File Size:</strong> {msg.fileSize || 'Unknown'}</p>
+                                                    <p><em>💡 You can download the MP3 by right-clicking the audio player and selecting "Save audio as..."</em></p>
+                                                </div>
+
+                                                <div className="transcript-section">
+                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                        {`---\n\n### 📝 Transcript\n\n${msg.parts[0]?.text?.split('📝 Transcript')[1]?.replace(/^[\n\r]+/, '') || msg.script || 'Transcript not available'}`}
+                                                    </ReactMarkdown>
+                                                </div>
+                                            </div>
+                                        ) : (msg.type === 'mindmap' || msg.type === 'mindmap-fallback') && msg.mermaidData ? (
+                                            <div className="mindmap-message">
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                    {`## 🧠 Mind Map: ${msg.fileName}`}
+                                                </ReactMarkdown>
+
+                                                <div className="mindmap-container">
+                                                    <MindMap
+                                                        mermaidData={msg.mermaidData}
+                                                        fileContent={msg.fileContent || ''}
+                                                    />
+                                                </div>
+
+                                                <div className="mindmap-info">
+                                                    <p><em>💡 Click on any node in the mind map to explore details about that section.</em></p>
+                                                    {msg.type === 'mindmap-fallback' && (
+                                                        <p><em>⚠️ This is a fallback mind map due to API limitations. A Mermaid file has been downloaded for advanced editing.</em></p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                {messageText}
+                                            </ReactMarkdown>
+                                        )}
                                         {metadata.searchType && metadata.searchType !== 'standard' && (
                                             <div className="message-metadata">
                                                 <div className="search-type-badge">

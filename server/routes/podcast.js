@@ -6,8 +6,12 @@ const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
 const { documentProcessor } = require('../services/serviceManager');
 const SimplePodcastGenerator = require('../services/simplePodcastGenerator');
+const TextToSpeechService = require('../services/textToSpeech');
 const path = require('path');
 const fs = require('fs');
+
+// Initialize services
+const ttsService = new TextToSpeechService();
 
 // In-memory podcast script (replace with DB for production)
 let podcastScript = [
@@ -99,16 +103,45 @@ router.post('/generate', tempAuth, async (req, res) => {
 
         console.log(`[Podcast] Podcast script generated successfully for "${file.originalname}"`);
 
-        // 5. Send back the podcast data (no audio file, uses browser TTS)
-        res.json({
-            success: true,
-            message: 'Podcast generated successfully!',
-            title: podcastResult.title,
-            script: podcastResult.script,
-            duration_estimate: podcastResult.duration_estimate,
-            key_points: podcastResult.key_points,
-            instructions: podcastResult.instructions
-        });
+        // 5. Generate MP3 audio file
+        try {
+            const audioFilename = `podcast_${fileId}_${Date.now()}`;
+            console.log(`[Podcast] Generating MP3 audio for: ${audioFilename}`);
+
+            const audioPath = await ttsService.generateAudio(podcastResult.script, audioFilename);
+            const audioUrl = ttsService.getAudioUrl(audioFilename);
+            const fileSize = ttsService.getFileSize(audioFilename);
+
+            console.log(`[Podcast] MP3 generated successfully: ${audioUrl} (${fileSize}MB)`);
+
+            // 6. Send back the podcast data with MP3 file
+            res.json({
+                success: true,
+                message: 'Podcast MP3 generated successfully!',
+                title: podcastResult.title,
+                script: podcastResult.script,
+                audioUrl: audioUrl,
+                audioPath: audioPath,
+                fileSize: `${fileSize}MB`,
+                duration_estimate: podcastResult.duration_estimate,
+                key_points: podcastResult.key_points,
+                instructions: 'Click the audio player below to listen to your podcast!'
+            });
+        } catch (audioError) {
+            console.error(`[Podcast] Audio generation failed:`, audioError);
+
+            // Fallback: Send script without audio
+            res.json({
+                success: true,
+                message: 'Podcast script generated! (Audio generation failed - using text fallback)',
+                title: podcastResult.title,
+                script: podcastResult.script,
+                duration_estimate: podcastResult.duration_estimate,
+                key_points: podcastResult.key_points,
+                instructions: 'Use your browser\'s text-to-speech or copy the script below.',
+                audioError: audioError.message
+            });
+        }
 
     } catch (error) {
         console.error('Error generating podcast:', error);

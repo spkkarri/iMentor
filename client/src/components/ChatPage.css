@@ -94,6 +94,8 @@
 .sidebar-icon-item:hover {
   background-color: var(--border-color);
   color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar-icon-item.active {
@@ -1080,8 +1082,20 @@
 
 /* --- Animations --- */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInFromLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .fade-in {
@@ -1841,4 +1855,171 @@
     grid-template-columns: 1fr;
     max-height: 80px;
   }
+}
+
+/* --- Podcast Message Styles --- */
+.podcast-message {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 10px 0;
+    color: white;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+}
+
+.podcast-message h2 {
+    color: white !important;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 20px;
+}
+
+.audio-player-section {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.audio-player-section h4 {
+    margin: 0 0 10px 0;
+    color: #fff;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.audio-player-section audio {
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    width: 100%;
+    margin: 10px 0;
+}
+
+.audio-player-section p {
+    margin: 8px 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+}
+
+.transcript-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.transcript-section h3 {
+    color: #fff !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 8px;
+    margin-top: 0;
+}
+
+.transcript-section p {
+    color: rgba(255, 255, 255, 0.95);
+    line-height: 1.6;
+}
+
+/* Audio player custom styling */
+.podcast-message audio::-webkit-media-controls-panel {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.podcast-message audio::-webkit-media-controls-play-button,
+.podcast-message audio::-webkit-media-controls-pause-button {
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+}
+
+/* Mobile responsiveness for podcast messages */
+@media (max-width: 768px) {
+    .podcast-message {
+        padding: 15px;
+        margin: 8px 0;
+    }
+
+    .audio-player-section {
+        padding: 12px;
+        margin: 12px 0;
+    }
+
+    .transcript-section {
+        padding: 12px;
+        margin-top: 12px;
+    }
+
+    .podcast-message h2 {
+        font-size: 18px;
+    }
+}
+
+/* --- Mind Map Message Styles --- */
+.mindmap-message {
+    background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 10px 0;
+    color: white;
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.3);
+}
+
+.mindmap-message h2 {
+    color: white !important;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mindmap-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    min-height: 400px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mindmap-info {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mindmap-info p {
+    margin: 6px 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+}
+
+/* Mobile responsiveness for mind map messages */
+@media (max-width: 768px) {
+    .mindmap-message {
+        padding: 15px;
+        margin: 8px 0;
+    }
+
+    .mindmap-container {
+        padding: 12px;
+        margin: 12px 0;
+        min-height: 300px;
+    }
+
+    .mindmap-info {
+        padding: 10px;
+        margin-top: 12px;
+    }
+
+    .mindmap-message h2 {
+        font-size: 18px;
+    }
 }

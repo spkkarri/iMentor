@@ -17,7 +17,10 @@ class GeminiAI {
 
     async generateChatResponse(userMessage, documentChunks, chatHistory, systemPrompt = '') {
         const context = this.buildContext(documentChunks);
-        const historyString = chatHistory.map(msg => `${msg.role}: ${msg.parts[0].text}`).join('\n');
+        const historyString = chatHistory.map(msg => {
+            const text = msg.parts && msg.parts[0] && msg.parts[0].text ? msg.parts[0].text : msg.content || '';
+            return `${msg.role}: ${text}`;
+        }).join('\n');
 
         // Only add RAG instructions if we actually have document context
         const hasDocuments = documentChunks && documentChunks.length > 0 && context && context !== 'No relevant document context available.';

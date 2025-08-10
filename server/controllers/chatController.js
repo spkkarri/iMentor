@@ -1006,7 +1006,7 @@ const handleDeepSearch = async (req, res) => {
 
         // Provide a helpful fallback response
         const fallbackResponse = {
-            message: `I apologize, but I encountered an issue while searching for information about "${query}". This could be due to network connectivity or search service limitations.
+            message: `I apologize, but I encountered an issue while searching for information about "${req.body.query || 'your query'}". This could be due to network connectivity or search service limitations.
 
 **What you can try:**
 - Rephrase your question to be more specific
@@ -1045,7 +1045,8 @@ const handleEnhancedDeepSearch = async (req, res) => {
         const webSearchService = new EnhancedWebSearchService();
 
         // Get user's AI service
-        const userAI = await userSpecificAI.getUserAI(userId);
+        const userServices = await userSpecificAI.getUserAIServices(userId);
+        const userAI = userServices.gemini || userServices.openai;
 
         // Perform enhanced search with media
         const searchResults = await webSearchService.performEnhancedSearch(query, {

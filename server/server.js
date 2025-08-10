@@ -63,6 +63,7 @@ const startServer = async () => {
         });
 
         app.use('/podcasts', express.static(path.join(__dirname, 'public', 'podcasts')));
+        app.use('/audio', express.static(path.join(__dirname, 'public', 'audio')));
 
         // Routes
         app.get('/', (req, res) => res.send('Chatbot Backend API is running...'));

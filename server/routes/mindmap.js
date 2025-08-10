@@ -65,9 +65,12 @@ router.post('/generate', tempAuth, async (req, res) => {
 
         console.log(`[MindMap] Successfully generated Mermaid syntax for mind map.`);
         console.log(`[MindMap] Full Mermaid data:\n${mermaidData}`); // Keep this uncommented for debugging
-        
-        // No need to escape here if the client-side Mermaid library handles it
-        return res.json({ mermaidData });
+
+        // Return both mermaid data and file content for the client
+        return res.json({
+            mermaidData,
+            fileContent: fileContent
+        });
 
     } catch (error) {
         console.error('[MindMap] Error in mind map generation route:', error.message, error.stack);

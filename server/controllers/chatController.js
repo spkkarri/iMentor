@@ -88,6 +88,7 @@ const saveChatHistory = async (req, res) => {
 };
 
 const handleStandardMessage = async (req, res) => {
+    console.log('🔥 [DEBUG] handleStandardMessage called with query:', req.body.query?.substring(0, 50));
     try {
         const {
             query,
@@ -108,11 +109,48 @@ const handleStandardMessage = async (req, res) => {
             return res.status(400).json({ message: 'Query and Session ID are required.' });
         }
 
+        // Document generation detection
+        let shouldGenerateDocument = false;
+        let documentType = null;
+        let documentTopic = null;
+
+        // Check if user is requesting document generation
+        const documentKeywords = {
+            ppt: ['ppt', 'powerpoint', 'presentation', 'slides'],
+            report: ['report', 'pdf', 'document'],
+            excel: ['excel', 'spreadsheet', 'xls', 'xlsx'],
+            word: ['word', 'doc', 'docx']
+        };
+
+        const generateKeywords = ['generate', 'genarate', 'genearte', 'genrate', 'generete', 'create', 'make', 'build', 'prepare', 'produce', 'develop'];
+        const queryLower = query.toLowerCase();
+
+        // Check for document generation request
+        console.log(`🔍 [DEBUG] Checking document generation for query: "${queryLower}"`);
+        console.log(`🔍 [DEBUG] Document keywords:`, documentKeywords);
+        console.log(`🔍 [DEBUG] Generate keywords:`, generateKeywords);
+
+        for (const [type, keywords] of Object.entries(documentKeywords)) {
+            const hasDocKeyword = keywords.some(keyword => queryLower.includes(keyword));
+            const hasGenKeyword = generateKeywords.some(keyword => queryLower.includes(keyword));
+
+            console.log(`🔍 [DEBUG] Type: ${type}, hasDocKeyword: ${hasDocKeyword}, hasGenKeyword: ${hasGenKeyword}`);
+
+            if (hasDocKeyword && hasGenKeyword) {
+                shouldGenerateDocument = true;
+                documentType = type;
+                // Extract topic from query (remove generation keywords)
+                documentTopic = query.replace(/\b(generate|create|make|build|prepare|ppt|powerpoint|presentation|slides|report|pdf|document|excel|spreadsheet|xls|xlsx|word|doc|docx|for|me|a|an|the)\b/gi, '').trim();
+                console.log(`🔍 [DEBUG] Document generation detected! Type: ${type}, Topic: "${documentTopic}"`);
+                break;
+            }
+        }
+
         // Automatic web search detection (like ChatGPT)
         let shouldUseWebSearch = false;
         let autoDetectionMetadata = {};
 
-        if (!ragEnabled && !deepSearch && autoDetectWebSearch) {
+        if (!ragEnabled && !deepSearch && autoDetectWebSearch && !shouldGenerateDocument) {
             console.log('[Chat] 🧠 Analyzing prompt for automatic web search detection...');
 
             try {
@@ -143,6 +181,184 @@ const handleStandardMessage = async (req, res) => {
 
             } catch (analysisError) {
                 console.warn('[Chat] ⚠️ Auto-detection failed, using standard response:', analysisError.message);
+            }
+        }
+
+        // Handle document generation requests
+        if (shouldGenerateDocument) {
+            console.log(`[DocGen] 📄 Detected ${documentType} generation request for topic: "${documentTopic}"`);
+
+            let session = await ChatSession.findOne({ sessionId, user: userId });
+            if (!session) {
+                session = new ChatSession({
+                    sessionId,
+                    user: userId,
+                    title: query.substring(0, 50),
+                    systemPrompt: systemPrompt || "You are a helpful AI assistant."
+                });
+            }
+
+            session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+
+            try {
+                if (documentType === 'ppt') {
+                    const { generateSimplePPT } = require('../services/simplePptGenerator');
+
+                    try {
+                        // Generate PPT using simple generator
+                        const pptPath = await generateSimplePPT(documentTopic || query);
+                        const path = require('path');
+                        const fileName = path.basename(pptPath);
+
+                        // Create download URL
+                        const downloadUrl = `/api/files/download-generated/${fileName}`;
+
+                        const responseText = `✅ **PowerPoint Presentation Generated Successfully!**\n\n📊 **Topic:** ${documentTopic}\n\nYour presentation includes:\n- Title slide\n- Introduction\n- Background information\n- Current status\n- Challenges and opportunities\n- Conclusion\n\nThe presentation has been generated with professional formatting and is ready for use!`;
+
+                        session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', responseText);
+                        await session.save();
+
+                        return res.json({
+                            response: responseText,
+                            downloadUrl: downloadUrl,
+                            fileName: fileName,
+                            documentType: 'ppt',
+                            metadata: {
+                                searchType: 'document_generation',
+                                generatedType: 'ppt',
+                                downloadUrl: downloadUrl,
+                                fileName: fileName,
+                                documentType: 'ppt'
+                            },
+                            sessionId: session.sessionId,
+                            history: session.messages
+                        });
+                    } catch (pptError) {
+                        console.error('[DocGen] PPT generation failed:', pptError);
+
+                        // Provide fallback response with manual instructions
+                        const fallbackText = `📄 **PowerPoint Presentation Outline Generated!**\n\n📊 **Topic:** ${documentTopic}\n\n**Here's a comprehensive outline for your presentation:**\n\n**Slide 1: Title Slide**\n- Title: ${documentTopic}\n- Subtitle: A Comprehensive Overview\n\n**Slide 2: Introduction**\n- Overview of the topic\n- Key objectives\n- Agenda\n\n**Slide 3: Background**\n- Historical context\n- Current situation\n- Importance\n\n**Slide 4: Key Points**\n- Main concept 1\n- Main concept 2\n- Main concept 3\n\n**Slide 5: Analysis**\n- Benefits and advantages\n- Challenges and limitations\n- Opportunities\n\n**Slide 6: Conclusion**\n- Summary of key points\n- Recommendations\n- Next steps\n\n💡 **Note:** Due to high demand, I've provided you with a detailed outline. You can use this structure to create your presentation in PowerPoint, Google Slides, or any presentation software.`;
+
+                        session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', fallbackText);
+                        await session.save();
+
+                        return res.json({
+                            response: fallbackText,
+                            documentType: 'ppt',
+                            metadata: { searchType: 'document_generation_outline', generatedType: 'ppt_outline' },
+                            sessionId: session.sessionId,
+                            history: session.messages
+                        });
+                    }
+
+                } else if (documentType === 'report') {
+                    // For reports, we'll use the existing report generation logic
+                    const GeminiService = require('../services/geminiService');
+                    const { GeminiAI } = require('../services/geminiAI');
+                    const DuckDuckGoService = require('../utils/duckduckgo');
+                    const DeepSearchService = require('../deep_search/services/deepSearchService');
+                    const { generateReportPdf } = require('../services/pdfGenerator');
+
+                    // Initialize services
+                    const geminiService = new GeminiService();
+                    await geminiService.initialize();
+                    const geminiAI = new GeminiAI(geminiService);
+                    const deepSearchService = new DeepSearchService(userId, geminiAI, new DuckDuckGoService());
+
+                    // Perform search for report content
+                    const searchResults = await deepSearchService.performSearch(documentTopic || query);
+
+                    // Generate PDF file
+                    const pdfPath = await generateReportPdf(documentTopic || query, searchResults.summary || "Report content based on research", searchResults.sources || []);
+                    const path = require('path');
+                    const fileName = path.basename(pdfPath);
+
+                    // Create download URL
+                    const downloadUrl = `/api/files/download-generated/${fileName}`;
+
+                    const responseText = `✅ **Research Report Generated Successfully!**\n\n📋 **Topic:** ${documentTopic}\n\n🔗 **Download Link:** [Click here to download your report](${downloadUrl})\n\n📊 **Report Contents:**\n- Executive Summary\n- Detailed Analysis\n- Key Findings\n- Sources and References\n\nThe report has been generated based on current research and is formatted professionally.`;
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', responseText);
+                    await session.save();
+
+                    return res.json({
+                        response: responseText,
+                        documentType: 'report',
+                        downloadUrl: downloadUrl,
+                        fileName: fileName,
+                        reportData: searchResults,
+                        metadata: { searchType: 'document_generation', generatedType: 'report' },
+                        sessionId: session.sessionId,
+                        history: session.messages
+                    });
+
+                } else if (documentType === 'excel') {
+                    const { generateExcel } = require('../services/excelGenerator');
+
+                    // Generate Excel
+                    const excelPath = await generateExcel(documentTopic || query);
+                    const path = require('path');
+                    const fileName = path.basename(excelPath);
+
+                    // Create download URL
+                    const downloadUrl = `/api/files/download-generated/${fileName}`;
+
+                    const responseText = `✅ **Excel Spreadsheet Generated Successfully!**\n\n📊 **Topic:** ${documentTopic}\n\n🔗 **Download Link:** [Click here to download your spreadsheet](${downloadUrl})\n\nYour spreadsheet includes:\n- Summary sheet with key metrics\n- Detailed data analysis\n- Structured categories\n- Professional formatting\n\nThe spreadsheet is ready for analysis and further customization!`;
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', responseText);
+                    await session.save();
+
+                    return res.json({
+                        response: responseText,
+                        downloadUrl: downloadUrl,
+                        fileName: fileName,
+                        documentType: 'excel',
+                        metadata: { searchType: 'document_generation', generatedType: 'excel' },
+                        sessionId: session.sessionId,
+                        history: session.messages
+                    });
+
+                } else if (documentType === 'word') {
+                    const { generateWord } = require('../services/wordGenerator');
+
+                    // Generate Word document
+                    const wordPath = await generateWord(documentTopic || query);
+                    const path = require('path');
+                    const fileName = path.basename(wordPath);
+
+                    // Create download URL
+                    const downloadUrl = `/api/files/download-generated/${fileName}`;
+
+                    const responseText = `✅ **Word Document Generated Successfully!**\n\n📄 **Topic:** ${documentTopic}\n\n🔗 **Download Link:** [Click here to download your document](${downloadUrl})\n\nYour document includes:\n- Professional formatting\n- Structured sections\n- Comprehensive analysis\n- Introduction and conclusion\n\nThe document is ready for review and further editing!`;
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', responseText);
+                    await session.save();
+
+                    return res.json({
+                        response: responseText,
+                        downloadUrl: downloadUrl,
+                        fileName: fileName,
+                        documentType: 'word',
+                        metadata: { searchType: 'document_generation', generatedType: 'word' },
+                        sessionId: session.sessionId,
+                        history: session.messages
+                    });
+                }
+
+            } catch (docError) {
+                console.error(`[DocGen] Error generating ${documentType}:`, docError);
+                const errorText = `❌ **Error Generating ${documentType.toUpperCase()}**\n\nI encountered an error while generating your ${documentType}. Please try again or contact support if the issue persists.\n\n**Error:** ${docError.message}`;
+
+                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', errorText);
+                await session.save();
+
+                return res.json({
+                    response: errorText,
+                    error: true,
+                    metadata: { searchType: 'document_generation_error' },
+                    sessionId: session.sessionId,
+                    history: session.messages
+                });
             }
         }
 
@@ -812,6 +1028,114 @@ If you have a specific question, I can try to help based on my general knowledge
 };
 
 
+// Enhanced Deep Search with Media
+const handleEnhancedDeepSearch = async (req, res) => {
+    try {
+        const { query, history = [] } = req.body;
+        const userId = req.user.id;
+
+        console.log(`🔍 Enhanced deep search request: "${query}" from user ${userId}`);
+
+        if (!query || query.trim().length === 0) {
+            return res.status(400).json({ message: 'Query is required for deep search.' });
+        }
+
+        // Import enhanced web search service
+        const EnhancedWebSearchService = require('../services/enhancedWebSearch');
+        const webSearchService = new EnhancedWebSearchService();
+
+        // Get user's AI service
+        const userAI = await userSpecificAI.getUserAI(userId);
+
+        // Perform enhanced search with media
+        const searchResults = await webSearchService.performEnhancedSearch(query, {
+            includeMedia: true,
+            maxResults: 8
+        });
+
+        console.log(`📊 Search completed: ${searchResults.totalResults} total results`);
+
+        // Format search results for AI processing
+        const formattedResults = webSearchService.formatResultsForAI(searchResults);
+
+        // Generate comprehensive response using AI
+        const aiPrompt = `Based on the following search results, provide a comprehensive and accurate answer to the user's question: "${query}"
+
+${formattedResults}
+
+Please provide:
+1. A detailed answer based on the search results
+2. Key insights and important information
+3. If there are videos, mention them as helpful resources
+4. If there are recent news, include relevant updates
+5. Cite sources when making specific claims
+
+Make the response informative, well-structured, and engaging.`;
+
+        const aiResponse = await userAI.generateChatResponse(
+            aiPrompt,
+            [],
+            history.slice(-5), // Last 5 messages for context
+            "You are a helpful AI assistant that provides comprehensive answers based on web search results. Always cite your sources and provide accurate information."
+        );
+
+        // Prepare media content for frontend
+        const mediaContent = {
+            videos: searchResults.videoResults.map(video => ({
+                title: video.title,
+                url: video.url,
+                embedUrl: video.embedUrl,
+                thumbnail: video.thumbnail,
+                duration: video.duration,
+                platform: video.platform
+            })),
+            images: searchResults.imageResults.map(image => ({
+                title: image.title,
+                url: image.url,
+                thumbnail: image.thumbnail
+            })),
+            news: searchResults.newsResults.map(news => ({
+                title: news.title,
+                url: news.url,
+                snippet: news.snippet,
+                source: news.source
+            }))
+        };
+
+        // Format the response
+        const response = {
+            response: aiResponse || 'No results found.',
+            sources: searchResults.webResults.map(result => ({
+                title: result.title,
+                url: result.url,
+                snippet: result.snippet
+            })),
+            media: mediaContent,
+            metadata: {
+                searchType: 'enhanced_deep_search',
+                resultsCount: searchResults.totalResults,
+                webResults: searchResults.webResults.length,
+                videoResults: searchResults.videoResults.length,
+                imageResults: searchResults.imageResults.length,
+                newsResults: searchResults.newsResults.length,
+                timestamp: new Date().toISOString(),
+                enhanced: true,
+                hasMedia: searchResults.videoResults.length > 0 || searchResults.imageResults.length > 0
+            }
+        };
+
+        res.json(response);
+
+    } catch (error) {
+        console.error('Enhanced deep search error:', error);
+        res.status(500).json({
+            message: 'Deep search failed',
+            error: error.message,
+            response: 'I apologize, but I encountered an error while searching. Please try again with a different query.'
+        });
+    }
+};
+
 // Test endpoint for DeepSearch debugging
 const testDeepSearch = async (req, res) => {
     try {
@@ -883,5 +1207,6 @@ module.exports = {
     handleStandardMessage,
     handleRagMessage,
     handleDeepSearch,
+    handleEnhancedDeepSearch,
     testDeepSearch
 };

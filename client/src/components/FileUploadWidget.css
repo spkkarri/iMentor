@@ -7,42 +7,42 @@
 .file-upload-widget h4 {
     font-size: 1rem;
     font-weight: 500;
-    color: var(--secondary-text-color);
+    color: var(--text-secondary);
     margin: 0 0 0 0; /* Adjusted margin */
     padding-bottom: 8px;
     border-bottom: 1px solid var(--border-color);
 }
-.select-file-btn, .upload-btn {
+.choose-files-btn, .upload-btn {
     width: 100%;
     padding: 10px 15px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--border-radius-small);
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 500;
-    transition: all 0.2s ease;
-    background-color: var(--bg-color);
-    color: var(--primary-text-color);
+    transition: var(--transition);
+    background-color: var(--secondary-bg);
+    color: var(--text-primary);
     text-align: center;
 }
-.select-file-btn:hover:not(:disabled), .upload-btn:hover:not(:disabled) {
-    background-color: var(--hover-color);
+.choose-files-btn:hover:not(:disabled), .upload-btn:hover:not(:disabled) {
+    background-color: var(--border-color);
 }
-.select-file-btn:disabled, .upload-btn:disabled {
+.choose-files-btn:disabled, .upload-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
 .upload-btn {
-    background-color: var(--user-gradient-end);
-    border-color: var(--user-gradient-end);
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
     color: white;
 }
 .upload-btn:hover:not(:disabled) {
-    opacity: 0.9;
+    background-color: var(--accent-hover);
 }
 .status-message {
     font-size: 0.8rem;
-    color: var(--secondary-text-color);
+    color: var(--text-secondary);
     text-align: center;
     padding: 8px 0;
 }
@@ -60,8 +60,8 @@
     align-items: center;
     gap: 8px;
     padding: 8px;
-    background-color: var(--hover-color);
-    border-radius: 4px;
+    background-color: var(--border-color);
+    border-radius: var(--border-radius-small);
     font-size: 0.85rem;
 }
 .file-preview-name {
@@ -69,16 +69,16 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: #ccc;
+    color: var(--text-primary);
 }
 .file-preview-status {
     font-style: italic;
-    color: #888;
+    color: var(--text-secondary);
 }
 .remove-file-btn {
     background: none;
     border: none;
-    color: #888;
+    color: var(--text-secondary);
     cursor: pointer;
     padding: 0;
     display: flex;

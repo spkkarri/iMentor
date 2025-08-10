@@ -1,987 +1,831 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    sendMessage as apiSendMessage, saveChatHistory,
-    getUserFiles, deleteUserFile, renameUserFile, generateMindMap, generatePodcast, getFileOverview,
+    sendMessage as apiSendMessage,
+    queryRagService,
+    performDeepSearch,
+    getUserFiles,
+    deleteUserFile,
+    renameUserFile,
+    generatePodcast,
+    generateMindMap
 } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
-import { FaMicrophone, FaSave, FaCopy, FaStop, FaPaperPlane } from 'react-icons/fa';
+import {
+    FaMicrophone,
+    FaStop,
+    FaPaperPlane,
+    FaBars,
+    FaUpload,
+    FaPlus,
+    FaHistory,
+    FaFolder,
+    FaCog,
+    FaSun,
+    FaMoon,
+    FaUser,
+    FaSearch,
+    FaDatabase
+} from 'react-icons/fa';
 
-import SystemPromptWidget, { getPromptTextById } from './SystemPromptWidget';
 import FileUploadWidget from './FileUploadWidget';
+import HistorySidebarWidget from './HistorySidebarWidget';
 import FileManagerWidget from './FileManagerWidget';
-import MindMap from './MindMap';
-import HistoryModal from './HistoryModal';
-import ResearchMetadata from './ResearchMetadata';
+import DSAWidget from './DSAWidget';
+import MediaRenderer from './MediaRenderer';
 import ModelSwitcher from './ModelSwitcher';
-import ApiKeyManager from './ApiKeyManager';
-
 
 import './ChatPage.css';
 
-// --- CodeBlock component with Copy functionality ---
-const CodeBlock = ({ language, value }) => {
-    const [isCopied, setIsCopied] = useState(false);
-    const handleCopy = () => {
-        navigator.clipboard.writeText(value).then(() => {
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
-        });
-    };
-    return (
-        <div className="code-block-wrapper">
-            <pre><code className={`language-${language}`}>{value}</code></pre>
-            <button onClick={handleCopy} className="copy-code-button" title="Copy code">
-                {isCopied ? <><FaSave /> Copied!</> : <><FaCopy /> Copy</>}
-            </button>
-        </div>
-    );
-};
-
-const ChatPage = ({ setIsAuthenticated }) => {
-    const [loadingStates, setLoadingStates] = useState({ chat: false, files: false, mindMap: false, listening: false });
+const ChatPage = () => {
+    // Core state
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
+    const [loadingStates, setLoadingStates] = useState({ listening: false });
+    
+    // User and session state
     const [sessionId, setSessionId] = useState('');
     const [userId, setUserId] = useState('');
     const [username, setUsername] = useState('');
-    const [currentSystemPromptId, setCurrentSystemPromptId] = useState('friendly');
-    const [editableSystemPromptText, setEditableSystemPromptText] = useState(() => getPromptTextById('friendly'));
-    const [files, setFiles] = useState([]);
-    const [fileError, setFileError] = useState('');
-    const [isRagEnabled, setIsRagEnabled] = useState(() => {
-        // Persist RAG state in localStorage
-        const saved = localStorage.getItem('ragEnabled');
-        return saved !== null ? JSON.parse(saved) : false;
+    
+    // UI state
+    const [isDarkTheme, setIsDarkTheme] = useState(() => {
+        const saved = localStorage.getItem('isDarkTheme');
+        return saved ? JSON.parse(saved) : false;
     });
-    const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(() => {
-        // Persist DeepSearch state in localStorage
-        const saved = localStorage.getItem('deepSearchEnabled');
-        return saved !== null ? JSON.parse(saved) : false;
+    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+        const saved = localStorage.getItem('isSidebarOpen');
+        return saved ? JSON.parse(saved) : true;
     });
-    const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(() => {
-        // Persist WebSearch state in localStorage
-        const saved = localStorage.getItem('webSearchEnabled');
-        return saved !== null ? JSON.parse(saved) : false;
-    });
-    const [showHistoryModal, setShowHistoryModal] = useState(false);
-    const [currentlySpeakingIndex, setCurrentlySpeakingIndex] = useState(null);
-    const [editingMessage, setEditingMessage] = useState(null);
-    const [deepSearchStatus, setDeepSearchStatus] = useState('unknown'); // 'available', 'quota_exceeded', 'unavailable', 'unknown'
+    const [activeTab, setActiveTab] = useState('upload');
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-    // Model switching state
+    // RAG and search state
+    const [isRagEnabled, setIsRagEnabled] = useState(false);
+    const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState([]);
+
+    // File management state
+    const [userFiles, setUserFiles] = useState([]);
+    const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+    const [fileError, setFileError] = useState('');
+    
+    // Model state
     const [selectedModel, setSelectedModel] = useState(() => {
-        // Persist selected model in localStorage
         const saved = localStorage.getItem('selectedModel');
         return saved || 'gemini-flash';
-    });
-    const [isMultiLLMEnabled, setIsMultiLLMEnabled] = useState(() => {
-        // Persist Multi-LLM state in localStorage
-        const saved = localStorage.getItem('multiLLMEnabled');
-        return saved !== null ? JSON.parse(saved) : false;
     });
 
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
     const navigate = useNavigate();
-    const isProcessing = Object.values(loadingStates).some(Boolean);
 
-    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
-    // Persist RAG state to localStorage
+    // Initialize user session
     useEffect(() => {
-        localStorage.setItem('ragEnabled', JSON.stringify(isRagEnabled));
-    }, [isRagEnabled]);
+        const initializeSession = () => {
+            const storedUserId = localStorage.getItem('userId');
+            const storedUsername = localStorage.getItem('username');
+            const storedSessionId = localStorage.getItem('sessionId');
 
-    // Persist DeepSearch state to localStorage
+            if (!storedUserId || !storedUsername) {
+                navigate('/login');
+                return;
+            }
+
+            setUserId(storedUserId);
+            setUsername(storedUsername);
+            setSessionId(storedSessionId || uuidv4());
+        };
+
+        initializeSession();
+    }, [navigate]);
+
+    // Load user files
+    const loadUserFiles = useCallback(async () => {
+        if (!userId) return;
+
+        setIsLoadingFiles(true);
+        setFileError('');
+        try {
+            const response = await getUserFiles();
+            setUserFiles(response.data || []);
+        } catch (err) {
+            setFileError('Failed to load files');
+            console.error('Error loading files:', err);
+        } finally {
+            setIsLoadingFiles(false);
+        }
+    }, [userId]);
+
+    // Load files when user changes
     useEffect(() => {
-        localStorage.setItem('deepSearchEnabled', JSON.stringify(isDeepSearchEnabled));
-    }, [isDeepSearchEnabled]);
+        if (userId) {
+            loadUserFiles();
+        }
+    }, [userId, loadUserFiles]);
 
-    // Persist WebSearch state to localStorage
+    // Save theme preference
     useEffect(() => {
-        localStorage.setItem('webSearchEnabled', JSON.stringify(isWebSearchEnabled));
-    }, [isWebSearchEnabled]);
+        localStorage.setItem('isDarkTheme', JSON.stringify(isDarkTheme));
+    }, [isDarkTheme]);
 
-    // Persist selected model to localStorage
+    // Save sidebar state
+    useEffect(() => {
+        localStorage.setItem('isSidebarOpen', JSON.stringify(isSidebarOpen));
+    }, [isSidebarOpen]);
+
+    // Save selected model
     useEffect(() => {
         localStorage.setItem('selectedModel', selectedModel);
     }, [selectedModel]);
 
-    // Persist Multi-LLM state to localStorage
+    // Auto-scroll to bottom
     useEffect(() => {
-        localStorage.setItem('multiLLMEnabled', JSON.stringify(isMultiLLMEnabled));
-    }, [isMultiLLMEnabled]);
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
-    // Ensure only one search mode is active at a time (RAG and DeepSearch only - WebSearch is automatic)
-    const handleRagToggle = useCallback(() => {
-        if (!isRagEnabled) {
-            // Disable other search modes when enabling RAG
-            if (isDeepSearchEnabled) setIsDeepSearchEnabled(false);
+    // Logout handler
+    const handleLogout = useCallback((clearHistory = true) => {
+        if (clearHistory) {
+            localStorage.removeItem('userId');
+            localStorage.removeItem('username');
+            localStorage.removeItem('sessionId');
         }
-        setIsRagEnabled(v => !v);
-    }, [isRagEnabled, isDeepSearchEnabled]);
+        navigate('/login');
+    }, [navigate]);
 
-    const handleDeepSearchToggle = useCallback(() => {
-        if (!isDeepSearchEnabled) {
-            // Disable other search modes when enabling DeepSearch
-            if (isRagEnabled) setIsRagEnabled(false);
-        }
-        setIsDeepSearchEnabled(v => !v);
-    }, [isDeepSearchEnabled, isRagEnabled]);
+    // New chat handler
+    const handleNewChat = useCallback(() => {
+        setMessages([]);
+        setSessionId(uuidv4());
+        setError('');
+        localStorage.setItem('sessionId', sessionId);
+    }, [sessionId]);
 
-    // Function to check DeepSearch service status (currently unused - using response-based status tracking)
-    // const checkDeepSearchStatus = useCallback(async () => {
-    //     try {
-    //         // Make a lightweight test request to check service availability
-    //         const testPayload = {
-    //             query: "test",
-    //             history: [],
-    //             sessionId: sessionId || 'test',
-    //             systemPrompt: "Test",
-    //             deepSearch: true
-    //         };
-    //
-    //         const response = await apiSendMessage(testPayload);
-    //         const metadata = response.data.metadata;
-    //
-    //         if (metadata) {
-    //             if (metadata.searchType === 'quota_exceeded_fallback') {
-    //                 setDeepSearchStatus('quota_exceeded');
-    //             } else if (metadata.searchType === 'offline_deep_search') {
-    //                 setDeepSearchStatus('limited');
-    //             } else if (metadata.searchType === 'standard_deep_search' || metadata.searchType === 'enhanced_deep_search') {
-    //                 setDeepSearchStatus('available');
-    //             } else {
-    //                 setDeepSearchStatus('unavailable');
-    //             }
-    //         } else {
-    //             setDeepSearchStatus('unavailable');
-    //         }
-    //     } catch (error) {
-    //         console.log('DeepSearch status check failed:', error.message);
-    //         setDeepSearchStatus('unavailable');
-    //     }
-    // }, [sessionId]);
-
-    // Check DeepSearch status periodically when enabled
-    useEffect(() => {
-        if (isDeepSearchEnabled && sessionId) {
-            // Don't run the actual test - just set status based on previous responses
-            // This prevents unnecessary API calls
-            const lastMessage = messages[messages.length - 1];
-            if (lastMessage && lastMessage.metadata) {
-                const metadata = lastMessage.metadata;
-                if (metadata.searchType === 'quota_exceeded_fallback') {
-                    setDeepSearchStatus('quota_exceeded');
-                } else if (metadata.searchType === 'offline_deep_search') {
-                    setDeepSearchStatus('limited');
-                } else if (metadata.searchType === 'standard_deep_search' || metadata.searchType === 'enhanced_deep_search' || metadata.searchType === 'gemini_style_search') {
-                    setDeepSearchStatus('available');
-                } else {
-                    setDeepSearchStatus('unknown');
-                }
-            } else {
-                setDeepSearchStatus('unknown');
-            }
-        } else {
-            setDeepSearchStatus('unknown');
-        }
-    }, [isDeepSearchEnabled, messages, sessionId]);
-
-    const saveAndReset = useCallback(async (isLoggingOut = false, onCompleteCallback = null) => {
-        const currentSessionId = localStorage.getItem('sessionId');
-        const currentUserId = localStorage.getItem('userId');
-        if (!currentSessionId || !currentUserId || isProcessing || messages.length === 0) {
-            if (onCompleteCallback) onCompleteCallback();
-            return;
-        }
-        try {
-            const firstUserMessage = messages.find(m => m.role === 'user');
-            const chatTitle = firstUserMessage ? firstUserMessage.parts[0].text.substring(0, 50) : 'New Conversation';
-            await saveChatHistory({ sessionId: currentSessionId, messages, systemPrompt: editableSystemPromptText, title: chatTitle });
-        } catch (saveError) {
-            console.error("Failed to save chat history:", saveError);
-        } finally {
-            if (!isLoggingOut) {
-                setMessages([]);
-                const newSessionId = uuidv4();
-                setSessionId(newSessionId);
-                localStorage.setItem('sessionId', newSessionId);
-            }
-            if (onCompleteCallback) onCompleteCallback();
-        }
-    }, [messages, isProcessing, editableSystemPromptText]);
-
-    const handleLogout = useCallback((skipSave = false) => {
-        const performCleanup = () => {
-            if (window.speechSynthesis) window.speechSynthesis.cancel();
-            localStorage.clear();
-            setIsAuthenticated(false);
-            navigate('/login', { replace: true });
-        };
-        if (!skipSave && messages.length > 0) {
-            saveAndReset(true, performCleanup);
-        } else {
-            performCleanup();
-        }
-    }, [messages.length, setIsAuthenticated, navigate, saveAndReset]);
-
-    useEffect(() => {
-        const storedUserId = String(localStorage.getItem('userId'));
-        const storedUsername = localStorage.getItem('username');
-        if (!storedUserId || !storedUsername) {
-            handleLogout(true);
-        } else {
-            setUserId(storedUserId);
-            setUsername(storedUsername);
-            const newSessionId = uuidv4();
-            setSessionId(newSessionId);
-            localStorage.setItem('sessionId', newSessionId);
-        }
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.onstart = () => setLoadingStates(prev => ({ ...prev, listening: true }));
-            recognition.onresult = (event) => {
-                let interimTranscript = '';
-                let finalTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
-                    else interimTranscript += event.results[i][0].transcript;
-                }
-                setInputText(finalTranscript + interimTranscript);
-            };
-            recognition.onerror = (e) => setError(`STT Error: ${e.error}`);
-            recognition.onend = () => setLoadingStates(prev => ({ ...prev, listening: false }));
-            recognitionRef.current = recognition;
-        }
-        return () => {
-            if (recognitionRef.current) recognitionRef.current.stop();
-            if (window.speechSynthesis) window.speechSynthesis.cancel();
-        };
-    }, [handleLogout]);
-
-    const fetchFiles = useCallback(async () => {
-        if (!userId) return;
-        setLoadingStates(prev => ({ ...prev, files: true }));
-        try {
-            const response = await getUserFiles();
-            setFiles(response.data || []);
-        } catch (err) {
-            setFileError('Could not load files.');
-        } finally {
-            setLoadingStates(prev => ({ ...prev, files: false }));
-        }
-    }, [userId]);
-
-    useEffect(() => { if (userId) fetchFiles(); }, [userId, fetchFiles]);
-
-    const handleNewChat = useCallback(() => { if (!isProcessing) saveAndReset(false); }, [isProcessing, saveAndReset]);
-
-    // Handle model change
+    // Model change handler
     const handleModelChange = useCallback((model) => {
-        console.log('🔄 Switching to model:', model.name);
-        setSelectedModel(model.id);
-
-        // Enable Multi-LLM if selecting a Multi-LLM model
-        if (model.isMultiLLM || model.isOllama) {
-            setIsMultiLLMEnabled(true);
-        } else {
-            setIsMultiLLMEnabled(false);
-        }
-
-        // Show notification
-        const notification = document.createElement('div');
-        notification.className = 'model-switch-notification';
-        notification.textContent = `Switched to ${model.name}`;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #4CAF50;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            z-index: 1000;
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        `;
-        document.body.appendChild(notification);
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
+        setSelectedModel(model);
     }, []);
 
-    const handleSendMessage = useCallback(async (e, overrideInput = null) => {
-        if (e) e.preventDefault();
-        const trimmedInput = (overrideInput || inputText).trim();
-        if (!trimmedInput || isProcessing) return;
-        if (loadingStates.listening) recognitionRef.current?.stop();
+    // Theme toggle
+    const toggleTheme = useCallback(() => {
+        setIsDarkTheme(prev => !prev);
+    }, []);
 
-        const newUserMessage = { id: uuidv4(), role: 'user', parts: [{ text: trimmedInput }], timestamp: new Date() };
+    // Sidebar toggle
+    const toggleSidebar = useCallback(() => {
+        setIsSidebarOpen(prev => !prev);
+    }, []);
+
+    // Close profile dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (showProfileDropdown && !event.target.closest('.profile-dropdown')) {
+                setShowProfileDropdown(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showProfileDropdown]);
+
+    // Send message handler
+    const handleSendMessage = useCallback(async () => {
+        const trimmedInput = inputText.trim();
+        if (!trimmedInput || isProcessing) return;
+
+        const newUserMessage = {
+            id: uuidv4(),
+            role: 'user',
+            parts: [{ text: trimmedInput }],
+            timestamp: new Date()
+        };
+
         setMessages(prev => [...prev, newUserMessage]);
         setInputText('');
+        setIsProcessing(true);
         setError('');
-        setLoadingStates(prev => ({ ...prev, chat: true }));
 
         try {
-            const payload = {
-                query: trimmedInput,
-                history: [...messages, newUserMessage],
-                sessionId,
-                systemPrompt: editableSystemPromptText,
-                ragEnabled: isRagEnabled,        // Pass RAG flag to API
-                deepSearch: isDeepSearchEnabled, // Pass deep search flag to API
-                autoDetectWebSearch: true,       // Enable automatic web search detection
-                multiLLM: isMultiLLMEnabled,     // Enable Multi-LLM routing
-                selectedModel: selectedModel     // Pass selected model for reference
-            };
+            let response;
+            let responseText = '';
+            let metadata = {};
 
-            // Add debugging for search modes and show appropriate loading message
-            if (isRagEnabled) {
-                console.log('📚 RAG enabled for query:', trimmedInput);
-            } else if (isDeepSearchEnabled) {
-                console.log('🔍 Real-Time DeepSearch enabled for query:', trimmedInput);
-                // Add a temporary loading message for Deep Search
-                const loadingMessage = {
+            if (isDeepSearchEnabled) {
+                // Use deep search
+                response = await performDeepSearch(trimmedInput, messages);
+                responseText = response.data?.response || response.data?.answer || 'No response received';
+                metadata = { searchType: 'deep-search', enhanced: true };
+            } else if (isRagEnabled) {
+                if (selectedFiles.length === 0) {
+                    // Show error if RAG is enabled but no files selected
+                    setError('Please select at least one document for RAG search, or disable RAG mode.');
+                    setIsProcessing(false);
+                    return;
+                }
+                // Use RAG with selected files
+                response = await queryRagService({
+                    query: trimmedInput,
+                    sessionId,
+                    userId,
+                    model: selectedModel,
+                    systemPrompt: "You are a helpful AI assistant. Use the provided documents to answer questions accurately.",
+                    fileIds: selectedFiles
+                });
+                responseText = response.data?.response || 'No response received';
+                metadata = {
+                    searchType: 'rag',
+                    sources: response.data?.sources || [],
+                    documentsFound: response.data?.documentsFound || 0,
+                    enhanced: true,
+                    filesUsed: selectedFiles.length
+                };
+            } else {
+                // Standard message
+                response = await apiSendMessage({
+                    query: trimmedInput,
+                    sessionId,
+                    userId,
+                    model: selectedModel,
+                    systemPrompt: "You are a helpful AI assistant."
+                });
+                responseText = response.data?.response || 'No response received';
+                metadata = { searchType: 'standard' };
+            }
+
+            if (responseText) {
+                const assistantMessage = {
                     id: uuidv4(),
                     role: 'assistant',
-                    parts: [{ text: '🔍 **Searching the web in real-time...** \n\nFinding the latest information from multiple sources...' }],
+                    parts: [{ text: responseText }],
                     timestamp: new Date(),
-                    isLoading: true
+                    metadata,
+                    media: response.data?.media || null
                 };
-                setMessages(prev => [...prev, loadingMessage]);
-            } else {
-                console.log('🤖 Auto-detection enabled for query:', trimmedInput);
-            }
-
-            const response = await apiSendMessage(payload);
-
-            // Check if search was actually used and provide feedback
-            const metadata = response.data.metadata;
-            let responseText = response.data.response;
-
-            if (isRagEnabled && metadata && metadata.searchType && metadata.searchType.includes('rag')) {
-                console.log('📚 RAG metadata:', metadata);
-                const sourceCount = metadata.sources ? metadata.sources.length : 0;
-                if (metadata.searchType === 'rag_no_documents') {
-                    responseText = `📚 **RAG active** - No sufficiently relevant documents found (relevance threshold: 40%).\n\n${responseText}`;
-                } else {
-                    responseText = `📚 **RAG active** - Found ${sourceCount} highly relevant document sources.\n\n${responseText}`;
-                }
-            } else if (isDeepSearchEnabled && metadata) {
-                console.log('🔍 DeepSearch metadata:', metadata);
-
-                // Enhanced indicators for real-time deep search
-                if (metadata.searchType === 'gemini_style_search') {
-                    const sourceCount = metadata.sources ? metadata.sources.length : 0;
-                    const searchTime = metadata.searchTime ? `${metadata.searchTime}ms` : 'unknown time';
-                    responseText = `🔍 **Real-Time Deep Search** - Found ${sourceCount} sources in ${searchTime}.\n\n${responseText}`;
-                } else if (metadata.searchType === 'real_time_search_error') {
-                    responseText = `⚠️ **Deep Search unavailable** - Using standard response.\n\n${responseText}`;
-                } else if (metadata.searchType === 'quota_exceeded_fallback') {
-                    responseText = `⚠️ **DeepSearch quota exceeded** - Using fallback response.\n\n${responseText}`;
-                } else if (metadata.searchType === 'offline_deep_search') {
-                    responseText = `🔄 **DeepSearch offline mode** - Limited web access.\n\n${responseText}`;
-                } else if (metadata.searchType === 'standard_deep_search') {
-                    responseText = `✅ **DeepSearch active** - Enhanced with web research.\n\n${responseText}`;
-                }
-            } else if (metadata && (metadata.searchType === 'auto_web_search' || metadata.searchType === 'manual_web_search')) {
-                console.log('🔍 Auto web search metadata:', metadata);
-
-                // Show automatic web search indicators
-                const sourceCount = metadata.sources ? metadata.sources.length : 0;
-                const searchTime = metadata.searchTime ? `${metadata.searchTime}ms` : 'unknown time';
-                const confidence = metadata.confidence || 'medium';
-
-                responseText = `🔍 **Web search automatically activated** - Found ${sourceCount} sources in ${searchTime} (${confidence} confidence).\n\n${responseText}`;
-
-            } else if ((isRagEnabled || isDeepSearchEnabled) && !metadata) {
-                const searchType = isRagEnabled ? 'RAG' : 'DeepSearch';
-                console.warn(`${searchType} was enabled but no metadata returned - may have fallen back to standard chat`);
-                responseText = `⚠️ **${searchType} unavailable** - Using standard chat mode.\n\n${responseText}`;
-            }
-
-            const assistantMessage = {
-                id: uuidv4(),
-                role: 'assistant',
-                parts: [{ text: responseText }],
-                followUpQuestions: response.data.followUpQuestions || [],
-                timestamp: new Date(),
-                metadata: metadata
-            };
-
-            // Remove loading message and add real response
-            if (isDeepSearchEnabled) {
-                setMessages(prev => {
-                    // Remove the loading message and add the real response
-                    const withoutLoading = prev.filter(msg => !msg.isLoading);
-                    return [...withoutLoading, assistantMessage];
-                });
-            } else {
                 setMessages(prev => [...prev, assistantMessage]);
             }
         } catch (err) {
-            console.error('Chat error:', err);
-
-            // Enhanced error handling for search modes and Ollama service
-            let errorMessage = err.response?.data?.error || err.response?.data?.message || 'Chat error.';
-
-            if (err.response?.status === 503 && err.response?.data?.suggestedAction === 'switch_to_gemini') {
-                // Ollama service unavailable
-                errorMessage = `🦙 ${err.response.data.message}\n\n💡 Available models: ${err.response.data.availableModels?.join(', ') || 'Gemini models'}`;
-            } else if (isDeepSearchEnabled && err.response?.status === 404) {
-                errorMessage = 'DeepSearch found no relevant results. Try rephrasing your question or disable DeepSearch for a general response.';
-            } else if (isDeepSearchEnabled && err.response?.status === 500) {
-                errorMessage = 'DeepSearch service encountered an error. The service may be temporarily unavailable.';
-            }
-
-            setError(errorMessage);
-            setMessages(prev => prev.slice(0, -1));
-            if (err.response?.status === 401) handleLogout(true);
+            setError(err.response?.data?.message || 'Failed to send message');
         } finally {
-            setLoadingStates(prev => ({ ...prev, chat: false }));
+            setIsProcessing(false);
         }
-    }, [inputText, isProcessing, loadingStates, messages, sessionId, editableSystemPromptText, isRagEnabled, isDeepSearchEnabled, handleLogout]);
+    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, selectedFiles, messages]);
 
-    // Message editing functionality (currently unused in UI)
-    /*
-    const handleSaveEdit = useCallback(async () => {
-        if (!editingMessage) return;
-        const messageIndex = messages.findIndex(m => m.id === editingMessage.id);
-        if (messageIndex === -1) return;
-
-        const historyBeforeEdit = messages.slice(0, messageIndex);
-        const updatedUserMessage = { ...messages[messageIndex], parts: [{ text: editingMessage.text }] };
-        setMessages([...historyBeforeEdit, updatedUserMessage]);
-        setEditingMessage(null);
-        setLoadingStates(prev => ({ ...prev, chat: true }));
-
-        try {
-             const payload = {
-                query: editingMessage.text,
-                history: [...historyBeforeEdit, updatedUserMessage],
-                sessionId,
-                systemPrompt: editableSystemPromptText,
-                ragEnabled: isRagEnabled,        // Pass RAG flag to API
-                deepSearch: isDeepSearchEnabled, // Pass deep search flag to API
-                webSearch: isWebSearchEnabled   // Pass web search flag to API
-            };
-
-            // Add debugging for search modes
-            if (isRagEnabled) {
-                console.log('📚 RAG enabled for edited query:', editingMessage.text);
-            } else if (isDeepSearchEnabled) {
-                console.log('🔍 DeepSearch enabled for edited query:', editingMessage.text);
-            } else if (isWebSearchEnabled) {
-                console.log('🌐 WebSearch enabled for edited query:', editingMessage.text);
-            }
-
-            const response = await apiSendMessage(payload);
-
-            // Check if DeepSearch was actually used and provide feedback
-            const metadata = response.data.metadata;
-            let responseText = response.data.response;
-
-            if (isDeepSearchEnabled && metadata) {
-                console.log('🔍 DeepSearch metadata:', metadata);
-
-                // Add status indicator to response if DeepSearch had issues
-                if (metadata.searchType === 'quota_exceeded_fallback') {
-                    responseText = `⚠️ **DeepSearch quota exceeded** - Using fallback response.\n\n${responseText}`;
-                } else if (metadata.searchType === 'offline_deep_search') {
-                    responseText = `🔄 **DeepSearch offline mode** - Limited web access.\n\n${responseText}`;
-                } else if (metadata.searchType === 'standard_deep_search') {
-                    responseText = `✅ **DeepSearch active** - Enhanced with web research.\n\n${responseText}`;
-                }
-            } else if (isDeepSearchEnabled && !metadata) {
-                console.warn('🔍 DeepSearch was enabled but no metadata returned - may have fallen back to standard chat');
-                responseText = `⚠️ **DeepSearch unavailable** - Using standard chat mode.\n\n${responseText}`;
-            }
-
-            const assistantMessage = {
-                id: uuidv4(),
-                role: 'assistant',
-                parts: [{ text: responseText }],
-                followUpQuestions: response.data.followUpQuestions || [],
-                timestamp: new Date(),
-                metadata: metadata
-            };
-            setMessages(prev => [...prev, assistantMessage]);
-        } catch (err) {
-            console.error('Chat error during edit:', err);
-
-            // Enhanced error handling for DeepSearch and Ollama service
-            let errorMessage = err.response?.data?.error || err.response?.data?.message || 'Chat error.';
-
-            if (err.response?.status === 503 && err.response?.data?.suggestedAction === 'switch_to_gemini') {
-                // Ollama service unavailable
-                errorMessage = `🦙 ${err.response.data.message}\n\n💡 Available models: ${err.response.data.availableModels?.join(', ') || 'Gemini models'}`;
-            } else if (isDeepSearchEnabled && err.response?.status === 404) {
-                errorMessage = 'DeepSearch found no relevant results. Try rephrasing your question or disable DeepSearch for a general response.';
-            } else if (isDeepSearchEnabled && err.response?.status === 500) {
-                errorMessage = 'DeepSearch service encountered an error. The service may be temporarily unavailable.';
-            }
-
-            setError(errorMessage);
-        } finally {
-            setLoadingStates(prev => ({ ...prev, chat: false }));
-        }
-    }, [editingMessage, messages, sessionId, editableSystemPromptText, isDeepSearchEnabled]);
-    */
-
-    const handleStartMicButtonClick = useCallback(() => { if (recognitionRef.current && !loadingStates.listening) recognitionRef.current.start(); }, [loadingStates.listening]);
-    const handleStopMicButtonClick = useCallback(() => { if (recognitionRef.current && loadingStates.listening) recognitionRef.current.stop(); }, [loadingStates.listening]);
-
-    const handleTextToSpeech = useCallback((text, index) => {
-        if (!('speechSynthesis' in window)) { setError('TTS not supported.'); return; }
-        window.speechSynthesis.cancel();
-        if (currentlySpeakingIndex === index) { setCurrentlySpeakingIndex(null); return; }
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.onend = () => setCurrentlySpeakingIndex(null);
-        utterance.onerror = () => { setError('TTS error.'); setCurrentlySpeakingIndex(null); };
-        setCurrentlySpeakingIndex(index);
-        window.speechSynthesis.speak(utterance);
-    }, [currentlySpeakingIndex]);
-
-    const playPodcast = useCallback((script, index) => {
-        if (!('speechSynthesis' in window)) {
-            setError('Text-to-speech not supported in your browser.');
+    // Speech recognition handlers
+    const handleStartMicButtonClick = useCallback(() => {
+        if (!('webkitSpeechRecognition' in window)) {
+            setError('Speech recognition not supported');
             return;
         }
 
-        // If already playing this podcast, pause it
-        if (currentlySpeakingIndex === index) {
-            if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-                window.speechSynthesis.pause();
-                setCurrentlySpeakingIndex(null);
-            } else if (window.speechSynthesis.paused) {
-                window.speechSynthesis.resume();
-                setCurrentlySpeakingIndex(index);
-            }
-            return;
-        }
+        const recognition = new window.webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
 
-        // Stop any current speech and start new podcast
-        window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(script);
-        utterance.rate = 0.9; // Slightly slower for better comprehension
-        utterance.pitch = 1;
-        utterance.volume = 1;
-
-        utterance.onstart = () => setCurrentlySpeakingIndex(index);
-        utterance.onend = () => setCurrentlySpeakingIndex(null);
-        utterance.onerror = () => {
-            setError('Podcast playback error.');
-            setCurrentlySpeakingIndex(null);
+        recognition.onstart = () => setLoadingStates(prev => ({ ...prev, listening: true }));
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            setInputText(transcript);
         };
+        recognition.onerror = (e) => setError(`Speech recognition error: ${e.error}`);
+        recognition.onend = () => setLoadingStates(prev => ({ ...prev, listening: false }));
 
-        setCurrentlySpeakingIndex(index);
-        window.speechSynthesis.speak(utterance);
-    }, [currentlySpeakingIndex]);
-
-    const stopPodcast = useCallback(() => {
-        window.speechSynthesis.cancel();
-        setCurrentlySpeakingIndex(null);
+        recognition.start();
+        recognitionRef.current = recognition;
     }, []);
 
-    const handleDeleteFile = async (fileId, fileName) => {
-        if (window.confirm(`Are you sure you want to delete "${fileName}"? This will also remove it from RAG.`)) {
+    const handleStopMicButtonClick = useCallback(() => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+        }
+    }, []);
+
+    // Keyboard handler
+    const handleEnterKey = useCallback((e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    }, [handleSendMessage]);
+
+    // File upload handler
+    const handleUploadSuccess = useCallback((newFile) => {
+        console.log('File uploaded:', newFile);
+        loadUserFiles(); // Reload files after upload
+    }, [loadUserFiles]);
+
+    // File management handlers
+    const handleDeleteFile = useCallback(async (fileId, fileName) => {
+        if (window.confirm(`Delete "${fileName}"?`)) {
             try {
                 await deleteUserFile(fileId);
-                fetchFiles();
+                loadUserFiles();
+                // Remove from selected files if it was selected
+                setSelectedFiles(prev => prev.filter(id => id !== fileId));
             } catch (err) {
-                setFileError(`Could not delete ${fileName}.`);
+                setFileError('Failed to delete file');
             }
         }
-    };
+    }, [loadUserFiles]);
 
-    const handleRenameFile = async (fileId, currentName) => {
-        const newName = prompt("Enter new file name:", currentName);
-        if (newName && newName.trim() && newName !== currentName) {
+    const handleRenameFile = useCallback(async (fileId, currentName) => {
+        const newName = prompt('Enter new name:', currentName);
+        if (newName && newName !== currentName) {
             try {
-                await renameUserFile(fileId, newName.trim());
-                fetchFiles();
+                await renameUserFile(fileId, newName);
+                loadUserFiles();
             } catch (err) {
-                setFileError(`Could not rename file.`);
+                setFileError('Failed to rename file');
             }
         }
-    };
-
-    const handleUploadSuccess = useCallback(async (newFile) => {
-        fetchFiles();
-        const tempMessageId = uuidv4();
-        setMessages(prev => [...prev, { id: tempMessageId, role: 'system', type: 'system-info', parts: [{ text: `*Generating overview for "${newFile.originalname}"...*` }], timestamp: new Date() }]);
-        try {
-            const response = await getFileOverview(newFile._id);
-            const overviewMessage = { id: uuidv4(), role: 'assistant', type: 'system-info', parts: [{ text: `**Overview of "${newFile.originalname}"**\n\n${response.data.overview}` }], timestamp: new Date() };
-            setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), overviewMessage]);
-        } catch (err) {
-            const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error generating overview for "${newFile.originalname}": ${err.response?.data?.message || 'Failed'}` }], timestamp: new Date() };
-            setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
-        }
-    }, [fetchFiles]);
-
-    const handleGenerateMindMap = useCallback(async (fileId, fileName) => {
-        setLoadingStates(prev => ({ ...prev, mindMap: true }));
-        const tempMessageId = uuidv4();
-        setMessages(prev => [...prev, { id: tempMessageId, role: 'system', type: 'system-info', parts: [{ text: `*Generating mind map for "${fileName}"...*` }], timestamp: new Date() }]);
-        try {
-            console.log(`🧠 Generating mind map for file: ${fileName} (ID: ${fileId})`);
-            const response = await generateMindMap(fileId);
-            console.log(`🧠 Mind map API response:`, response.data);
-
-            if (response.data && response.data.mermaidData) {
-                console.log(`🧠 Mermaid data received:`, response.data.mermaidData);
-                const mindMapMessage = {
-                    id: uuidv4(),
-                    role: 'assistant',
-                    type: 'mindmap',
-                    parts: [{ text: `🧠 **Mind Map Generated for "${fileName}"**\n\nClick on any node in the mind map below to explore details.` }],
-                    mermaidData: response.data.mermaidData,
-                    timestamp: new Date()
-                };
-                setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), mindMapMessage]);
-            } else {
-                console.error('🧠 No mermaidData in response:', response.data);
-                const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error: No mind map data received for "${fileName}"*` }], timestamp: new Date() };
-                setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
-            }
-        } catch (err) {
-            const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error generating mind map for "${fileName}": ${err.response?.data?.message || 'Failed'}` }], timestamp: new Date() };
-            setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
-        } finally {
-            setLoadingStates(prev => ({ ...prev, mindMap: false }));
-        }
-    }, []);
+    }, [loadUserFiles]);
 
     const handleGeneratePodcast = useCallback(async (fileId, fileName) => {
-        setLoadingStates(prev => ({ ...prev, podcast: true }));
-        const tempMessageId = uuidv4();
-        setMessages(prev => [...prev, { id: tempMessageId, role: 'system', type: 'system-info', parts: [{ text: `*Generating podcast for "${fileName}"...*` }], timestamp: new Date() }]);
-
         try {
-            console.log(`🎙️ Generating podcast for file: ${fileName} (ID: ${fileId})`);
-            const response = await generatePodcast(fileId, 'single-host');
-
-            if (response.data && response.data.success) {
-                // Show success message with podcast player
-                const podcastData = response.data;
-                const podcastMessage = {
-                    id: uuidv4(),
-                    role: 'assistant',
-                    type: 'podcast',
-                    parts: [{ text: `🎙️ **Podcast Generated: ${podcastData.title}**\n\nDuration: ${podcastData.duration_estimate || podcastData.estimated_duration}\n\nClick the play button below to listen to the podcast.` }],
-                    podcastData: podcastData,
-                    timestamp: new Date()
-                };
-                setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), podcastMessage]);
-            } else {
-                const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error generating podcast for "${fileName}": ${response.data?.error || 'Unknown error'}*` }], timestamp: new Date() };
-                setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
-            }
+            await generatePodcast(fileId);
+            alert(`Podcast generation started for "${fileName}"`);
         } catch (err) {
-            console.error('Podcast generation error:', err);
-            const errorMessage = { id: uuidv4(), role: 'system', type: 'error', parts: [{ text: `*Error generating podcast for "${fileName}": ${err.response?.data?.message || err.message}*` }], timestamp: new Date() };
-            setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), errorMessage]);
-        } finally {
-            setLoadingStates(prev => ({ ...prev, podcast: false }));
+            setFileError('Failed to generate podcast');
         }
     }, []);
 
-    const handleLoadSession = useCallback((sessionData) => {
-        if (sessionData?.messages) {
-            setMessages(sessionData.messages);
-            setEditableSystemPromptText(sessionData.systemPrompt || getPromptTextById('friendly'));
-            if (sessionData.sessionId) {
-                setSessionId(sessionData.sessionId);
-                localStorage.setItem('sessionId', sessionData.sessionId);
-            }
+    const handleGenerateMindMap = useCallback(async (fileId, fileName) => {
+        try {
+            await generateMindMap(fileId);
+            alert(`Mind map generation started for "${fileName}"`);
+        } catch (err) {
+            setFileError('Failed to generate mind map');
         }
     }, []);
 
-    const handleEnterKey = useCallback((e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }, [handleSendMessage]);
 
-    if (!userId) return <div className="loading-indicator"><span>Initializing...</span></div>;
+
+    // DSA query handler
+    const handleDSAQuery = useCallback((query, type, metadata) => {
+        // Set the input text and trigger send
+        setInputText(query);
+        // Add a small delay to ensure the input is set before sending
+        setTimeout(() => {
+            handleSendMessage();
+        }, 100);
+    }, [handleSendMessage]);
+
+    // History modal handlers
+    const handleLoadSession = useCallback((sessionId) => {
+        // Load session by ID - the HistorySidebarWidget will handle the details
+        console.log('Loading session:', sessionId);
+        // You might want to implement session loading logic here
+    }, []);
+
+    if (!userId) {
+        return (
+            <div className="loading-indicator">
+                <span>Initializing...</span>
+            </div>
+        );
+    }
 
     return (
-        <div className="chat-page-container">
-            <div className="sidebar-area">
-                {/* Model Switcher */}
-                <ModelSwitcher
-                    selectedModel={selectedModel}
-                    onModelChange={handleModelChange}
-                    isSidebarOpen={true}
-                    userId={userId}
-                />
+        <div className="chat-page-container" data-theme={isDarkTheme ? 'dark' : 'light'}>
+            {/* Mobile Overlay */}
+            {isSidebarOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
 
-                {/* API Key Manager */}
-                <ApiKeyManager
-                    userId={userId}
-                    isSidebarOpen={true}
-                />
+            {/* Sidebar */}
+            <div className={`sidebar-area ${isSidebarOpen ? 'open' : ''}`}>
+                {/* Sidebar Icon Navigation */}
+                <div className="sidebar-icon-nav">
+                    <button
+                        className={`sidebar-icon-item ${activeTab === 'upload' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('upload')}
+                        title="Upload Files"
+                    >
+                        <FaUpload />
+                    </button>
+                    <button
+                        className={`sidebar-icon-item ${activeTab === 'new' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('new')}
+                        title="New Chat"
+                    >
+                        <FaPlus />
+                    </button>
+                    <button
+                        className={`sidebar-icon-item ${activeTab === 'history' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('history')}
+                        title="Chat History"
+                    >
+                        <FaHistory />
+                    </button>
+                    <button
+                        className={`sidebar-icon-item ${activeTab === 'files' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('files')}
+                        title="My Files"
+                    >
+                        <FaFolder />
+                    </button>
 
-                <SystemPromptWidget
-                    selectedPromptId={currentSystemPromptId}
-                    promptText={editableSystemPromptText}
-                    onSelectChange={(id) => { setCurrentSystemPromptId(id); setEditableSystemPromptText(getPromptTextById(id)); }}
-                    onTextChange={(text) => { setEditableSystemPromptText(text); setCurrentSystemPromptId('custom'); }}
-                />
-                <FileUploadWidget onUploadSuccess={handleUploadSuccess} />
-                <FileManagerWidget
-                    files={files}
-                    isLoading={loadingStates.files}
-                    error={fileError}
-                    onDeleteFile={handleDeleteFile}
-                    onRenameFile={handleRenameFile}
-                    onGeneratePodcast={handleGeneratePodcast}
-                    onGenerateMindMap={handleGenerateMindMap}
-                    isProcessing={isProcessing}
-                />
-            </div>
-            <div className="chat-container">
-                <header className="chat-header">
-                    <h1>Engineering Tutor</h1>
-                    <div className="header-controls">
-                        <span className="username-display">Hi, {username}!</span>
-                        <button onClick={() => navigate('/training')} className="header-button training-button" disabled={isProcessing} title="LLM Training Dashboard">
-                            🧠 Training
-                        </button>
-                        <button onClick={() => setShowHistoryModal(true)} className="header-button" disabled={isProcessing}>History</button>
-                        <button onClick={handleNewChat} className="header-button" disabled={isProcessing}>New Chat</button>
-                        <button onClick={() => handleLogout(false)} className="header-button" disabled={isProcessing}>Logout</button>
-                    </div>
-                </header>
-                <div className="messages-area">
-                    {messages.map((msg, index) => {
-                        if (!msg?.role || !msg?.parts?.length) return null;
-                        const messageText = msg.parts[0]?.text || '';
-                        const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                    {/* Settings at bottom */}
+                    <div className="sidebar-icon-spacer"></div>
+                    <button
+                        className={`sidebar-icon-item ${activeTab === 'settings' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('settings')}
+                        title="Settings"
+                    >
+                        <FaCog />
+                    </button>
+                </div>
 
-                        // Debug logging for mind map messages
-                        if (msg.type === 'mindmap') {
-                            console.log(`🧠 Rendering mindmap message ${index}:`, {
-                                type: msg.type,
-                                hasMermaidData: !!msg.mermaidData,
-                                mermaidDataLength: msg.mermaidData?.length,
-                                mermaidDataPreview: msg.mermaidData?.substring(0, 100)
-                            });
-                        }
+                {/* Sidebar Content Area */}
+                <div className="sidebar-content-area">
+                    {/* Upload Files Tab */}
+                    {activeTab === 'upload' && (
+                        <div className="sidebar-tab-content">
+                            <h3 className="sidebar-tab-title">Upload Files</h3>
+                            <FileUploadWidget onUploadSuccess={handleUploadSuccess} />
 
-                        return (
-                            <div key={index} className={`message-wrapper ${msg.role}`}>
-                                <div className={`message-content ${msg.type || ''}`}>
-                                    {/* Main message body */}
-                                    {msg.type === 'mindmap' && msg.mermaidData ? (
-                                        <div>
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                                            <div id={`mindmap-container-${index}`} className="mindmap-container">
-                                                <MindMap mermaidData={msg.mermaidData} />
-                                            </div>
-                                        </div>
-                                    ) : msg.type === 'audio' && msg.audioUrl ? (
-                                        <div className="audio-player-container">
-                                            <p>{messageText}</p>
-                                            <audio controls src={msg.audioUrl} />
-                                            {/* Removed Join Now button as per user request */}
-                                        </div>
-                                    ) : msg.type === 'podcast' && msg.podcastData ? (
-                                        <div className="podcast-player-container">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                                            <div className="podcast-controls">
-                                                <button
-                                                    className="podcast-play-btn"
-                                                    onClick={() => playPodcast(msg.podcastData.script, index)}
-                                                    disabled={currentlySpeakingIndex === index}
-                                                >
-                                                    {currentlySpeakingIndex === index ? '⏸️ Pause' : '▶️ Play Podcast'}
-                                                </button>
-                                                <button
-                                                    className="podcast-stop-btn"
-                                                    onClick={() => stopPodcast()}
-                                                    disabled={currentlySpeakingIndex !== index}
-                                                >
-                                                    ⏹️ Stop
-                                                </button>
-                                            </div>
-                                            <div className="podcast-script">
-                                                <details>
-                                                    <summary>📄 View Podcast Script</summary>
-                                                    <div className="script-content">
-                                                        {msg.podcastData.script}
-                                                    </div>
-                                                </details>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                                    )}
 
-                                    {/* RAG Sources Display */}
-                                    {msg.role === 'assistant' && msg.metadata && msg.metadata.searchType && msg.metadata.searchType.includes('rag') && msg.metadata.sources && msg.metadata.sources.length > 0 && (
-                                        <div className="rag-sources">
-                                            <div className="sources-header">
-                                                📚 <strong>Sources from uploaded documents:</strong>
-                                            </div>
-                                            <div className="sources-list">
-                                                {msg.metadata.sources.map((source, sourceIndex) => (
-                                                    <div key={sourceIndex} className="source-item">
-                                                        📄 {source}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="sources-footer">
-                                                Found {msg.metadata.documentsFound} relevant document chunks
-                                            </div>
-                                        </div>
-                                    )}
 
-                                    {/* Gemini-Style Deep Search Sources Display */}
-                                    {msg.role === 'assistant' && msg.metadata && (msg.metadata.searchType === 'real_time_deep_search' || msg.metadata.searchType === 'gemini_style_search') && msg.metadata.sources && msg.metadata.sources.length > 0 && (
-                                        <div className="gemini-search-sources">
-                                            <div className="sources-header">
-                                                🔍 <strong>Real-time web search results:</strong>
-                                                {msg.metadata.confidence && (
-                                                    <span className={`confidence-badge confidence-${msg.metadata.confidence}`}>
-                                                        {msg.metadata.confidence === 'high' ? '🟢 High Confidence' :
-                                                         msg.metadata.confidence === 'medium' ? '🟡 Medium Confidence' : '🟠 Low Confidence'}
-                                                    </span>
-                                                )}
-                                                {msg.metadata.intent && (
-                                                    <span className="intent-badge">
-                                                        Intent: {msg.metadata.intent.replace('_', ' ')}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="sources-list">
-                                                {msg.metadata.sources.map((source, sourceIndex) => (
-                                                    <div key={sourceIndex} className="source-item gemini-style">
-                                                        <a href={source.url} target="_blank" rel="noopener noreferrer" className="source-link">
-                                                            🌐 {source.title}
-                                                        </a>
-                                                        {source.description && (
-                                                            <p className="source-description">{source.description}</p>
-                                                        )}
-                                                        {source.relevanceScore && (
-                                                            <div className="source-meta">
-                                                                <span className="relevance-score">Relevance: {source.relevanceScore}</span>
-                                                                {source.source && <span className="source-type">Source: {source.source}</span>}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="sources-footer">
-                                                🔍 Found {msg.metadata.resultsFound || msg.metadata.sources.length} results
-                                                {msg.metadata.searchTime && ` • Search time: ${msg.metadata.searchTime}ms`}
-                                                {msg.metadata.searchQueries && ` • Queries: ${msg.metadata.searchQueries.length}`}
-                                                • Confidence: {msg.metadata.confidence || 'medium'}
-                                            </div>
-                                        </div>
-                                    )}
+                            {/* DSA Learning Widget */}
+                            <DSAWidget onDSAQuery={handleDSAQuery} />
+                        </div>
+                    )}
 
-                                    {/* Advanced Deep Research Metadata */}
-                                    {msg.role === 'assistant' && msg.metadata && (
-                                        <ResearchMetadata metadata={msg.metadata} />
-                                    )}
+                    {/* New Chat Tab */}
+                    {activeTab === 'new' && (
+                        <div className="sidebar-tab-content">
+                            <h3 className="sidebar-tab-title">New Chat</h3>
+                            <button className="new-chat-btn" onClick={handleNewChat} disabled={isProcessing}>
+                                <FaPlus />
+                                <span>Start New Chat</span>
+                            </button>
+                        </div>
+                    )}
 
-                                    {/* Footer with timestamp and TTS button */}
-                                    <div className="message-footer">
-                                        {msg.role === 'assistant' && (
-                                            <button
-                                                onClick={() => handleTextToSpeech(messageText, index)}
-                                                className={`tts-button ${currentlySpeakingIndex === index ? 'speaking' : ''}`}
-                                                title="Read aloud"
-                                                disabled={isProcessing}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                                    <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
-                                                    <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
-                                                    <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
-                                                </svg>
-                                            </button>
-                                        )}
-                                        <span className="message-timestamp">{timestamp}</span>
-                                    </div>
+                    {/* Chat History Tab */}
+                    {activeTab === 'history' && (
+                        <div className="sidebar-tab-content">
+                            <HistorySidebarWidget onLoadSession={handleLoadSession} />
+                        </div>
+                    )}
+
+                    {/* My Files Tab */}
+                    {activeTab === 'files' && (
+                        <div className="sidebar-tab-content">
+                            <FileManagerWidget
+                                files={userFiles}
+                                isLoading={isLoadingFiles}
+                                error={fileError}
+                                onDeleteFile={handleDeleteFile}
+                                onRenameFile={handleRenameFile}
+                                onGeneratePodcast={handleGeneratePodcast}
+                                onGenerateMindMap={handleGenerateMindMap}
+                                isProcessing={isProcessing}
+                                onActionTaken={() => setIsSidebarOpen(false)}
+                            />
+                        </div>
+                    )}
+
+                    {/* Settings Tab */}
+                    {activeTab === 'settings' && (
+                        <div className="sidebar-tab-content">
+                            <h3 className="sidebar-tab-title">Settings</h3>
+
+                            {/* Assistant Mode Section */}
+                            <div className="settings-section">
+                                <h4 className="settings-section-title">Assistant Mode</h4>
+                                <div className="setting-item">
+                                    <label>AI Model Selection</label>
+                                    <ModelSwitcher
+                                        selectedModel={selectedModel}
+                                        onModelChange={handleModelChange}
+                                        isSidebarOpen={isSidebarOpen}
+                                        userId={userId}
+                                    />
                                 </div>
                             </div>
-                        );
-                    })}
+
+                            {/* API Keys Section */}
+                            <div className="settings-section">
+                                <h4 className="settings-section-title">API Configuration</h4>
+                                <div className="setting-item">
+                                    <label>API Keys Setup</label>
+                                    <button className="config-btn">Configure API Keys</button>
+                                </div>
+                            </div>
+
+                            {/* Theme Section */}
+                            <div className="settings-section">
+                                <h4 className="settings-section-title">Appearance</h4>
+                                <div className="setting-item">
+                                    <label>Theme</label>
+                                    <button className="theme-toggle-btn" onClick={toggleTheme}>
+                                        {isDarkTheme ? <FaSun /> : <FaMoon />}
+                                        <span>{isDarkTheme ? 'Light Mode' : 'Dark Mode'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Main Chat Container */}
+            <div className="chat-container">
+                <header className="chat-header">
+                    <div className="header-left">
+                        <button className="hamburger-btn" onClick={toggleSidebar} title="Toggle sidebar">
+                            <FaBars />
+                        </button>
+                        <h1 className="chat-title">TutorAI</h1>
+                    </div>
+                    <div className="header-controls">
+                        {/* Theme Toggle */}
+                        <button className="theme-toggle-header" onClick={toggleTheme} title="Toggle theme">
+                            {isDarkTheme ? <FaSun /> : <FaMoon />}
+                        </button>
+
+                        {/* Profile Dropdown */}
+                        <div className="profile-dropdown">
+                            <button
+                                className="profile-btn"
+                                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                                title="Profile menu"
+                            >
+                                <FaUser />
+                                <span className="username-text">{username}</span>
+                            </button>
+
+                            {showProfileDropdown && (
+                                <div className="profile-dropdown-menu">
+                                    <div className="profile-info">
+                                        <FaUser />
+                                        <span>{username}</span>
+                                    </div>
+                                    <hr />
+                                    <button
+                                        className="dropdown-item"
+                                        onClick={handleNewChat}
+                                        disabled={isProcessing}
+                                    >
+                                        <FaPlus />
+                                        <span>New Chat</span>
+                                    </button>
+                                    <button
+                                        className="dropdown-item"
+                                        onClick={() => setShowHistoryModal(true)}
+                                    >
+                                        <FaHistory />
+                                        <span>Chat History</span>
+                                    </button>
+                                    <hr />
+                                    <button
+                                        className="dropdown-item logout-item"
+                                        onClick={() => handleLogout(false)}
+                                        disabled={isProcessing}
+                                    >
+                                        <span>Logout</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </header>
+
+                {/* Chat Messages */}
+                <div className="chat-messages">
+                    {messages.length === 0 ? (
+                        <div className="welcome-screen">
+                            <h1 className="welcome-title">Hello, {username}</h1>
+                            <p className="welcome-subtitle">How can I help you today?</p>
+                            <div className="suggestion-chips">
+                                <div className="suggestion-chip" onClick={() => setInputText("Explain quantum computing")}>
+                                    Explain quantum computing
+                                </div>
+                                <div className="suggestion-chip" onClick={() => setInputText("Write a creative story")}>
+                                    Write a creative story
+                                </div>
+                                <div className="suggestion-chip" onClick={() => setInputText("Help me plan a trip")}>
+                                    Help me plan a trip
+                                </div>
+                                <div className="suggestion-chip" onClick={() => setInputText("Solve a math problem")}>
+                                    Solve a math problem
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        messages.map((msg, index) => {
+                            if (!msg?.role || !msg?.parts?.length) return null;
+                            const messageText = msg.parts[0]?.text || '';
+                            const timestamp = msg.timestamp ?
+                                new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                            const metadata = msg.metadata || {};
+
+                            return (
+                                <div key={index} className={`message ${msg.role}`}>
+                                    <div className="message-content">
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {messageText}
+                                        </ReactMarkdown>
+                                        {metadata.searchType && metadata.searchType !== 'standard' && (
+                                            <div className="message-metadata">
+                                                <div className="search-type-badge">
+                                                    {metadata.searchType === 'rag' && <><FaDatabase /> RAG Search</>}
+                                                    {metadata.searchType === 'deep-search' && <><FaSearch /> Deep Search</>}
+                                                    {metadata.enhanced && <span className="enhanced-badge">Enhanced</span>}
+                                                </div>
+                                                {metadata.sources && metadata.sources.length > 0 && (
+                                                    <div className="sources">
+                                                        <small>Sources: {metadata.sources.join(', ')}</small>
+                                                    </div>
+                                                )}
+                                                {metadata.documentsFound > 0 && (
+                                                    <div className="documents-found">
+                                                        <small>{metadata.documentsFound} documents found</small>
+                                                    </div>
+                                                )}
+                                                {metadata.filesUsed > 0 && (
+                                                    <div className="files-used">
+                                                        <small>{metadata.filesUsed} file(s) searched</small>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {/* Media Content for Deep Search */}
+                                        {msg.role === 'assistant' && metadata.searchType === 'enhanced_deep_search' && msg.media && (
+                                            <MediaRenderer
+                                                media={msg.media}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="message-timestamp">{timestamp}</div>
+                                </div>
+                            );
+                        })
+                    )}
                     <div ref={messagesEndRef} />
                 </div>
-                <div className="modern-input-bar">
-                    <div className="input-bar-left">
-                        <button
-                            type="button"
-                            className={`input-action-btn${isRagEnabled ? ' active' : ''}`}
-                            title={
-                                isRagEnabled
-                                    ? "RAG: ON - Searching uploaded documents - Click to disable"
-                                    : "RAG: OFF - Click to enable document search from uploaded files"
-                            }
-                            onClick={handleRagToggle}
-                            disabled={isProcessing}
-                        >
-                            {isRagEnabled ? '📚' : 'RAG'}
-                        </button>
-                        <button
-                            type="button"
-                            className={`input-action-btn${isDeepSearchEnabled ? ' active' : ''} ${deepSearchStatus !== 'available' && isDeepSearchEnabled ? 'warning' : ''}`}
-                            title={
-                                isDeepSearchEnabled
-                                    ? `Deep Research: ON ${
-                                        deepSearchStatus === 'quota_exceeded' ? '(Quota Exceeded - Using Fallback)' :
-                                        deepSearchStatus === 'limited' ? '(Limited Mode - Offline Search)' :
-                                        deepSearchStatus === 'unavailable' ? '(Service Unavailable)' :
-                                        deepSearchStatus === 'available' ? '(Fully Operational)' :
-                                        '(Status Unknown)'
-                                    } - Click to disable`
-                                    : "Deep Research: OFF - Click to enable AI-enhanced web research"
-                            }
-                            onClick={handleDeepSearchToggle}
-                            disabled={isProcessing}
-                        >
-                            {isDeepSearchEnabled ? (
-                                deepSearchStatus === 'quota_exceeded' ? '⚠️' :
-                                deepSearchStatus === 'limited' ? '🔄' :
-                                deepSearchStatus === 'unavailable' ? '❌' :
-                                deepSearchStatus === 'available' ? '🔍' : '🔍'
-                            ) : 'DS'}
-                        </button>
-                        {/* WebSearch removed - now uses automatic detection */}
-                    </div>
-                    <input type="text" value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={handleEnterKey} placeholder="Ask your AI tutor anything..." className="modern-input" disabled={isProcessing} />
-                    <div className="input-bar-right">
-                        {loadingStates.listening ? (
-                            <button type="button" className="input-action-btn stop-mic-btn" title="Stop microphone" onClick={handleStopMicButtonClick}><FaStop /></button>
-                        ) : (
-                            <button type="button" className="input-action-btn" title="Use microphone" onClick={handleStartMicButtonClick} disabled={isProcessing}><FaMicrophone /></button>
+
+                {/* Chat Input */}
+                <div className="chat-input-container">
+                    <div className={`input-wrapper ${isRagEnabled ? 'rag-mode' : isDeepSearchEnabled ? 'deep-search-mode' : ''}`}>
+                        {(isRagEnabled || isDeepSearchEnabled) && (
+                            <div className="mode-indicator">
+                                {isRagEnabled && (
+                                    <span className="mode-badge rag-badge">
+                                        <FaDatabase /> RAG Mode
+                                    </span>
+                                )}
+                                {isDeepSearchEnabled && (
+                                    <span className="mode-badge deep-search-badge">
+                                        <FaSearch /> Deep Search
+                                    </span>
+                                )}
+                            </div>
                         )}
-                        <button type="submit" className="input-action-btn send-btn" title="Send message" disabled={isProcessing || !inputText.trim()} onClick={handleSendMessage}>
-                            <FaPaperPlane />
-                        </button>
+                        <div className="input-field-container">
+                            <textarea
+                                className="input-field"
+                                value={inputText}
+                                onChange={e => setInputText(e.target.value)}
+                                onKeyDown={handleEnterKey}
+                                placeholder={
+                                    isRagEnabled
+                                        ? "Ask questions about your documents..."
+                                        : isDeepSearchEnabled
+                                            ? "Ask anything - I'll search the web for comprehensive answers..."
+                                            : "Message Gemini..."
+                                }
+                                disabled={isProcessing}
+                                rows={1}
+                            />
+                            <div className="input-actions">
+                                {loadingStates.listening ? (
+                                    <button
+                                        type="button"
+                                        className="input-action-btn stop-mic-btn"
+                                        title="Stop microphone"
+                                        onClick={handleStopMicButtonClick}
+                                    >
+                                        <FaStop />
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="input-action-btn"
+                                        title="Use microphone"
+                                        onClick={handleStartMicButtonClick}
+                                        disabled={isProcessing}
+                                    >
+                                        <FaMicrophone />
+                                    </button>
+                                )}
+                                <button
+                                    type="submit"
+                                    className="input-action-btn send-btn"
+                                    title="Send message"
+                                    disabled={isProcessing || !inputText.trim()}
+                                    onClick={handleSendMessage}
+                                >
+                                    <FaPaperPlane />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Search Mode Controls */}
+                    <div className="search-mode-controls">
+                        <div className="search-mode-buttons">
+                            <button
+                                className={`search-mode-btn ${isRagEnabled ? 'active' : ''}`}
+                                onClick={() => {
+                                    setIsRagEnabled(!isRagEnabled);
+                                    if (!isRagEnabled) setIsDeepSearchEnabled(false);
+                                }}
+                                disabled={isProcessing}
+                                title="RAG Mode - Search your uploaded documents"
+                            >
+                                <FaDatabase className="mode-icon" />
+                                <span>RAG Mode</span>
+                                {isRagEnabled && <span className="active-indicator">●</span>}
+                            </button>
+
+                            <button
+                                className={`search-mode-btn ${isDeepSearchEnabled ? 'active' : ''}`}
+                                onClick={() => {
+                                    setIsDeepSearchEnabled(!isDeepSearchEnabled);
+                                    if (!isDeepSearchEnabled) setIsRagEnabled(false);
+                                }}
+                                disabled={isProcessing}
+                                title="Deep Search - Web search + document analysis"
+                            >
+                                <FaSearch className="mode-icon" />
+                                <span>Deep Search</span>
+                                {isDeepSearchEnabled && <span className="active-indicator">●</span>}
+                            </button>
+                        </div>
+
+                        {/* File Selection for RAG */}
+                        {isRagEnabled && (
+                            <div className="rag-file-selection">
+                                <div className="file-selection-header">
+                                    <FaDatabase className="selection-icon" />
+                                    <span>Select documents to search:</span>
+                                </div>
+                                <div className="file-selection-grid">
+                                    {userFiles.length > 0 ? (
+                                        userFiles.map(file => (
+                                            <label key={file._id} className="file-selection-item">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedFiles.includes(file._id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedFiles(prev => [...prev, file._id]);
+                                                        } else {
+                                                            setSelectedFiles(prev => prev.filter(id => id !== file._id));
+                                                        }
+                                                    }}
+                                                />
+                                                <span className="file-name">{file.originalname}</span>
+                                            </label>
+                                        ))
+                                    ) : (
+                                        <div className="no-files-message">
+                                            No files uploaded. Upload files in the sidebar to use RAG mode.
+                                        </div>
+                                    )}
+                                </div>
+                                {selectedFiles.length > 0 && (
+                                    <div className="selected-count">
+                                        {selectedFiles.length} file(s) selected for search
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Deep Search Info */}
+                        {isDeepSearchEnabled && (
+                            <div className="deep-search-info">
+                                <div className="search-info-header">
+                                    <FaSearch className="selection-icon" />
+                                    <span>Deep Search Mode Active</span>
+                                </div>
+                                <div className="search-info-text">
+                                    Your queries will be enhanced with web search and document analysis for comprehensive answers.
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-                {error && <p className="error-message">{error}</p>}
 
-                {/* Search status notifications */}
-                {isDeepSearchEnabled && deepSearchStatus !== 'unknown' && deepSearchStatus !== 'available' && (
-                    <div className={`status-notification ${deepSearchStatus}`}>
-                        {deepSearchStatus === 'quota_exceeded' && '⚠️ DeepSearch quota exceeded - using fallback responses'}
-                        {deepSearchStatus === 'limited' && '🔄 DeepSearch in limited mode - offline search only'}
-                        {deepSearchStatus === 'unavailable' && '❌ DeepSearch service temporarily unavailable'}
-                    </div>
-                )}
-                {/* WebSearch removed - now uses automatic detection */}
+                {error && <p className="error-message">{error}</p>}
             </div>
-            {showHistoryModal && <HistoryModal isOpen={showHistoryModal} onClose={() => setShowHistoryModal(false)} onLoadSession={handleLoadSession} />}
         </div>
     );
 };

@@ -9,6 +9,7 @@ const {
     handleStandardMessage,
     handleRagMessage,
     handleDeepSearch,
+    handleEnhancedDeepSearch,
     testDeepSearch
 } = require('../controllers/chatController');
 const { ChatSession, SESSION_STATES, SESSION_CONTEXTS, MESSAGE_TYPES } = require('../models/ChatSession');
@@ -21,6 +22,23 @@ router.post('/session', tempAuth, createSession);
 router.get('/sessions', tempAuth, getSessions);
 router.get('/session/:sessionId', tempAuth, getSessionDetails);
 router.post('/history', tempAuth, saveChatHistory);
+router.delete('/sessions/:sessionId', tempAuth, async (req, res) => {
+    try {
+        const session = await ChatSession.findOneAndDelete({
+            sessionId: req.params.sessionId,
+            user: req.user.id
+        });
+
+        if (!session) {
+            return res.status(404).json({ message: 'Chat session not found or you are not authorized to delete it.' });
+        }
+
+        res.json({ message: 'Chat session deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting session:', error);
+        res.status(500).json({ message: 'Server error while deleting session.' });
+    }
+});
 
 // --- Core Chat Endpoints ---
 router.post('/message', tempAuth, handleStandardMessage);
@@ -28,6 +46,7 @@ router.post('/rag', tempAuth, handleRagMessage);
 // Hybrid RAG endpoint temporarily disabled
 // router.post('/rag-v2', tempAuth, handleHybridRagMessage);
 router.post('/deep-search', tempAuth, handleDeepSearch);
+router.post('/enhanced-deep-search', tempAuth, handleEnhancedDeepSearch);
 
 // Test endpoint for DeepSearch debugging
 router.post('/test-deep-search', tempAuth, testDeepSearch);

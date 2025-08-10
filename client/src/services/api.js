@@ -61,7 +61,34 @@ export const generatePodcast = (fileId, style = 'single-host') => api.post('/pod
 export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
 export const generatePPT = (topic) => api.post('/files/generate-ppt', { topic }, { responseType: 'blob' });
 export const generateReport = (topic) => api.post('/files/generate-report', { topic }, { responseType: 'blob' });
-export const performDeepSearch = (query, history = []) => api.post('/chat/deep-search', { query, history });
+export const performDeepSearch = async (query, history = []) => {
+    try {
+        const response = await api.post('/chat/enhanced-deep-search', {
+            query,
+            history: history.map(msg => ({
+                role: msg.role,
+                content: msg.parts?.[0]?.text || msg.content || ''
+            }))
+        });
+        return response;
+    } catch (error) {
+        console.error('Enhanced deep search failed:', error);
+        // Fallback to original deep search
+        try {
+            const fallbackResponse = await api.post('/chat/deep-search', {
+                query,
+                history: history.map(msg => ({
+                    role: msg.role,
+                    content: msg.parts?.[0]?.text || msg.content || ''
+                }))
+            });
+            return fallbackResponse;
+        } catch (fallbackError) {
+            console.error('Fallback deep search also failed:', fallbackError);
+            throw error;
+        }
+    }
+};
 export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${fileId}`, { newOriginalName });
 export const getFileOverview = (fileId) => api.post('/files/overview', { fileId });
 

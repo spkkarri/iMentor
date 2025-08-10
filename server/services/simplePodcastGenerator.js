@@ -190,9 +190,7 @@ Return ONLY the natural conversation between [Male Voice] and [Female Voice]:`;
     async generateSingleHostPodcast(documentContent, filename = 'document') {
         await this.initialize();
 
-        // Check if we have quota issues and provide fallback
-        try {
-            const prompt = `Create an engaging single-host podcast script based on the following document content.
+        const prompt = `Create an engaging single-host podcast script based on the following document content.
 
 DOCUMENT CONTENT:
 ${documentContent}

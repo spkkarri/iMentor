@@ -97,7 +97,7 @@ const startServer = async () => {
             console.log(`🚀 Server listening on port ${PORT}`);
             console.log('Access URLs:');
             availableIPs.forEach(ip => {
-                console.log(`   - http://${ip}:3004 (Frontend) -> Backend: http://${ip}:${PORT}`);
+                console.log(`   - http://${ip}:3005 (Frontend) -> Backend: http://${ip}:${PORT}`);
             });
             console.log('==================\n');
         });

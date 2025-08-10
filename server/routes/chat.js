@@ -1,6 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { tempAuth } = require('../middleware/authMiddleware');
+
+// Health check endpoint
+router.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        message: 'Chat service is running'
+    });
+});
 const {
     getSessions,
     getSessionDetails,

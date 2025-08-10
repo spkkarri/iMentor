@@ -36,10 +36,17 @@ import FileManagerWidget from './FileManagerWidget';
 import DSAWidget from './DSAWidget';
 import MediaRenderer from './MediaRenderer';
 import ModelSwitcher from './ModelSwitcher';
+import { ToastContainer, useToast } from './Toast';
+import useNetworkStatus from '../hooks/useNetworkStatus';
 
 import './ChatPage.css';
 
 const ChatPage = () => {
+    const navigate = useNavigate();
+    const messagesEndRef = useRef(null);
+    const { toasts, removeToast, showSuccess, showError, showWarning, showInfo } = useToast();
+    const { isOnline, connectionType } = useNetworkStatus();
+
     // Core state
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
@@ -152,6 +159,13 @@ const ChatPage = () => {
         localStorage.setItem('selectedModel', selectedModel);
     }, [selectedModel]);
 
+    // Show network status warnings
+    useEffect(() => {
+        if (!isOnline) {
+            showWarning('You are offline. Some features may not work properly.');
+        }
+    }, [isOnline, showWarning]);
+
     // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -259,7 +273,29 @@ const ChatPage = () => {
     // Send message handler
     const handleSendMessage = useCallback(async () => {
         const trimmedInput = inputText.trim();
-        if (!trimmedInput || isProcessing) return;
+
+        // Validate input
+        if (!trimmedInput) {
+            showWarning('Please enter a message before sending.');
+            return;
+        }
+
+        if (isProcessing) {
+            showWarning('Please wait for the current message to complete.');
+            return;
+        }
+
+        // Check network status
+        if (!isOnline) {
+            showError('You are offline. Please check your internet connection.');
+            return;
+        }
+
+        // Check message length
+        if (trimmedInput.length > 4000) {
+            showError('Message is too long. Please keep it under 4000 characters.');
+            return;
+        }
 
         // Check if MCP is enabled and handle MCP search
         if (isMcpEnabled) {
@@ -342,7 +378,7 @@ const ChatPage = () => {
         } finally {
             setIsProcessing(false);
         }
-    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, isMcpEnabled, selectedFiles, messages, handleMcpSearch]);
+    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, isMcpEnabled, selectedFiles, messages, handleMcpSearch, showWarning, showError, isOnline]);
 
     // Speech recognition handlers
     const handleStartMicButtonClick = useCallback(() => {
@@ -424,7 +460,7 @@ const ChatPage = () => {
             console.log('Podcast response:', response);
 
             if (response.data && response.data.success) {
-                alert(`✅ Podcast generated successfully for "${fileName}"!\n\nYou can now use your browser's text-to-speech to listen to it.`);
+                showSuccess(`Podcast generated successfully for "${fileName}"! You can now use your browser's text-to-speech to listen to it.`);
             } else {
                 throw new Error(response.data?.message || 'Unknown error');
             }
@@ -432,7 +468,7 @@ const ChatPage = () => {
             console.error('Podcast generation error:', err);
             const errorMessage = err.response?.data?.message || err.message || 'Failed to generate podcast';
             setFileError(`Podcast Error: ${errorMessage}`);
-            alert(`❌ Failed to generate podcast for "${fileName}"\n\nError: ${errorMessage}`);
+            showError(`Failed to generate podcast for "${fileName}": ${errorMessage}`);
         } finally {
             setIsProcessing(false);
         }
@@ -448,7 +484,7 @@ const ChatPage = () => {
             console.log('Mind map response:', response);
 
             if (response.data && response.data.mermaidData) {
-                alert(`✅ Mind map generated successfully for "${fileName}"!\n\nThe interactive mind map is ready to view.`);
+                showSuccess(`Mind map generated successfully for "${fileName}"! The interactive mind map is ready to view.`);
             } else {
                 throw new Error('No mind map data received');
             }
@@ -456,7 +492,7 @@ const ChatPage = () => {
             console.error('Mind map generation error:', err);
             const errorMessage = err.response?.data?.message || err.message || 'Failed to generate mind map';
             setFileError(`Mind Map Error: ${errorMessage}`);
-            alert(`❌ Failed to generate mind map for "${fileName}"\n\nError: ${errorMessage}`);
+            showError(`Failed to generate mind map for "${fileName}": ${errorMessage}`);
         } finally {
             setIsProcessing(false);
         }
@@ -475,10 +511,34 @@ const ChatPage = () => {
     }, [handleSendMessage]);
 
     // History modal handlers
-    const handleLoadSession = useCallback((sessionId) => {
-        // Load session by ID - the HistorySidebarWidget will handle the details
-        console.log('Loading session:', sessionId);
-        // You might want to implement session loading logic here
+    const handleLoadSession = useCallback(async (sessionId) => {
+        try {
+            setIsProcessing(true);
+            console.log('Loading session:', sessionId);
+
+            // Import the API function
+            const { getSessionDetails } = await import('../services/api');
+            const response = await getSessionDetails(sessionId);
+
+            if (response.data) {
+                // Load the session data
+                setMessages(response.data.messages || []);
+                setSessionId(response.data.sessionId);
+                setError('');
+
+                // Close sidebar on mobile after loading
+                if (window.innerWidth <= 768) {
+                    setIsSidebarOpen(false);
+                }
+
+                console.log('Session loaded successfully:', response.data.title);
+            }
+        } catch (err) {
+            console.error('Failed to load session:', err);
+            setError(`Failed to load session: ${err.response?.data?.message || err.message}`);
+        } finally {
+            setIsProcessing(false);
+        }
     }, []);
 
     if (!userId) {
@@ -491,6 +551,9 @@ const ChatPage = () => {
 
     return (
         <div className="chat-page-container" data-theme={isDarkTheme ? 'dark' : 'light'}>
+            {/* Toast Notifications */}
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
+
             {/* Mobile Overlay */}
             {isSidebarOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
 
@@ -896,6 +959,12 @@ const ChatPage = () => {
                                 rows={1}
                             />
                             <div className="input-actions">
+                                <div className="character-counter">
+                                    <span className={inputText.length > 4000 ? 'over-limit' : inputText.length > 3500 ? 'near-limit' : ''}>
+                                        {inputText.length}/4000
+                                    </span>
+                                </div>
+
                                 {loadingStates.listening ? (
                                     <button
                                         type="button"
@@ -920,7 +989,7 @@ const ChatPage = () => {
                                     type="submit"
                                     className="input-action-btn send-btn"
                                     title="Send message"
-                                    disabled={isProcessing || !inputText.trim()}
+                                    disabled={isProcessing || !inputText.trim() || inputText.length > 4000}
                                     onClick={handleSendMessage}
                                 >
                                     <FaPaperPlane />

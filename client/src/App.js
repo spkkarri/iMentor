@@ -3,6 +3,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CircularProgress, CssBaseline } from '@mui/material';
 import { getCurrentUser } from './services/api';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy load components to reduce initial bundle size
 const AuthPage = React.lazy(() => import('./components/AuthPage'));
@@ -92,11 +93,12 @@ function App() {
     }
 
     return (
-        <ThemeProvider theme={darkTheme}>
-            <CssBaseline /> {/* Ensures MUI uses the theme's background color */}
-            <Router>
-                <Suspense fallback={<LoadingFallback />}>
-                    <Routes>
+        <ErrorBoundary>
+            <ThemeProvider theme={darkTheme}>
+                <CssBaseline /> {/* Ensures MUI uses the theme's background color */}
+                <Router>
+                    <Suspense fallback={<LoadingFallback />}>
+                        <Routes>
                         <Route path="/" element={<LandingPage />} />
                         <Route
                             path="/login"
@@ -149,10 +151,11 @@ function App() {
                             }
                         />
                         <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                </Suspense>
-            </Router>
-        </ThemeProvider>
+                        </Routes>
+                    </Suspense>
+                </Router>
+            </ThemeProvider>
+        </ErrorBoundary>
     );
 }
 

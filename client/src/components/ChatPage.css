@@ -1619,93 +1619,92 @@
   }
 }
 
-/* --- Mode Buttons Row (Same Style as Current MCP Button) --- */
-.mode-buttons-row {
-  padding: 16px 24px;
-  background-color: var(--secondary-bg);
+/* --- Mode Buttons Inside Chat Container --- */
+.mode-buttons-inside-chat {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: center;
   flex-wrap: wrap;
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 12px;
+  padding: 8px 0;
 }
 
-.mode-btn {
+.mode-btn-inside {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
+  gap: 6px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 25px;
+  border-radius: 20px;
   background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
   color: white;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
-  min-width: 140px;
+  min-width: 110px;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+  box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
 }
 
-.mode-btn:hover:not(:disabled) {
+.mode-btn-inside:hover:not(:disabled) {
   background: linear-gradient(135deg, #8E24AA 0%, #5E35B1 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(156, 39, 176, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
 }
 
-.mode-btn.active {
+.mode-btn-inside.active {
   background: linear-gradient(135deg, #7B1FA2 0%, #512DA8 100%);
-  box-shadow: 0 6px 24px rgba(156, 39, 176, 0.5);
+  box-shadow: 0 4px 16px rgba(156, 39, 176, 0.5);
   transform: translateY(-1px);
 }
 
-.mode-btn:disabled {
+.mode-btn-inside:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
 }
 
 .btn-icon {
-  font-size: 16px;
+  font-size: 14px;
 }
 
-/* RAG File Selection */
-.rag-file-selection {
-  margin: 0 24px 16px;
-  padding: 16px;
+/* RAG File Selection Inside Chat Container */
+.rag-file-selection-inside {
+  margin-bottom: 12px;
+  padding: 12px;
   background-color: rgba(76, 175, 80, 0.1);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
 .file-selection-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 14px;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
   font-weight: 600;
   color: #4CAF50;
 }
 
 .file-selection-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-  max-height: 120px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+  max-height: 100px;
   overflow-y: auto;
 }
 
 .file-selection-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 10px;
   background-color: var(--secondary-bg);
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 6px;
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid var(--border-color);
@@ -1718,8 +1717,8 @@
 }
 
 .file-selection-item input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   accent-color: #4CAF50;
 }
 
@@ -1733,47 +1732,47 @@
 .no-files-message {
   grid-column: 1 / -1;
   text-align: center;
-  padding: 20px;
+  padding: 16px;
   color: var(--text-secondary);
   font-style: italic;
+  font-size: 12px;
 }
 
 .selected-count {
-  margin-top: 12px;
+  margin-top: 8px;
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   color: #4CAF50;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 4px 8px;
   background-color: rgba(76, 175, 80, 0.2);
-  border-radius: 16px;
+  border-radius: 12px;
   display: inline-block;
 }
 
-/* Responsive adjustments for mode buttons */
+/* Responsive adjustments for mode buttons inside chat */
 @media (max-width: 768px) {
-  .mode-buttons-row {
-    padding: 12px 16px;
-    gap: 8px;
+  .mode-buttons-inside-chat {
+    gap: 6px;
+    padding: 6px 0;
   }
 
-  .mode-btn {
-    padding: 10px 16px;
-    font-size: 13px;
-    min-width: 100px;
+  .mode-btn-inside {
+    padding: 6px 12px;
+    font-size: 12px;
+    min-width: 90px;
   }
 
-  .mode-btn span:not(.btn-icon) {
+  .mode-btn-inside span:not(.btn-icon) {
     display: none;
   }
 
-  .rag-file-selection {
-    margin: 0 16px 12px;
-    padding: 12px;
+  .rag-file-selection-inside {
+    padding: 8px;
   }
 
   .file-selection-grid {
     grid-template-columns: 1fr;
-    max-height: 100px;
+    max-height: 80px;
   }
 }

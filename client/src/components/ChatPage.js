@@ -658,117 +658,6 @@ const ChatPage = () => {
                     </div>
                 </header>
 
-                {/* Search Mode Controls - Top Bar */}
-                <div className="search-mode-controls-top">
-                    <div className="search-mode-buttons-horizontal">
-                        <button
-                            className={`search-mode-btn-compact ${isRagEnabled ? 'active' : ''}`}
-                            onClick={() => {
-                                setIsRagEnabled(!isRagEnabled);
-                                if (!isRagEnabled) {
-                                    setIsDeepSearchEnabled(false);
-                                    setIsMcpEnabled(false);
-                                }
-                            }}
-                            disabled={isProcessing}
-                            title="RAG Mode - Search your uploaded documents"
-                        >
-                            <FaDatabase className="mode-icon" />
-                            <span>RAG Mode</span>
-                            {isRagEnabled && <span className="active-indicator">●</span>}
-                        </button>
-
-                        <button
-                            className={`search-mode-btn-compact ${isDeepSearchEnabled ? 'active' : ''}`}
-                            onClick={() => {
-                                setIsDeepSearchEnabled(!isDeepSearchEnabled);
-                                if (!isDeepSearchEnabled) {
-                                    setIsRagEnabled(false);
-                                    setIsMcpEnabled(false);
-                                }
-                            }}
-                            disabled={isProcessing}
-                            title="Deep Search - Web search + document analysis"
-                        >
-                            <FaSearch className="mode-icon" />
-                            <span>Deep Search</span>
-                            {isDeepSearchEnabled && <span className="active-indicator">●</span>}
-                        </button>
-
-                        <button
-                            className={`search-mode-btn-compact ${isMcpEnabled ? 'active' : ''}`}
-                            onClick={() => {
-                                setIsMcpEnabled(!isMcpEnabled);
-                                if (!isMcpEnabled) {
-                                    setIsRagEnabled(false);
-                                    setIsDeepSearchEnabled(false);
-                                }
-                            }}
-                            disabled={isProcessing}
-                            title="MCP Agents - AI agents for specialized tasks"
-                        >
-                            <span className="mode-icon">🤖</span>
-                            <span>MCP Agents</span>
-                            {isMcpEnabled && <span className="active-indicator">●</span>}
-                        </button>
-                    </div>
-
-                    {/* File Selection for RAG - Compact */}
-                    {isRagEnabled && (
-                        <div className="rag-file-selection-compact">
-                            <div className="file-selection-header-compact">
-                                <FaDatabase className="selection-icon" />
-                                <span>Select documents:</span>
-                            </div>
-                            <div className="file-selection-grid-compact">
-                                {userFiles.length > 0 ? (
-                                    userFiles.map(file => (
-                                        <label key={file._id} className="file-selection-item-compact">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedFiles.includes(file._id)}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setSelectedFiles(prev => [...prev, file._id]);
-                                                    } else {
-                                                        setSelectedFiles(prev => prev.filter(id => id !== file._id));
-                                                    }
-                                                }}
-                                            />
-                                            <span className="file-name-compact">{file.originalname}</span>
-                                        </label>
-                                    ))
-                                ) : (
-                                    <div className="no-files-message-compact">
-                                        No files uploaded. Upload files in the sidebar to use RAG mode.
-                                    </div>
-                                )}
-                            </div>
-                            {selectedFiles.length > 0 && (
-                                <div className="selected-count-compact">
-                                    {selectedFiles.length} file(s) selected
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Deep Search Info - Compact */}
-                    {isDeepSearchEnabled && (
-                        <div className="deep-search-info-compact">
-                            <FaSearch className="selection-icon" />
-                            <span>Deep Search Mode Active - Enhanced web search enabled</span>
-                        </div>
-                    )}
-
-                    {/* MCP Info - Compact */}
-                    {isMcpEnabled && (
-                        <div className="mcp-info-compact">
-                            <span className="mode-icon">🤖</span>
-                            <span>MCP Agents Active - Specialized AI agents enabled</span>
-                        </div>
-                    )}
-                </div>
-
                 {/* Chat Messages */}
                 <div className="chat-messages">
                     {messages.length === 0 ? (
@@ -842,6 +731,96 @@ const ChatPage = () => {
                     )}
                     <div ref={messagesEndRef} />
                 </div>
+
+                {/* Mode Selection Buttons - Above Chat Input */}
+                <div className="mode-selection-container">
+                    <button
+                        className={`mode-selection-btn ${isRagEnabled ? 'active' : ''}`}
+                        onClick={() => {
+                            setIsRagEnabled(!isRagEnabled);
+                            if (!isRagEnabled) {
+                                setIsDeepSearchEnabled(false);
+                                setIsMcpEnabled(false);
+                            }
+                        }}
+                        disabled={isProcessing}
+                        title="RAG Mode - Search your uploaded documents"
+                    >
+                        <FaDatabase className="mode-btn-icon" />
+                        <span>RAG Mode</span>
+                    </button>
+
+                    <button
+                        className={`mode-selection-btn ${isDeepSearchEnabled ? 'active' : ''}`}
+                        onClick={() => {
+                            setIsDeepSearchEnabled(!isDeepSearchEnabled);
+                            if (!isDeepSearchEnabled) {
+                                setIsRagEnabled(false);
+                                setIsMcpEnabled(false);
+                            }
+                        }}
+                        disabled={isProcessing}
+                        title="Deep Search - Web search + document analysis"
+                    >
+                        <FaSearch className="mode-btn-icon" />
+                        <span>Deep Search</span>
+                    </button>
+
+                    <button
+                        className={`mode-selection-btn ${isMcpEnabled ? 'active' : ''}`}
+                        onClick={() => {
+                            setIsMcpEnabled(!isMcpEnabled);
+                            if (!isMcpEnabled) {
+                                setIsRagEnabled(false);
+                                setIsDeepSearchEnabled(false);
+                            }
+                        }}
+                        disabled={isProcessing}
+                        title="MCP Agents - AI agents for specialized tasks"
+                    >
+                        <span className="mode-btn-icon">🤖</span>
+                        <span>MCP Agents</span>
+                    </button>
+                </div>
+
+                {/* File Selection for RAG Mode */}
+                {isRagEnabled && (
+                    <div className="rag-file-selection-above-input">
+                        <div className="file-selection-header">
+                            <FaDatabase className="selection-icon" />
+                            <span>Select documents to search:</span>
+                        </div>
+                        <div className="file-selection-grid">
+                            {userFiles.length > 0 ? (
+                                userFiles.map(file => (
+                                    <label key={file._id} className="file-selection-item">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedFiles.includes(file._id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedFiles(prev => [...prev, file._id]);
+                                                } else {
+                                                    setSelectedFiles(prev => prev.filter(id => id !== file._id));
+                                                }
+                                            }}
+                                        />
+                                        <span className="file-name">{file.originalname}</span>
+                                    </label>
+                                ))
+                            ) : (
+                                <div className="no-files-message">
+                                    No files uploaded. Upload files in the sidebar to use RAG mode.
+                                </div>
+                            )}
+                        </div>
+                        {selectedFiles.length > 0 && (
+                            <div className="selected-count">
+                                {selectedFiles.length} file(s) selected for search
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Chat Input */}
                 <div className="chat-input-container">

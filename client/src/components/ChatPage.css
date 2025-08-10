@@ -1618,3 +1618,157 @@
     max-height: 60px;
   }
 }
+
+/* --- Mode Selection Buttons (Above Chat Input) --- */
+.mode-selection-container {
+  padding: 12px 24px 8px;
+  background-color: var(--secondary-bg);
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border-color);
+}
+
+.mode-selection-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 25px;
+  background: var(--primary-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.mode-selection-btn:hover:not(:disabled) {
+  border-color: #9C27B0;
+  background-color: rgba(156, 39, 176, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.2);
+}
+
+.mode-selection-btn.active {
+  border-color: #9C27B0;
+  background-color: #9C27B0;
+  color: white;
+  box-shadow: 0 4px 16px rgba(156, 39, 176, 0.4);
+}
+
+.mode-selection-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mode-btn-icon {
+  font-size: 16px;
+}
+
+/* RAG File Selection Above Input */
+.rag-file-selection-above-input {
+  margin: 0 24px 8px;
+  padding: 12px;
+  background-color: rgba(76, 175, 80, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.file-selection-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4CAF50;
+}
+
+.file-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.file-selection-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: var(--secondary-bg);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: 1px solid var(--border-color);
+}
+
+.file-selection-item:hover {
+  background-color: var(--hover-bg);
+  border-color: #4CAF50;
+}
+
+.file-selection-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #4CAF50;
+}
+
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.no-files-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 16px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.selected-count {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+/* Responsive adjustments for mode selection */
+@media (max-width: 768px) {
+  .mode-selection-container {
+    padding: 8px 16px 6px;
+    gap: 8px;
+  }
+
+  .mode-selection-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    min-width: 100px;
+  }
+
+  .mode-selection-btn span:not(.mode-btn-icon) {
+    display: none;
+  }
+
+  .rag-file-selection-above-input {
+    margin: 0 16px 6px;
+    padding: 8px;
+  }
+
+  .file-selection-grid {
+    grid-template-columns: 1fr;
+    max-height: 80px;
+  }
+}

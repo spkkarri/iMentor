@@ -75,16 +75,25 @@ router.post('/generate', tempAuth, async (req, res) => {
         const podcastGenerator = new SimplePodcastGenerator();
 
         // Always use single-host style
-        const podcastResult = await podcastGenerator.generateSingleHostPodcast(documentContent, file.originalname);
+        let podcastResult;
+        try {
+            podcastResult = await podcastGenerator.generateSingleHostPodcast(documentContent, file.originalname);
+            console.log(`[Podcast][Debug] Podcast generation result:`, podcastResult);
+        } catch (podcastError) {
+            console.error(`[Podcast] Error during generation:`, podcastError);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to generate podcast script.',
+                error: podcastError.message
+            });
+        }
 
-        console.log(`[Podcast][Debug] Podcast generation result:`, podcastResult);
-
-        if (!podcastResult.success) {
+        if (!podcastResult || !podcastResult.success) {
             console.log(`[Podcast] Failed to generate podcast for "${file.originalname}"`);
             return res.status(500).json({
                 success: false,
                 message: 'Failed to generate podcast script.',
-                error: podcastResult.error
+                error: podcastResult?.error || 'Unknown error'
             });
         }
 

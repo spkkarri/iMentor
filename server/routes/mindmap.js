@@ -47,16 +47,19 @@ router.post('/generate', tempAuth, async (req, res) => {
         }
 
         let mermaidData = null;
-        
+
         try {
+            console.log('[MindMap] Attempting AI generation...');
             mermaidData = await geminiAI.generateMindMapFromTranscript(fileContent, file.originalname);
+            console.log('[MindMap] AI generation successful');
         } catch (aiError) {
             console.warn('[MindMap] AI generation failed, using fallback:', aiError.message);
             mermaidData = MindMapGenerator.createMermaidFallback(fileContent, file.originalname);
         }
 
-        if (!mermaidData || !mermaidData.startsWith('mindmap')) {
+        if (!mermaidData || typeof mermaidData !== 'string' || !mermaidData.trim().startsWith('mindmap')) {
             console.log('[MindMap] AI response was invalid or missing "mindmap" prefix, using final fallback.');
+            console.log('[MindMap] Invalid response:', mermaidData);
             mermaidData = MindMapGenerator.createMermaidFallback(fileContent, file.originalname);
         }
 

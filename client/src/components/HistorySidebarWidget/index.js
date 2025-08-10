@@ -31,10 +31,14 @@ const HistorySidebarWidget = ({ onLoadSession }) => {
         e.stopPropagation();
         if (window.confirm(`Delete the chat titled "${title}"?`)) {
             try {
-                await deleteChatSession(sessionId);
+                console.log('Deleting session:', sessionId);
+                const response = await deleteChatSession(sessionId);
+                console.log('Delete response:', response);
                 setSessions(prev => prev.filter(s => s.sessionId !== sessionId));
+                console.log('Session deleted successfully');
             } catch (err) {
-                setError('Failed to delete session.');
+                console.error('Delete session error:', err);
+                setError(`Failed to delete session: ${err.response?.data?.message || err.message}`);
             }
         }
     };

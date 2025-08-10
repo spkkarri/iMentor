@@ -67,6 +67,10 @@ const ChatPage = () => {
     // RAG and search state
     const [isRagEnabled, setIsRagEnabled] = useState(false);
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
+    const [isMcpEnabled, setIsMcpEnabled] = useState(() => {
+        const saved = localStorage.getItem('mcpEnabled');
+        return saved !== null ? JSON.parse(saved) : false;
+    });
     const [selectedFiles, setSelectedFiles] = useState([]);
 
     // File management state
@@ -138,6 +142,11 @@ const ChatPage = () => {
         localStorage.setItem('isSidebarOpen', JSON.stringify(isSidebarOpen));
     }, [isSidebarOpen]);
 
+    // Save MCP state
+    useEffect(() => {
+        localStorage.setItem('mcpEnabled', JSON.stringify(isMcpEnabled));
+    }, [isMcpEnabled]);
+
     // Save selected model
     useEffect(() => {
         localStorage.setItem('selectedModel', selectedModel);
@@ -195,10 +204,65 @@ const ChatPage = () => {
         };
     }, [showProfileDropdown]);
 
+    // MCP search handler
+    const handleMcpSearch = useCallback(async (query) => {
+        if (!query.trim() || isProcessing) return;
+
+        const newUserMessage = {
+            id: uuidv4(),
+            role: 'user',
+            parts: [{ text: query.trim() }],
+            timestamp: new Date()
+        };
+        setMessages(prev => [...prev, newUserMessage]);
+        setError('');
+        setIsProcessing(true);
+
+        try {
+            console.log('🤖 MCP search enabled for query:', query);
+
+            const response = await fetch('/api/agents/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input: query.trim(),
+                    history: [...messages, newUserMessage],
+                    sessionId,
+                    systemPrompt: 'You are a helpful AI assistant with specialized agents.'
+                })
+            });
+
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'MCP search failed');
+
+            const assistantMessage = {
+                id: uuidv4(),
+                role: 'assistant',
+                parts: [{ text: data.data.response }],
+                timestamp: new Date(),
+                metadata: data.data.metadata
+            };
+
+            setMessages(prev => [...prev, assistantMessage]);
+        } catch (err) {
+            console.error('MCP search error:', err);
+            setError(err.message || 'MCP search failed');
+            setMessages(prev => prev.slice(0, -1)); // Remove user message on error
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [messages, sessionId, isProcessing]);
+
     // Send message handler
     const handleSendMessage = useCallback(async () => {
         const trimmedInput = inputText.trim();
         if (!trimmedInput || isProcessing) return;
+
+        // Check if MCP is enabled and handle MCP search
+        if (isMcpEnabled) {
+            setInputText(''); // Clear input immediately for MCP
+            return handleMcpSearch(trimmedInput);
+        }
 
         const newUserMessage = {
             id: uuidv4(),
@@ -275,7 +339,7 @@ const ChatPage = () => {
         } finally {
             setIsProcessing(false);
         }
-    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, selectedFiles, messages]);
+    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, isMcpEnabled, selectedFiles, messages, handleMcpSearch]);
 
     // Speech recognition handlers
     const handleStartMicButtonClick = useCallback(() => {
@@ -667,8 +731,8 @@ const ChatPage = () => {
 
                 {/* Chat Input */}
                 <div className="chat-input-container">
-                    <div className={`input-wrapper ${isRagEnabled ? 'rag-mode' : isDeepSearchEnabled ? 'deep-search-mode' : ''}`}>
-                        {(isRagEnabled || isDeepSearchEnabled) && (
+                    <div className={`input-wrapper ${isRagEnabled ? 'rag-mode' : isDeepSearchEnabled ? 'deep-search-mode' : isMcpEnabled ? 'mcp-mode' : ''}`}>
+                        {(isRagEnabled || isDeepSearchEnabled || isMcpEnabled) && (
                             <div className="mode-indicator">
                                 {isRagEnabled && (
                                     <span className="mode-badge rag-badge">
@@ -678,6 +742,11 @@ const ChatPage = () => {
                                 {isDeepSearchEnabled && (
                                     <span className="mode-badge deep-search-badge">
                                         <FaSearch /> Deep Search
+                                    </span>
+                                )}
+                                {isMcpEnabled && (
+                                    <span className="mode-badge mcp-badge">
+                                        🤖 MCP Agents
                                     </span>
                                 )}
                             </div>
@@ -693,7 +762,9 @@ const ChatPage = () => {
                                         ? "Ask questions about your documents..."
                                         : isDeepSearchEnabled
                                             ? "Ask anything - I'll search the web for comprehensive answers..."
-                                            : "Message Gemini..."
+                                            : isMcpEnabled
+                                                ? "Ask anything - AI agents will help you..."
+                                                : "Message Gemini..."
                                 }
                                 disabled={isProcessing}
                                 rows={1}
@@ -739,7 +810,10 @@ const ChatPage = () => {
                                 className={`search-mode-btn ${isRagEnabled ? 'active' : ''}`}
                                 onClick={() => {
                                     setIsRagEnabled(!isRagEnabled);
-                                    if (!isRagEnabled) setIsDeepSearchEnabled(false);
+                                    if (!isRagEnabled) {
+                                        setIsDeepSearchEnabled(false);
+                                        setIsMcpEnabled(false);
+                                    }
                                 }}
                                 disabled={isProcessing}
                                 title="RAG Mode - Search your uploaded documents"
@@ -753,7 +827,10 @@ const ChatPage = () => {
                                 className={`search-mode-btn ${isDeepSearchEnabled ? 'active' : ''}`}
                                 onClick={() => {
                                     setIsDeepSearchEnabled(!isDeepSearchEnabled);
-                                    if (!isDeepSearchEnabled) setIsRagEnabled(false);
+                                    if (!isDeepSearchEnabled) {
+                                        setIsRagEnabled(false);
+                                        setIsMcpEnabled(false);
+                                    }
                                 }}
                                 disabled={isProcessing}
                                 title="Deep Search - Web search + document analysis"
@@ -761,6 +838,23 @@ const ChatPage = () => {
                                 <FaSearch className="mode-icon" />
                                 <span>Deep Search</span>
                                 {isDeepSearchEnabled && <span className="active-indicator">●</span>}
+                            </button>
+
+                            <button
+                                className={`search-mode-btn ${isMcpEnabled ? 'active' : ''}`}
+                                onClick={() => {
+                                    setIsMcpEnabled(!isMcpEnabled);
+                                    if (!isMcpEnabled) {
+                                        setIsRagEnabled(false);
+                                        setIsDeepSearchEnabled(false);
+                                    }
+                                }}
+                                disabled={isProcessing}
+                                title="MCP Agents - AI agents for specialized tasks"
+                            >
+                                <span className="mode-icon">🤖</span>
+                                <span>MCP Agents</span>
+                                {isMcpEnabled && <span className="active-indicator">●</span>}
                             </button>
                         </div>
 

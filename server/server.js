@@ -84,6 +84,7 @@ const startServer = async () => {
         app.use('/api/user-api-keys', require('./routes/userApiKeys')); // User API key management
         app.use('/api/admin', require('./routes/admin')); // Admin dashboard and user management
         app.use('/api/research', require('./routes/testResearch')); // Advanced Deep Research testing
+        app.use('/api/agents', require('./routes/agents')); // MCP Agent system
 
         // Initialize monitoring routes with metrics collector
         const monitoringRoutes = require('./routes/monitoring');

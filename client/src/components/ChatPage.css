@@ -600,6 +600,11 @@
   box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
 }
 
+.input-wrapper.mcp-mode {
+  border-color: #9C27B0;
+  box-shadow: 0 0 0 2px rgba(156, 39, 176, 0.1);
+}
+
 .mode-indicator {
   margin-bottom: 4px;
 }
@@ -621,6 +626,11 @@
 
 .deep-search-badge {
   background-color: #2196F3;
+}
+
+.mcp-badge {
+  background-color: #9C27B0;
+  font-weight: 600;
 }
 
 .input-field-container {

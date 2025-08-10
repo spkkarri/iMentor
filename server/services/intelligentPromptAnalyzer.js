@@ -31,6 +31,13 @@ class IntelligentPromptAnalyzer {
      * Analyze prompt to determine if web search is needed (like ChatGPT does)
      */
     async analyzePrompt(prompt, conversationHistory = []) {
+        // Try quick analysis first (more reliable)
+        const quickResult = this.quickAnalysis(prompt);
+        if (quickResult) {
+            console.log('⚡ Quick analysis result:', quickResult.needsWebSearch ? 'WEB SEARCH' : 'GENERAL', `(${quickResult.confidence})`);
+            return quickResult;
+        }
+
         await this.initialize();
 
         // Check cache first
@@ -62,6 +69,10 @@ Analyze this query and determine if it needs web search based on these criteria:
 - Time-sensitive information (today, this week, this month, 2024, etc.)
 - Specific current prices, availability, or market data
 - Recent technological developments or updates
+- Transportation schedules (train, bus, flight timings and routes)
+- Live schedules, timetables, or availability information
+- Current operational status of services or facilities
+- Real-time travel information or route planning
 
 **DOES NOT REQUIRE WEB SEARCH if query involves:**
 - General knowledge or concepts
@@ -75,21 +86,37 @@ Analyze this query and determine if it needs web search based on these criteria:
 - Personal opinions or subjective topics
 - Hypothetical scenarios or thought experiments
 
-Return ONLY a JSON object with this exact format:
+Return ONLY a valid JSON object (no markdown, no code blocks, no extra text) with this exact format:
 {
-  "needsWebSearch": true/false,
-  "confidence": "high/medium/low",
+  "needsWebSearch": true,
+  "confidence": "high",
   "reasoning": "Brief explanation of why web search is/isn't needed",
-  "queryType": "current_events/real_time_data/general_knowledge/how_to/creative/technical",
-  "timeRelevance": "current/recent/historical/timeless",
-  "searchKeywords": ["key", "terms", "for", "search"] or null
+  "queryType": "current_events",
+  "timeRelevance": "current",
+  "searchKeywords": ["key", "terms", "for", "search"]
 }
 
+IMPORTANT: Return ONLY the JSON object, no markdown formatting, no \`\`\`json blocks, no extra text.
 Be conservative - only suggest web search when the query clearly needs current/real-time information.`;
 
         try {
             const result = await this.geminiAI.generateText(analysisPrompt);
-            const analysis = JSON.parse(result);
+
+            // Extract JSON from markdown if needed
+            let jsonText = result.trim();
+            if (jsonText.includes('```json')) {
+                const match = jsonText.match(/```json\s*([\s\S]*?)\s*```/);
+                if (match) {
+                    jsonText = match[1].trim();
+                }
+            } else if (jsonText.includes('```')) {
+                const match = jsonText.match(/```\s*([\s\S]*?)\s*```/);
+                if (match) {
+                    jsonText = match[1].trim();
+                }
+            }
+
+            const analysis = JSON.parse(jsonText);
             
             // Validate the analysis
             if (typeof analysis.needsWebSearch !== 'boolean') {
@@ -210,7 +237,18 @@ Be conservative - only suggest web search when the query clearly needs current/r
             /\b(current|latest|recent|breaking|live)\b/,
             /\b(news|price|stock|weather|score)\b/,
             /\b(what happened|what's happening|trending)\b/,
-            /\b(when did|when will|how much does)\b/
+            /\b(when did|when will|how much does)\b/,
+            // Transportation and schedule queries (with typo tolerance)
+            /\b(trains?|tarins?|bus|buses|flight|flights?|schedule|timetable|timing)\b.*\b(from|to|between)\b/,
+            /\b(which.*trains?|which.*tarins?|which.*buses?|which.*flights?)\b.*\b(go|run|travel)\b/,
+            /\b(daily|weekly|hourly)\b.*\b(trains?|tarins?|bus|buses|flight|flights?|schedule)\b/,
+            /\b(departure|arrival|timing|time)\b.*\b(trains?|tarins?|bus|buses|flight|flights?)\b/,
+            // Common city name variations
+            /\b(vizag|visakhapatnam|vozag|vskp)\b.*\b(hyderabad|hyd|secunderabad)\b/,
+            /\b(mumbai|bombay|delhi|chennai|bangalore|bengaluru|kolkata|calcutta)\b.*\b(trains?|tarins?|bus|flight)\b/,
+            // Live information queries
+            /\b(live|real.?time|current)\b.*\b(status|information|data)\b/,
+            /\b(check|find|search)\b.*\b(schedule|timing|availability)\b/
         ];
 
         // Very obvious cases that don't need web search

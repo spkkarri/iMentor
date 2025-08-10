@@ -12,6 +12,7 @@ import {
 } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { v4 as uuidv4 } from 'uuid';
 import {
     FaMicrophone,
@@ -357,7 +358,9 @@ const ChatPage = () => {
                     sessionId,
                     userId,
                     model: selectedModel,
-                    systemPrompt: "You are a helpful AI assistant."
+                    systemPrompt: "You are a helpful AI assistant.",
+                    autoDetectWebSearch: true,  // Enable automatic web search detection
+                    selectedModel: selectedModel
                 });
                 responseText = response.data?.response || 'No response received';
                 metadata = { searchType: 'standard' };
@@ -989,7 +992,28 @@ Thank you for using TutorAI!`;
                                                 </div>
                                             </div>
                                         ) : (
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                rehypePlugins={[rehypeRaw]}
+                                                components={{
+                                                    // Custom styling for embedded content
+                                                    iframe: ({node, ...props}) => (
+                                                        <div className="video-container" style={{margin: '10px 0', textAlign: 'center'}}>
+                                                            <iframe
+                                                                {...props}
+                                                                style={{maxWidth: '100%', height: '315px', width: '560px'}}
+                                                                allowFullScreen
+                                                            />
+                                                        </div>
+                                                    ),
+                                                    video: ({node, ...props}) => (
+                                                        <video controls style={{maxWidth: '100%', margin: '10px 0'}} {...props} />
+                                                    ),
+                                                    audio: ({node, ...props}) => (
+                                                        <audio controls style={{width: '100%', margin: '10px 0'}} {...props} />
+                                                    )
+                                                }}
+                                            >
                                                 {messageText}
                                             </ReactMarkdown>
                                         )}

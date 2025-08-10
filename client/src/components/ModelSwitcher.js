@@ -43,13 +43,15 @@ const ModelSwitcher = ({
         },
         {
             id: 'llama-model',
-            name: 'Llama Model',
+            name: 'Llama 3.2 (Ollama)',
             type: 'chat',
             icon: <ChatIcon />,
-            description: 'Advanced conversational AI model',
-            specialties: ['Chat', 'Conversation', 'General'],
+            description: 'Fast local AI model via Ollama (llama3.2:1b)',
+            specialties: ['Chat', 'Conversation', 'Local AI'],
             status: 'available',
-            provider: 'Llama'
+            provider: 'Ollama',
+            isOllama: true,
+            model: 'llama3.2:1b'
         }
     ];
 

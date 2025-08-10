@@ -1441,3 +1441,180 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Search Mode Controls Top Bar (Compact) --- */
+.search-mode-controls-top {
+  padding: 8px 16px;
+  background-color: var(--secondary-bg);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0;
+}
+
+.search-mode-buttons-horizontal {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.search-mode-btn-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background-color: var(--primary-bg);
+  color: var(--text-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  min-width: 100px;
+}
+
+.search-mode-btn-compact:hover {
+  background-color: var(--hover-bg);
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.search-mode-btn-compact.active {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+  box-shadow: 0 2px 8px rgba(var(--accent-color-rgb), 0.3);
+}
+
+.search-mode-btn-compact .mode-icon {
+  font-size: 0.9rem;
+}
+
+.search-mode-btn-compact .active-indicator {
+  color: #4ade80;
+  font-size: 0.7rem;
+  margin-left: 4px;
+}
+
+/* RAG File Selection - Compact */
+.rag-file-selection-compact {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: var(--primary-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.file-selection-header-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.file-selection-grid-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.file-selection-item-compact {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: var(--secondary-bg);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.file-selection-item-compact:hover {
+  background-color: var(--hover-bg);
+}
+
+.file-selection-item-compact input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+}
+
+.file-name-compact {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.no-files-message-compact {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 8px;
+}
+
+.selected-count-compact {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--accent-color);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Deep Search Info - Compact */
+.deep-search-info-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* MCP Info - Compact */
+.mcp-info-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background-color: rgba(168, 85, 247, 0.1);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Responsive adjustments for compact mode */
+@media (max-width: 768px) {
+  .search-mode-controls-top {
+    padding: 6px 12px;
+  }
+
+  .search-mode-buttons-horizontal {
+    gap: 6px;
+  }
+
+  .search-mode-btn-compact {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    min-width: 80px;
+  }
+
+  .search-mode-btn-compact span:not(.active-indicator) {
+    display: none;
+  }
+
+  .file-selection-grid-compact {
+    max-height: 60px;
+  }
+}

@@ -201,7 +201,12 @@ class OllamaService {
                 throw new Error('No Ollama models available');
             }
 
-            const modelName = models[0].name; // Use the first available model
+            // Prioritize llama3.2:1b if available, otherwise use first available
+            let modelName = models[0].name;
+            const preferredModel = models.find(m => m.name === 'llama3.2:1b');
+            if (preferredModel) {
+                modelName = preferredModel.name;
+            }
             console.log(`🦙 Using Ollama model: ${modelName}`);
 
             // Build the prompt with context

@@ -291,4 +291,34 @@ async function generateReportPdf(topic, summary, sources) {
 
 console.log('Gemini API Key for DeepSearch:', process.env.GEMINI_API_KEY);
 
+// --- NEW: Route to serve generated files ---
+router.get('/download-generated/:filename', tempAuth, (req, res) => {
+    const { filename } = req.params;
+    const generatedDir = path.join(__dirname, '../public/generated_ppts');
+    const filePath = path.join(generatedDir, filename);
+
+    // Security check - ensure file exists and is in the correct directory
+    if (!fs.existsSync(filePath) || !filePath.startsWith(generatedDir)) {
+        return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Set appropriate headers for download
+    const ext = path.extname(filename).toLowerCase();
+    let contentType = 'application/octet-stream';
+
+    if (ext === '.pptx') {
+        contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    } else if (ext === '.pdf') {
+        contentType = 'application/pdf';
+    } else if (ext === '.docx') {
+        contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    } else if (ext === '.xlsx') {
+        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.sendFile(filePath);
+});
+
 module.exports = router;

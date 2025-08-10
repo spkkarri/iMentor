@@ -109,7 +109,6 @@ const FileUploadWidget = ({ onUploadSuccess }) => {
 
   return (
     <div className="file-upload-widget">
-      <h4>Upload Files</h4>
       <input
         type="file"
         ref={fileInputRef}
@@ -121,41 +120,53 @@ const FileUploadWidget = ({ onUploadSuccess }) => {
       />
       <button
         type="button"
-        className="select-file-btn"
+        className="choose-files-btn"
         onClick={triggerFileInput}
         disabled={isUploading}
       >
         Choose Files
       </button>
 
-      {/* Display list of selected files */}
-      <div className="selected-files-list">
+      {/* Display status message */}
+      <div className="upload-status">
         {selectedFiles.length === 0 && !isUploading && (
-            <div className="status-message">No files selected.</div>
+            <div className="no-files-message">No files selected.</div>
         )}
-        {selectedFiles.map(file => (
-          <div key={file.name} className={`file-preview-item ${uploadProgress[file.name]?.status || ''}`}>
-            <span className="file-preview-name" title={file.name}>{file.name}</span>
-            <div className="file-preview-status">
-              {uploadProgress[file.name]?.message}
-            </div>
-            {!isUploading && (
-              <button onClick={() => removeFile(file.name)} className="remove-file-btn">
-                <FaTimesCircle />
-              </button>
-            )}
-          </div>
-        ))}
+        {selectedFiles.length > 0 && !isUploading && (
+            <div className="files-selected-message">{selectedFiles.length} file(s) selected</div>
+        )}
+        {isUploading && (
+            <div className="uploading-message">Uploading files...</div>
+        )}
       </div>
 
-      <button
-        type="button"
-        className="upload-btn"
-        onClick={handleUploadAll}
-        disabled={selectedFiles.length === 0 || isUploading}
-      >
-        {isUploading ? 'Uploading...' : `Upload ${selectedFiles.length} File(s)`}
-      </button>
+      {/* Show selected files list when files are selected */}
+      {selectedFiles.length > 0 && (
+        <div className="selected-files-list">
+          {selectedFiles.map(file => (
+            <div key={file.name} className={`file-preview-item ${uploadProgress[file.name]?.status || ''}`}>
+              <span className="file-preview-name" title={file.name}>{file.name}</span>
+              <div className="file-preview-status">
+                {uploadProgress[file.name]?.message}
+              </div>
+              {!isUploading && (
+                <button onClick={() => removeFile(file.name)} className="remove-file-btn">
+                  <FaTimesCircle />
+                </button>
+              )}
+            </div>
+          ))}
+
+          <button
+            type="button"
+            className="upload-btn"
+            onClick={handleUploadAll}
+            disabled={selectedFiles.length === 0 || isUploading}
+          >
+            {isUploading ? 'Uploading...' : `Upload ${selectedFiles.length} File(s)`}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -163,21 +174,129 @@ const FileUploadWidget = ({ onUploadSuccess }) => {
 // --- CSS for FileUploadWidget ---
 const FileUploadWidgetCSS = `
 /* client/src/components/FileUploadWidget.css */
-.file-upload-widget { display: flex; flex-direction: column; gap: 12px; padding: 20px; box-sizing: border-box; }
-.file-upload-widget h4 { margin-top: 0; margin-bottom: 10px; color: #e0e0e0; font-size: 0.95rem; font-weight: 600; }
-.select-file-btn, .upload-btn { width: 100%; padding: 9px 15px; border: 1px solid #555; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s ease; background-color: #3c3c3c; color: #e0e0e0; text-align: center; }
-.select-file-btn:hover:not(:disabled), .upload-btn:hover:not(:disabled) { background-color: #4a4a4a; border-color: #666; }
-.select-file-btn:disabled, .upload-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.upload-btn { background-color: #90caf9; border-color: #90caf9; color: #121212; }
-.upload-btn:hover:not(:disabled) { background-color: #a4d4fa; border-color: #a4d4fa; }
-.status-message { font-size: 0.8rem; color: #888; text-align: center; }
+.file-upload-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  box-sizing: border-box;
+}
 
-.selected-files-list { display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto; padding: 5px; }
-.file-preview-item { display: flex; align-items: center; gap: 8px; padding: 8px; background-color: #3c3c3c; border: 1px solid #555; border-radius: 4px; font-size: 0.85rem; }
-.file-preview-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ccc; }
-.file-preview-status { font-style: italic; color: #888; }
-.remove-file-btn { background: none; border: none; color: #888; cursor: pointer; padding: 0; display: flex; }
-.remove-file-btn:hover { color: #f44336; }
+.choose-files-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #dadce0;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background-color: #ffffff;
+  color: #1a73e8;
+  text-align: center;
+}
+
+.choose-files-btn:hover:not(:disabled) {
+  background-color: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.choose-files-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-status {
+  text-align: center;
+  font-size: 14px;
+  color: #5f6368;
+  padding: 12px 0;
+}
+
+.no-files-message {
+  color: #5f6368;
+}
+
+.files-selected-message {
+  color: #1a73e8;
+}
+
+.uploading-message {
+  color: #1a73e8;
+}
+
+.selected-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.file-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border: 1px solid #e8eaed;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.file-preview-name {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #202124;
+}
+
+.file-preview-status {
+  font-style: italic;
+  color: #5f6368;
+}
+
+.remove-file-btn {
+  background: none;
+  border: none;
+  color: #5f6368;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.remove-file-btn:hover {
+  color: #d93025;
+  background-color: #fce8e6;
+}
+
+.upload-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background-color: #1a73e8;
+  color: #ffffff;
+  text-align: center;
+  margin-top: 12px;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background-color: #1557b0;
+  box-shadow: 0 1px 3px rgba(26, 115, 232, 0.3);
+}
+
+.upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* Status-specific styling */
 .file-preview-item.uploading .file-preview-status { color: #90caf9; }

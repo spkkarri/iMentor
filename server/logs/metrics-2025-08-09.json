@@ -1,0 +1,371 @@
+{
+  "timestamp": 1754706943677,
+  "summary": {
+    "uptime": {
+      "milliseconds": 1440193,
+      "hours": 0.4000536111111111,
+      "formatted": "24m 0s"
+    },
+    "requests": {
+      "total": 0,
+      "successful": 0,
+      "failed": 0,
+      "successRate": 0,
+      "averageResponseTime": 0,
+      "requestsPerHour": 0
+    },
+    "routing": {
+      "total": 0,
+      "successful": 0,
+      "fallback": 0,
+      "errors": 0,
+      "successRate": 0,
+      "averageRoutingTime": 0
+    },
+    "classification": {
+      "total": 0,
+      "accurate": 0,
+      "accuracy": 0,
+      "averageConfidence": 0
+    },
+    "models": [],
+    "system": {
+      "memoryUsage": 54.423797607421875,
+      "cpuUsage": 0,
+      "peakMemoryUsage": 54.904052734375,
+      "requestsPerMinute": 0
+    }
+  },
+  "detailed": {
+    "system": {
+      "startTime": 1754705503484,
+      "totalRequests": 0,
+      "successfulRequests": 0,
+      "failedRequests": 0,
+      "averageResponseTime": 0,
+      "peakMemoryUsage": 57571072,
+      "peakCpuUsage": 0
+    },
+    "models": {},
+    "routing": {
+      "totalRoutes": 0,
+      "successfulRoutes": 0,
+      "fallbackRoutes": 0,
+      "routingErrors": 0,
+      "subjectDistribution": {},
+      "averageRoutingTime": 0
+    },
+    "classification": {
+      "totalClassifications": 0,
+      "accurateClassifications": 0,
+      "averageConfidence": 0,
+      "subjectAccuracy": {}
+    },
+    "performance": {
+      "responseTimeHistory": [],
+      "memoryUsageHistory": [
+        {
+          "timestamp": 1754705563496,
+          "heapUsed": 47590664,
+          "heapTotal": 50913280,
+          "external": 22306184,
+          "rss": 87777280
+        },
+        {
+          "timestamp": 1754705623509,
+          "heapUsed": 47224320,
+          "heapTotal": 50388992,
+          "external": 22307562,
+          "rss": 85999616
+        },
+        {
+          "timestamp": 1754705683511,
+          "heapUsed": 47537520,
+          "heapTotal": 50388992,
+          "external": 22322132,
+          "rss": 66150400
+        },
+        {
+          "timestamp": 1754705743526,
+          "heapUsed": 47808056,
+          "heapTotal": 50388992,
+          "external": 22323320,
+          "rss": 46612480
+        },
+        {
+          "timestamp": 1754705803527,
+          "heapUsed": 48089088,
+          "heapTotal": 50651136,
+          "external": 22330950,
+          "rss": 47435776
+        },
+        {
+          "timestamp": 1754705863533,
+          "heapUsed": 48507248,
+          "heapTotal": 50913280,
+          "external": 22340394,
+          "rss": 48078848
+        },
+        {
+          "timestamp": 1754705923545,
+          "heapUsed": 47973648,
+          "heapTotal": 50913280,
+          "external": 22329634,
+          "rss": 47468544
+        },
+        {
+          "timestamp": 1754705983557,
+          "heapUsed": 47980576,
+          "heapTotal": 50913280,
+          "external": 22346018,
+          "rss": 42250240
+        },
+        {
+          "timestamp": 1754706043557,
+          "heapUsed": 47890720,
+          "heapTotal": 50913280,
+          "external": 22354367,
+          "rss": 42389504
+        },
+        {
+          "timestamp": 1754706103564,
+          "heapUsed": 48677400,
+          "heapTotal": 51175424,
+          "external": 22347960,
+          "rss": 43896832
+        },
+        {
+          "timestamp": 1754706163578,
+          "heapUsed": 48657496,
+          "heapTotal": 51175424,
+          "external": 22355775,
+          "rss": 35528704
+        },
+        {
+          "timestamp": 1754706223587,
+          "heapUsed": 49620864,
+          "heapTotal": 52486144,
+          "external": 22382654,
+          "rss": 50503680
+        },
+        {
+          "timestamp": 1754706283588,
+          "heapUsed": 57292304,
+          "heapTotal": 59777024,
+          "external": 22911367,
+          "rss": 79470592
+        },
+        {
+          "timestamp": 1754706343594,
+          "heapUsed": 56083272,
+          "heapTotal": 59088896,
+          "external": 22330744,
+          "rss": 80801792
+        },
+        {
+          "timestamp": 1754706403600,
+          "heapUsed": 56552144,
+          "heapTotal": 60137472,
+          "external": 22387373,
+          "rss": 81510400
+        },
+        {
+          "timestamp": 1754706463611,
+          "heapUsed": 57571072,
+          "heapTotal": 60137472,
+          "external": 22398704,
+          "rss": 84959232
+        },
+        {
+          "timestamp": 1754706523618,
+          "heapUsed": 57520640,
+          "heapTotal": 60137472,
+          "external": 22399001,
+          "rss": 84856832
+        },
+        {
+          "timestamp": 1754706583626,
+          "heapUsed": 57488536,
+          "heapTotal": 60137472,
+          "external": 22407489,
+          "rss": 84844544
+        },
+        {
+          "timestamp": 1754706643640,
+          "heapUsed": 56669816,
+          "heapTotal": 60137472,
+          "external": 22408111,
+          "rss": 84000768
+        },
+        {
+          "timestamp": 1754706703652,
+          "heapUsed": 57558128,
+          "heapTotal": 60137472,
+          "external": 22408069,
+          "rss": 84885504
+        },
+        {
+          "timestamp": 1754706763664,
+          "heapUsed": 56997168,
+          "heapTotal": 60137472,
+          "external": 22405920,
+          "rss": 45314048
+        },
+        {
+          "timestamp": 1754706823668,
+          "heapUsed": 57179024,
+          "heapTotal": 60137472,
+          "external": 22414842,
+          "rss": 46088192
+        },
+        {
+          "timestamp": 1754706883670,
+          "heapUsed": 56950824,
+          "heapTotal": 61186048,
+          "external": 22421678,
+          "rss": 35991552
+        },
+        {
+          "timestamp": 1754706943677,
+          "heapUsed": 57064688,
+          "heapTotal": 60137472,
+          "external": 22430496,
+          "rss": 35835904
+        }
+      ],
+      "cpuUsageHistory": [
+        {
+          "timestamp": 1754705563496,
+          "user": 1734000,
+          "system": 1062000
+        },
+        {
+          "timestamp": 1754705623509,
+          "user": 1765000,
+          "system": 1062000
+        },
+        {
+          "timestamp": 1754705683511,
+          "user": 1796000,
+          "system": 1062000
+        },
+        {
+          "timestamp": 1754705743526,
+          "user": 1843000,
+          "system": 1062000
+        },
+        {
+          "timestamp": 1754705803527,
+          "user": 1859000,
+          "system": 1078000
+        },
+        {
+          "timestamp": 1754705863533,
+          "user": 1875000,
+          "system": 1078000
+        },
+        {
+          "timestamp": 1754705923545,
+          "user": 1890000,
+          "system": 1078000
+        },
+        {
+          "timestamp": 1754705983557,
+          "user": 1890000,
+          "system": 1078000
+        },
+        {
+          "timestamp": 1754706043557,
+          "user": 1890000,
+          "system": 1078000
+        },
+        {
+          "timestamp": 1754706103564,
+          "user": 1890000,
+          "system": 1078000
+        },
+        {
+          "timestamp": 1754706163578,
+          "user": 1890000,
+          "system": 1078000
+        },
+        {
+          "timestamp": 1754706223587,
+          "user": 2000000,
+          "system": 1156000
+        },
+        {
+          "timestamp": 1754706283588,
+          "user": 2156000,
+          "system": 1171000
+        },
+        {
+          "timestamp": 1754706343594,
+          "user": 2453000,
+          "system": 1203000
+        },
+        {
+          "timestamp": 1754706403600,
+          "user": 2453000,
+          "system": 1218000
+        },
+        {
+          "timestamp": 1754706463611,
+          "user": 2468000,
+          "system": 1218000
+        },
+        {
+          "timestamp": 1754706523618,
+          "user": 2484000,
+          "system": 1218000
+        },
+        {
+          "timestamp": 1754706583626,
+          "user": 2484000,
+          "system": 1218000
+        },
+        {
+          "timestamp": 1754706643640,
+          "user": 2515000,
+          "system": 1218000
+        },
+        {
+          "timestamp": 1754706703652,
+          "user": 2515000,
+          "system": 1218000
+        },
+        {
+          "timestamp": 1754706763664,
+          "user": 2515000,
+          "system": 1218000
+        },
+        {
+          "timestamp": 1754706823668,
+          "user": 2515000,
+          "system": 1234000
+        },
+        {
+          "timestamp": 1754706883670,
+          "user": 2546000,
+          "system": 1265000
+        },
+        {
+          "timestamp": 1754706943677,
+          "user": 2546000,
+          "system": 1265000
+        }
+      ],
+      "errorRateHistory": []
+    },
+    "realtime": {
+      "currentRequests": 0,
+      "requestsPerMinute": 0,
+      "averageResponseTime": 0,
+      "errorRate": 0,
+      "memoryUsage": 54.423797607421875,
+      "cpuUsage": 0
+    },
+    "uptime": 1440193,
+    "timestamp": 1754706943677
+  }
+}

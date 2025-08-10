@@ -31,49 +31,57 @@ async function generatePPT(topic) {
       "Conclusion"
     ];
 
-    // Generate content for each slide title as bullet points
-    const slideContents = [];
-    if (!geminiAI) {
-      // If geminiAI is not initialized, use fallback static bullet points
-      for (const title of slideTitles) {
-        slideContents.push([
-          `Point 1 about ${title} related to the topic "${topic}".`,
-          `Point 2 about ${title}.`,
-          `Point 3 about ${title}.`,
-          `Point 4 about ${title}.`,
-          `Point 5 about ${title}.`
-        ]);
-      }
-    } else {
-      for (const title of slideTitles) {
-        const prompt = `Provide 5 concise bullet points about "${title}" related to the topic "${topic}". Format the response as a JSON array of strings.`;
-        try {
-          const content = await geminiAI.generateText(prompt);
-          // Parse JSON array response
-          let points = [];
-          try {
-            // Clean content from markdown json code block if present
-            let cleanedContent = content.trim();
-            if (cleanedContent.startsWith('```json')) {
-              cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-            } else if (cleanedContent.startsWith('```')) {
-              cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
-            }
-            points = JSON.parse(cleanedContent);
-            if (!Array.isArray(points)) throw new Error('Not an array');
-          } catch (err) {
-            // Fallback: split by newlines if JSON parse fails
-            points = content.split('\n').filter(line => line.trim().length > 0);
-          }
-          slideContents.push(points.slice(0, 5)); // Take first 5 points
-        } catch (err) {
-          console.error(`Error generating content for slide "${title}":`, err);
-          slideContents.push([
-            `Content not available for ${title}.`
-          ]);
-        }
-      }
-    }
+    // Generate reliable template-based content
+    const slideContents = [
+      // Introduction
+      [
+        `Overview of ${topic}`,
+        `Key objectives and goals`,
+        `Scope and importance`,
+        `Target audience and stakeholders`,
+        `Presentation agenda`
+      ],
+      // Background
+      [
+        `Historical context of ${topic}`,
+        `Current market situation`,
+        `Key players and stakeholders`,
+        `Relevant trends and developments`,
+        `Foundation and prerequisites`
+      ],
+      // Current Status
+      [
+        `Present state of ${topic}`,
+        `Recent developments and progress`,
+        `Current metrics and performance`,
+        `Existing solutions and approaches`,
+        `Market position and adoption`
+      ],
+      // Challenges
+      [
+        `Primary obstacles in ${topic}`,
+        `Technical and operational challenges`,
+        `Resource and budget constraints`,
+        `Regulatory and compliance issues`,
+        `Market and competitive pressures`
+      ],
+      // Opportunities
+      [
+        `Growth potential in ${topic}`,
+        `Emerging technologies and innovations`,
+        `Market expansion possibilities`,
+        `Strategic partnerships and collaborations`,
+        `Future development prospects`
+      ],
+      // Conclusion
+      [
+        `Key takeaways from ${topic}`,
+        `Strategic recommendations`,
+        `Next steps and action items`,
+        `Expected outcomes and benefits`,
+        `Call to action and follow-up`
+      ]
+    ];
 
     // Slide 1: Title slide
     let slide1 = pptx.addSlide();

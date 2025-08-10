@@ -342,10 +342,12 @@ Generate the mind map now:
         } catch (error) {
             console.error('Gemini text generation error:', error.message);
 
-            // Record failed request
-            this.quotaManager.recordFailure(error);
+            // Record failed request (if quota manager exists)
+            if (this.quotaManager && typeof this.quotaManager.recordFailure === 'function') {
+                this.quotaManager.recordFailure(error);
+            }
 
-            throw new Error('Failed to generate text response');
+            throw error; // Throw original error to preserve error details
         }
     }
 

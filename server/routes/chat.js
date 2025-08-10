@@ -24,18 +24,22 @@ router.get('/session/:sessionId', tempAuth, getSessionDetails);
 router.post('/history', tempAuth, saveChatHistory);
 router.delete('/sessions/:sessionId', tempAuth, async (req, res) => {
     try {
+        console.log(`[DELETE] Attempting to delete session: ${req.params.sessionId} for user: ${req.user.id}`);
+
         const session = await ChatSession.findOneAndDelete({
             sessionId: req.params.sessionId,
             user: req.user.id
         });
 
         if (!session) {
+            console.log(`[DELETE] Session not found: ${req.params.sessionId}`);
             return res.status(404).json({ message: 'Chat session not found or you are not authorized to delete it.' });
         }
 
+        console.log(`[DELETE] Session deleted successfully: ${req.params.sessionId}`);
         res.json({ message: 'Chat session deleted successfully.' });
     } catch (error) {
-        console.error('Error deleting session:', error);
+        console.error('[DELETE] Error deleting session:', error);
         res.status(500).json({ message: 'Server error while deleting session.' });
     }
 });

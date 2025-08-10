@@ -415,20 +415,50 @@ const ChatPage = () => {
     }, [loadUserFiles]);
 
     const handleGeneratePodcast = useCallback(async (fileId, fileName) => {
+        setIsProcessing(true);
+        setFileError('');
+
         try {
-            await generatePodcast(fileId);
-            alert(`Podcast generation started for "${fileName}"`);
+            console.log('Generating podcast for file:', fileId, fileName);
+            const response = await generatePodcast(fileId);
+            console.log('Podcast response:', response);
+
+            if (response.data && response.data.success) {
+                alert(`✅ Podcast generated successfully for "${fileName}"!\n\nYou can now use your browser's text-to-speech to listen to it.`);
+            } else {
+                throw new Error(response.data?.message || 'Unknown error');
+            }
         } catch (err) {
-            setFileError('Failed to generate podcast');
+            console.error('Podcast generation error:', err);
+            const errorMessage = err.response?.data?.message || err.message || 'Failed to generate podcast';
+            setFileError(`Podcast Error: ${errorMessage}`);
+            alert(`❌ Failed to generate podcast for "${fileName}"\n\nError: ${errorMessage}`);
+        } finally {
+            setIsProcessing(false);
         }
     }, []);
 
     const handleGenerateMindMap = useCallback(async (fileId, fileName) => {
+        setIsProcessing(true);
+        setFileError('');
+
         try {
-            await generateMindMap(fileId);
-            alert(`Mind map generation started for "${fileName}"`);
+            console.log('Generating mind map for file:', fileId, fileName);
+            const response = await generateMindMap(fileId);
+            console.log('Mind map response:', response);
+
+            if (response.data && response.data.mermaidData) {
+                alert(`✅ Mind map generated successfully for "${fileName}"!\n\nThe interactive mind map is ready to view.`);
+            } else {
+                throw new Error('No mind map data received');
+            }
         } catch (err) {
-            setFileError('Failed to generate mind map');
+            console.error('Mind map generation error:', err);
+            const errorMessage = err.response?.data?.message || err.message || 'Failed to generate mind map';
+            setFileError(`Mind Map Error: ${errorMessage}`);
+            alert(`❌ Failed to generate mind map for "${fileName}"\n\nError: ${errorMessage}`);
+        } finally {
+            setIsProcessing(false);
         }
     }, []);
 

@@ -190,7 +190,9 @@ Return ONLY the natural conversation between [Male Voice] and [Female Voice]:`;
     async generateSingleHostPodcast(documentContent, filename = 'document') {
         await this.initialize();
 
-        const prompt = `Create an engaging single-host podcast script based on the following document content.
+        // Check if we have quota issues and provide fallback
+        try {
+            const prompt = `Create an engaging single-host podcast script based on the following document content.
 
 DOCUMENT CONTENT:
 ${documentContent}
@@ -236,8 +238,66 @@ Write ONLY the natural monologue without any names, no JSON, no formatting, just
 
         } catch (error) {
             console.error('Error generating single-host script:', error);
+
+            // If quota exceeded, provide a fallback podcast
+            if (error.message.includes('quota') || error.message.includes('429')) {
+                console.log('API quota exceeded, generating fallback podcast...');
+                return this.generateFallbackPodcast(documentContent, filename);
+            }
+
             throw error;
         }
+    }
+
+    /**
+     * Generate a fallback podcast when AI service is unavailable
+     */
+    generateFallbackPodcast(documentContent, filename) {
+        const words = documentContent.split(' ');
+        const summary = words.slice(0, 100).join(' ') + (words.length > 100 ? '...' : '');
+
+        const script = `Welcome to our podcast! Today we're discussing the document "${filename}".
+
+        This document contains valuable information about ${this.extractKeyTopics(documentContent).join(', ')}.
+
+        Here's a brief overview: ${summary}
+
+        The document covers several important points that are worth exploring further.
+
+        Thank you for listening to this automated podcast summary. For the full content, please refer to the original document.`;
+
+        return {
+            success: true,
+            title: `Podcast: ${filename}`,
+            script: script,
+            duration_estimate: "2-3 minutes",
+            key_points: this.extractKeyTopics(documentContent),
+            instructions: {
+                message: "This is a fallback podcast generated when AI services are temporarily unavailable",
+                usage: "Click the play button to hear this podcast using your device's text-to-speech"
+            }
+        };
+    }
+
+    /**
+     * Extract key topics from document content
+     */
+    extractKeyTopics(content) {
+        const words = content.toLowerCase().split(/\s+/);
+        const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those']);
+
+        const wordCount = {};
+        words.forEach(word => {
+            const cleanWord = word.replace(/[^\w]/g, '');
+            if (cleanWord.length > 3 && !commonWords.has(cleanWord)) {
+                wordCount[cleanWord] = (wordCount[cleanWord] || 0) + 1;
+            }
+        });
+
+        return Object.entries(wordCount)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 5)
+            .map(([word]) => word);
     }
 }
 

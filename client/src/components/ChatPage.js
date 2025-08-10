@@ -223,7 +223,10 @@ const ChatPage = () => {
 
             const response = await fetch('/api/agents/search', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-ID': userId
+                },
                 body: JSON.stringify({
                     input: query.trim(),
                     history: [...messages, newUserMessage],

@@ -576,13 +576,7 @@ const ChatPage = () => {
                                         <FaPlus />
                                         <span>New Chat</span>
                                     </button>
-                                    <button
-                                        className="dropdown-item"
-                                        onClick={() => setShowHistoryModal(true)}
-                                    >
-                                        <FaHistory />
-                                        <span>Chat History</span>
-                                    </button>
+
                                     <hr />
                                     <button
                                         className="dropdown-item logout-item"

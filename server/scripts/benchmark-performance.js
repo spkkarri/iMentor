@@ -10,7 +10,7 @@ const path = require('path');
 
 class PerformanceBenchmark {
     constructor(options = {}) {
-        this.baseUrl = options.baseUrl || 'http://localhost:3005';
+        this.baseUrl = options.baseUrl || 'http://localhost:3004';
         this.authToken = options.authToken || 'test-token';
         this.outputDir = options.outputDir || path.join(__dirname, '..', 'benchmark-results');
         this.concurrency = options.concurrency || 5;
@@ -558,7 +558,7 @@ ${report.detailed.errors.length > 0 ?
 // Run benchmark if this script is executed directly
 if (require.main === module) {
     const benchmark = new PerformanceBenchmark({
-        baseUrl: process.env.BENCHMARK_URL || 'http://localhost:3005',
+        baseUrl: process.env.BENCHMARK_URL || 'http://localhost:3004',
         authToken: process.env.BENCHMARK_TOKEN || 'test-token',
         iterations: parseInt(process.env.BENCHMARK_ITERATIONS) || 50,
         concurrency: parseInt(process.env.BENCHMARK_CONCURRENCY) || 5

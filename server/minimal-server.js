@@ -8,7 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-console.log('🚀 Starting Minimal Multi-Model Server...');
+console.log('Starting Minimal Multi-Model Server...');
 
 const app = express();
 const PORT = process.env.PORT || 5007;
@@ -202,37 +202,37 @@ app.get('*', (req, res) => {
 
 // Start server
 const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log('\n🎉 Multi-Model LLM Server Started Successfully!');
+    console.log('\nMulti-Model LLM Server Started Successfully!');
     console.log('==========================================');
-    console.log(`🌐 Server running on: http://localhost:${PORT}`);
-    console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`🧠 Classification: POST http://localhost:${PORT}/api/multi-model/classify`);
-    console.log(`💬 Query processing: POST http://localhost:${PORT}/api/multi-model/query`);
-    console.log(`📊 Monitoring: http://localhost:${PORT}/api/monitoring/health`);
+    console.log(`Server running on: http://localhost:${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/api/health`);
+    console.log(`Classification: POST http://localhost:${PORT}/api/multi-model/classify`);
+    console.log(`Query processing: POST http://localhost:${PORT}/api/multi-model/query`);
+    console.log(`Monitoring: http://localhost:${PORT}/api/monitoring/health`);
     console.log('==========================================\n');
-    
-    console.log('✨ Features Available:');
-    console.log('  ✅ Multi-Model Query Classification');
-    console.log('  ✅ Subject-Specific Processing');
-    console.log('  ✅ Pattern Recognition (Math expressions, Code syntax)');
-    console.log('  ✅ Performance Monitoring');
-    console.log('  ✅ RESTful API Endpoints');
-    console.log('\n🚀 Ready to handle intelligent queries!');
+
+    console.log('Features Available:');
+    console.log('  - Multi-Model Query Classification');
+    console.log('  - Subject-Specific Processing');
+    console.log('  - Pattern Recognition (Math expressions, Code syntax)');
+    console.log('  - Performance Monitoring');
+    console.log('  - RESTful API Endpoints');
+    console.log('\nReady to handle intelligent queries!');
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-    console.log('\n🛑 Received SIGTERM. Starting graceful shutdown...');
+    console.log('\nReceived SIGTERM. Starting graceful shutdown...');
     server.close(() => {
-        console.log('✅ Server closed successfully');
+        console.log('Server closed successfully');
         process.exit(0);
     });
 });
 
 process.on('SIGINT', () => {
-    console.log('\n🛑 Received SIGINT. Starting graceful shutdown...');
+    console.log('\nReceived SIGINT. Starting graceful shutdown...');
     server.close(() => {
-        console.log('✅ Server closed successfully');
+        console.log('Server closed successfully');
         process.exit(0);
     });
 });

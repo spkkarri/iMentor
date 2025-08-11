@@ -145,7 +145,7 @@ class ResearchAgent(MCPAgent):
         synthesized = self._synthesize_research(query, results)
         
         return {
-            "response": f"🔬 **Research Agent - Comprehensive Analysis**\n\n{synthesized}",
+            "response": f"**Research Agent - Comprehensive Analysis**\n\n{synthesized}",
             "sources": self._extract_sources(results),
             "confidence": 0.8,
             "agent_type": "research",
@@ -155,7 +155,7 @@ class ResearchAgent(MCPAgent):
     async def _handle_general_query(self, query: str, context: AgentContext) -> Dict[str, Any]:
         """Handle general queries"""
         return {
-            "response": f"🤖 **Research Agent**\n\nI can help you with research, fact-checking, and information analysis. For the query '{query}', I recommend being more specific about what type of information you're looking for.",
+            "response": f"**Research Agent**\n\nI can help you with research, fact-checking, and information analysis. For the query '{query}', I recommend being more specific about what type of information you're looking for.",
             "agent_type": "research",
             "query_type": "general"
         }
@@ -201,7 +201,7 @@ class AnalysisAgent(MCPAgent):
         analysis_type = self._detect_analysis_type(query)
 
         return {
-            "response": f"📊 **Analysis Agent - {analysis_type.title()} Analysis**\n\nI can help you with data analysis, pattern recognition, and generating insights. For the query '{query}', I would recommend:\n\n• Data collection and preprocessing\n• Statistical analysis and modeling\n• Pattern identification\n• Visualization and reporting\n\nPlease provide your data or specific analysis requirements for detailed assistance.",
+            "response": f"**Analysis Agent - {analysis_type.title()} Analysis**\n\nI can help you with data analysis, pattern recognition, and generating insights. For the query '{query}', I would recommend:\n\n• Data collection and preprocessing\n• Statistical analysis and modeling\n• Pattern identification\n• Visualization and reporting\n\nPlease provide your data or specific analysis requirements for detailed assistance.",
             "agent_type": "analysis",
             "analysis_type": analysis_type,
             "confidence": 0.8
@@ -240,7 +240,7 @@ class CreativeAgent(MCPAgent):
         creative_type = self._detect_creative_type(query)
 
         return {
-            "response": f"✨ **Creative Agent - {creative_type.title()} Creation**\n\nI'm here to help with your creative endeavors! For '{query}', I can assist with:\n\n• Brainstorming and ideation\n• Story development and structure\n• Character creation and dialogue\n• Content optimization and style\n\nLet me know what specific creative project you're working on, and I'll provide tailored assistance!",
+            "response": f"**Creative Agent - {creative_type.title()} Creation**\n\nI'm here to help with your creative endeavors! For '{query}', I can assist with:\n\n• Brainstorming and ideation\n• Story development and structure\n• Character creation and dialogue\n• Content optimization and style\n\nLet me know what specific creative project you're working on, and I'll provide tailored assistance!",
             "agent_type": "creative",
             "creative_type": creative_type,
             "confidence": 0.8
@@ -337,7 +337,7 @@ class CodingAgent(MCPAgent):
             code = code_result.data.get('code', '')
             explanation = code_result.data.get('explanation', '')
             
-            response = f"💻 **Coding Agent - Code Generation ({language})**\n\n"
+            response = f"**Coding Agent - Code Generation ({language})**\n\n"
             response += f"Here's the code for your request:\n\n```{language}\n{code}\n```\n\n"
             if explanation:
                 response += f"**Explanation:**\n{explanation}"
@@ -351,7 +351,7 @@ class CodingAgent(MCPAgent):
             }
         else:
             return {
-                "response": f"💻 **Coding Agent**\n\nI encountered an issue generating code for your request. Please provide more specific requirements.",
+                "response": f"**Coding Agent**\n\nI encountered an issue generating code for your request. Please provide more specific requirements.",
                 "error": code_result.error,
                 "agent_type": "coding"
             }
@@ -359,7 +359,7 @@ class CodingAgent(MCPAgent):
     async def _review_code(self, query: str, lang_info: Dict[str, str], context: AgentContext) -> Dict[str, Any]:
         """Review and analyze code"""
         return {
-            "response": f"💻 **Coding Agent - Code Review**\n\nI can help review your code. Please provide the code you'd like me to analyze, and I'll check for:\n\n• Code quality and best practices\n• Potential bugs and issues\n• Performance optimizations\n• Security considerations",
+            "response": f"**Coding Agent - Code Review**\n\nI can help review your code. Please provide the code you'd like me to analyze, and I'll check for:\n\n• Code quality and best practices\n• Potential bugs and issues\n• Performance optimizations\n• Security considerations",
             "agent_type": "coding",
             "task_type": "review"
         }
@@ -367,7 +367,7 @@ class CodingAgent(MCPAgent):
     async def _debug_code(self, query: str, lang_info: Dict[str, str], context: AgentContext) -> Dict[str, Any]:
         """Help debug code issues"""
         return {
-            "response": f"💻 **Coding Agent - Debugging**\n\nI can help debug your code. Please provide:\n\n• The code that's causing issues\n• The error message you're seeing\n• What you expected to happen\n• Your development environment details",
+            "response": f"**Coding Agent - Debugging**\n\nI can help debug your code. Please provide:\n\n• The code that's causing issues\n• The error message you're seeing\n• What you expected to happen\n• Your development environment details",
             "agent_type": "coding",
             "task_type": "debugging"
         }
@@ -375,7 +375,7 @@ class CodingAgent(MCPAgent):
     async def _provide_technical_guidance(self, query: str, lang_info: Dict[str, str], context: AgentContext) -> Dict[str, Any]:
         """Provide technical guidance and explanations"""
         return {
-            "response": f"💻 **Coding Agent - Technical Guidance**\n\nI can help explain programming concepts, best practices, and provide technical guidance. What specific aspect would you like me to explain?",
+            "response": f"**Coding Agent - Technical Guidance**\n\nI can help explain programming concepts, best practices, and provide technical guidance. What specific aspect would you like me to explain?",
             "agent_type": "coding",
             "task_type": "guidance"
         }

@@ -67,13 +67,13 @@ The system will automatically:
 
 ```bash
 # Test query classification
-curl -X POST http://localhost:3005/api/multi-model/classify \
+curl -X POST http://localhost:3004/api/multi-model/classify \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"query": "What is 2 + 2?"}'
 
 # Test query processing
-curl -X POST http://localhost:3005/api/multi-model/query \
+curl -X POST http://localhost:3004/api/multi-model/query \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"query": "Explain photosynthesis"}'
@@ -281,11 +281,11 @@ python scripts/benchmark_models.py --subject ai
 
 ```bash
 # Quick health check
-curl http://localhost:3005/api/multi-model/health
+curl http://localhost:3004/api/multi-model/health
 
 # Detailed status
 curl -H "Authorization: Bearer $TOKEN" \
-     http://localhost:3005/api/multi-model/status
+     http://localhost:3004/api/multi-model/status
 ```
 
 ### Training Monitoring
@@ -391,7 +391,7 @@ cd server/ml_inference
 python api_server.py 2>&1 | tee ml_service.log
 
 # Check service status
-curl http://localhost:3005/api/multi-model/health
+curl http://localhost:3004/api/multi-model/health
 ```
 
 ## 🤝 Contributing

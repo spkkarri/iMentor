@@ -17,20 +17,28 @@ const { getLocalIPs } = require('./utils/networkUtils');
 const { performAssetCleanup } = require('./utils/assetCleanup');
 const File = require('./models/File');
 const serviceManager = require('./services/serviceManager');
+const { injectUserApiKeys, enforceUserApiKeys } = require('./middleware/apiKeyMiddleware');
 
 const PORT = process.env.PORT || 5007;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 if (!GEMINI_API_KEY) {
-    console.warn("⚠️  WARNING: GEMINI_API_KEY environment variable is not set.");
-    console.warn("⚠️  AI-powered features will be disabled, but the server will still run.");
-    console.warn("⚠️  To enable AI features, set GEMINI_API_KEY in your .env file.");
+    console.warn("WARNING: GEMINI_API_KEY environment variable is not set.");
+    console.warn("AI-powered features will be disabled, but the server will still run.");
+    console.warn("To enable AI features, set GEMINI_API_KEY in your .env file.");
 }
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Apply user API key middleware to all routes
+app.use('/api', injectUserApiKeys);
+
+// Optionally enforce user API keys in production
+// Uncomment the next line to require users to use their own API keys in production
+// app.use('/api', enforceUserApiKeys);
 
 const startServer = async () => {
     try {
@@ -39,10 +47,10 @@ const startServer = async () => {
         // Try to connect to MongoDB with fallback
         try {
             await connectDB(MONGO_URI);
-            console.log("✓ MongoDB connected successfully");
+            console.log("MongoDB connected successfully");
         } catch (dbError) {
-            console.warn("⚠️ MongoDB connection failed:", dbError.message);
-            console.warn("⚠️ Server will continue without database features");
+            console.warn("MongoDB connection failed:", dbError.message);
+            console.warn("Server will continue without database features");
         }
 
         await serviceManager.initialize();
@@ -54,7 +62,7 @@ const startServer = async () => {
         try {
             await performAssetCleanup();
         } catch (cleanupError) {
-            console.warn("⚠️ Asset cleanup failed:", cleanupError.message);
+            console.warn("Asset cleanup failed:", cleanupError.message);
         }
 
         app.use((req, res, next) => {
@@ -95,35 +103,35 @@ const startServer = async () => {
         const availableIPs = getLocalIPs();
         const server = app.listen(PORT, '0.0.0.0', () => {
             console.log('\n=== Server Ready ===');
-            console.log(`🚀 Server listening on port ${PORT}`);
+            console.log(`Server listening on port ${PORT}`);
             console.log('Access URLs:');
             availableIPs.forEach(ip => {
-                console.log(`   - http://${ip}:3005 (Frontend) -> Backend: http://${ip}:${PORT}`);
+                console.log(`   - http://${ip}:3004 (Frontend) -> Backend: http://${ip}:${PORT}`);
             });
             console.log('==================\n');
         });
 
         // Graceful shutdown handling
         const gracefulShutdown = async (signal) => {
-            console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+            console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
 
             server.close(async () => {
-                console.log('📡 HTTP server closed');
+                console.log('HTTP server closed');
 
                 try {
                     await serviceManager.cleanup();
-                    console.log('🧹 Services cleaned up');
+                    console.log('Services cleaned up');
 
                     // Only close MongoDB if it's connected
                     if (mongoose.connection.readyState === 1) {
                         await mongoose.connection.close();
-                        console.log('🗄️ Database connection closed');
+                        console.log('Database connection closed');
                     }
 
-                    console.log('✅ Graceful shutdown completed');
+                    console.log('Graceful shutdown completed');
                     process.exit(0);
                 } catch (error) {
-                    console.error('❌ Error during shutdown:', error);
+                    console.error('Error during shutdown:', error);
                     process.exit(1);
                 }
             });

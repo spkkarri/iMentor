@@ -38,6 +38,7 @@ import DSAWidget from './DSAWidget';
 import MediaRenderer from './MediaRenderer';
 import ModelSwitcher from './ModelSwitcher';
 import MindMap from './MindMap';
+import ApiKeyManager from './ApiKeyManager';
 import { ToastContainer, useToast } from './Toast';
 import useNetworkStatus from '../hooks/useNetworkStatus';
 
@@ -72,6 +73,7 @@ const ChatPage = () => {
     });
     const [activeTab, setActiveTab] = useState('upload');
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+    const [showApiKeyManager, setShowApiKeyManager] = useState(false);
 
     // RAG and search state
     const [isRagEnabled, setIsRagEnabled] = useState(false);
@@ -836,8 +838,21 @@ Thank you for using TutorAI!`;
                                 <h4 className="settings-section-title">API Configuration</h4>
                                 <div className="setting-item">
                                     <label>API Keys Setup</label>
-                                    <button className="config-btn">Configure API Keys</button>
+                                    <button
+                                        className="config-btn"
+                                        onClick={() => setShowApiKeyManager(!showApiKeyManager)}
+                                    >
+                                        {showApiKeyManager ? 'Hide' : 'Configure'} API Keys
+                                    </button>
                                 </div>
+                                {showApiKeyManager && (
+                                    <div className="api-key-manager-container">
+                                        <ApiKeyManager
+                                            userId={userId}
+                                            isSidebarOpen={isSidebarOpen}
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             {/* Theme Section */}

@@ -192,6 +192,16 @@
   color: var(--text-secondary);
   margin-bottom: 12px;
   text-transform: uppercase;
+}
+
+/* API Key Manager Container */
+.api-key-manager-container {
+  margin-top: 15px;
+  padding: 15px;
+  background: var(--primary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-small);
+}
   letter-spacing: 0.5px;
 }
 

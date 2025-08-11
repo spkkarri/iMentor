@@ -121,7 +121,7 @@ router.get('/quota-status', tempAuth, (req, res) => {
 // Reload DeepSearch configuration endpoint
 router.post('/reload-deepsearch-config', tempAuth, async (req, res) => {
     try {
-        console.log('🔄 Reloading DeepSearch configuration...');
+        console.log('Reloading DeepSearch configuration...');
 
         // Get the service manager
         const serviceManager = req.serviceManager;
@@ -159,7 +159,7 @@ router.post('/reload-deepsearch-config', tempAuth, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Failed to reload DeepSearch configuration:', error);
+        console.error('Failed to reload DeepSearch configuration:', error);
         res.status(500).json({
             success: false,
             error: error.message,

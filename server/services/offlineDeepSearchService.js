@@ -17,7 +17,7 @@ class OfflineDeepSearchService {
     async initialize() {
         await this.loadKnowledgeBase();
         this.setupSearchPatterns();
-        console.log('🔍 Offline Deep Search Service initialized');
+        console.log('Offline Deep Search Service initialized');
     }
 
     async loadKnowledgeBase() {
@@ -135,7 +135,7 @@ class OfflineDeepSearchService {
     }
 
     async performSearch(query, history = []) {
-        console.log(`🔍 Offline deep search for: "${query}"`);
+        console.log(`Offline deep search for: "${query}"`);
         
         const classification = this.classifyQuery(query);
         const context = this.extractContext(history);

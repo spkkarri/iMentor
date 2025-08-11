@@ -23,14 +23,14 @@ class QuotaMonitor {
                 // Check if we need to reset (new day)
                 const today = new Date().toDateString();
                 if (data.date !== today) {
-                    console.log('📅 New day detected, resetting quota usage');
+                    console.log('New day detected, resetting quota usage');
                     return this.createNewUsageData();
                 }
                 
                 return data;
             }
         } catch (error) {
-            console.warn('⚠️ Error loading quota usage data:', error.message);
+            console.warn('Error loading quota usage data:', error.message);
         }
         
         return this.createNewUsageData();
@@ -73,7 +73,7 @@ class QuotaMonitor {
             
             fs.writeFileSync(this.quotaFile, JSON.stringify(this.usage, null, 2));
         } catch (error) {
-            console.error('❌ Error saving quota usage data:', error.message);
+            console.error('Error saving quota usage data:', error.message);
         }
     }
 
@@ -106,14 +106,14 @@ class QuotaMonitor {
         // Check if we've hit the limit
         if (this.usage.requests >= this.dailyLimit) {
             this.usage.quotaExceeded = true;
-            console.warn(`🚫 Daily quota limit reached: ${this.usage.requests}/${this.dailyLimit}`);
+            console.warn(`Daily quota limit reached: ${this.usage.requests}/${this.dailyLimit}`);
         }
         
         this.saveUsage();
         
         // Log usage every 10 requests
         if (this.usage.requests % 10 === 0) {
-            console.log(`📊 API Usage: ${this.usage.requests}/${this.dailyLimit} requests today`);
+            console.log(`API Usage: ${this.usage.requests}/${this.dailyLimit} requests today`);
         }
     }
 
@@ -157,7 +157,7 @@ class QuotaMonitor {
      * Force reset quota (for testing or manual reset)
      */
     forceReset() {
-        console.log('🔄 Manually resetting quota usage');
+        console.log('Manually resetting quota usage');
         this.usage = this.createNewUsageData();
         this.saveUsage();
     }

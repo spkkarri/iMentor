@@ -8,6 +8,7 @@ const RealTimeDeepSearch = require('../services/realTimeDeepSearch');
 const userServiceManager = require('../services/userServiceManager');
 const IntelligentMultiLLM = require('../services/intelligentMultiLLM');
 const userSpecificAI = require('../services/userSpecificAI');
+const userAwareServiceFactory = require('../services/userAwareServiceFactory');
 const GroqAI = require('../services/groqAI');
 const TogetherAI = require('../services/togetherAI');
 const CohereAI = require('../services/cohereAI');
@@ -736,10 +737,11 @@ const handleStandardMessage = async (req, res) => {
 
             // Route to appropriate service based on selected model
             if (selectedModel.startsWith('gemini-') || selectedModel === 'gemini-pro') {
-                // Use user-specific Gemini service
-                const userServices = await userSpecificAI.getUserAIServices(userId);
-                if (userServices.gemini) {
-                    aiResponse = await userServices.gemini.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+                // Use user-aware Gemini service with user's API key
+                const geminiService = await userAwareServiceFactory.getAIService(userId, 'gemini', req.userApiConfig);
+                if (geminiService) {
+                    aiResponse = await geminiService.generateChatResponse(query, [], aiHistory, session.systemPrompt);
+                    console.log(`Using ${req.userApiConfig?.useUserKeys ? 'user' : 'admin'} Gemini API key for user ${userId}`);
                 } else {
                     // Fallback to standard user AI
                     const standardUserAI = await userServiceManager.getUserAIService(userId);
@@ -780,25 +782,45 @@ const handleStandardMessage = async (req, res) => {
                     });
                 }
             } else if (selectedModel.startsWith('groq-')) {
-                // Use Groq service
-                const groqAI = new GroqAI();
-                const response = await groqAI.generateText(query);
-                aiResponse = { response, followUpQuestions: [] };
+                // Use user-aware Groq service
+                const groqAI = await userAwareServiceFactory.getAIService(userId, 'groq', req.userApiConfig);
+                if (groqAI) {
+                    const response = await groqAI.generateText(query);
+                    aiResponse = { response, followUpQuestions: [] };
+                    console.log(`Using ${req.userApiConfig?.useUserKeys ? 'user' : 'admin'} Groq API key for user ${userId}`);
+                } else {
+                    throw new Error('Groq service not available');
+                }
             } else if (selectedModel.startsWith('together-')) {
-                // Use Together AI service
-                const togetherAI = new TogetherAI();
-                const response = await togetherAI.generateText(query);
-                aiResponse = { response, followUpQuestions: [] };
+                // Use user-aware Together AI service
+                const togetherAI = await userAwareServiceFactory.getAIService(userId, 'together', req.userApiConfig);
+                if (togetherAI) {
+                    const response = await togetherAI.generateText(query);
+                    aiResponse = { response, followUpQuestions: [] };
+                    console.log(`Using ${req.userApiConfig?.useUserKeys ? 'user' : 'admin'} Together API key for user ${userId}`);
+                } else {
+                    throw new Error('Together AI service not available');
+                }
             } else if (selectedModel.startsWith('cohere-')) {
-                // Use Cohere service
-                const cohereAI = new CohereAI();
-                const response = await cohereAI.generateText(query);
-                aiResponse = { response, followUpQuestions: [] };
+                // Use user-aware Cohere service
+                const cohereAI = await userAwareServiceFactory.getAIService(userId, 'cohere', req.userApiConfig);
+                if (cohereAI) {
+                    const response = await cohereAI.generateText(query);
+                    aiResponse = { response, followUpQuestions: [] };
+                    console.log(`Using ${req.userApiConfig?.useUserKeys ? 'user' : 'admin'} Cohere API key for user ${userId}`);
+                } else {
+                    throw new Error('Cohere service not available');
+                }
             } else if (selectedModel.startsWith('hf-')) {
-                // Use HuggingFace service
-                const hfAI = new HuggingFaceAI();
-                const response = await hfAI.generateText(query);
-                aiResponse = { response, followUpQuestions: [] };
+                // Use user-aware HuggingFace service
+                const hfAI = await userAwareServiceFactory.getAIService(userId, 'huggingface', req.userApiConfig);
+                if (hfAI) {
+                    const response = await hfAI.generateText(query);
+                    aiResponse = { response, followUpQuestions: [] };
+                    console.log(`Using ${req.userApiConfig?.useUserKeys ? 'user' : 'admin'} HuggingFace API key for user ${userId}`);
+                } else {
+                    throw new Error('HuggingFace service not available');
+                }
             } else if (selectedModel.startsWith('ollama-')) {
                 // Use user's Ollama service
                 const userServices = await userSpecificAI.getUserAIServices(userId);

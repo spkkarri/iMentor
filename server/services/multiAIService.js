@@ -19,7 +19,7 @@ class MultiAIService {
     }
 
     async initialize() {
-        console.log('🤖 Initializing Multi-AI Service...');
+        console.log('Initializing Multi-AI Service...');
         
         // Initialize all AI services (prioritize working APIs with keys)
         try {
@@ -34,13 +34,13 @@ class MultiAIService {
             // Sort by priority (lower number = higher priority)
             this.services.sort((a, b) => a.priority - b.priority);
             
-            console.log('✅ Multi-AI Service initialized with services:');
+            console.log('Multi-AI Service initialized with services:');
             this.services.forEach((s, i) => {
                 console.log(`   ${i + 1}. ${s.name} (Priority: ${s.priority})`);
             });
             
         } catch (error) {
-            console.error('❌ Failed to initialize Multi-AI Service:', error);
+            console.error('Failed to initialize Multi-AI Service:', error);
         }
     }
 
@@ -51,7 +51,7 @@ class MultiAIService {
     switchToNextService() {
         this.currentServiceIndex = (this.currentServiceIndex + 1) % this.services.length;
         const current = this.getCurrentService();
-        console.log(`🔄 Switched to AI service: ${current.name}`);
+        console.log(`Switched to AI service: ${current.name}`);
         return current;
     }
 
@@ -69,13 +69,13 @@ class MultiAIService {
             const current = this.getCurrentService();
             
             try {
-                console.log(`🧠 Trying ${current.name} AI (attempt ${attempts + 1}/${maxAttempts})`);
+                console.log(`Trying ${current.name} AI (attempt ${attempts + 1}/${maxAttempts})`);
                 
                 const result = await current.service.generateText(prompt, maxTokens);
                 
                 if (result && result.trim().length > 0) {
                     this.totalRequests++; // Track total requests across all services
-                    console.log(`✅ Success with ${current.name} AI (${this.totalRequests}/50 requests used)`);
+                    console.log(`Success with ${current.name} AI (${this.totalRequests}/50 requests used)`);
                     return {
                         text: result,
                         service: current.name,
@@ -87,7 +87,7 @@ class MultiAIService {
                 throw new Error('Empty response');
                 
             } catch (error) {
-                console.warn(`⚠️ ${current.name} AI failed: ${error.message}`);
+                console.warn(`${current.name} AI failed: ${error.message}`);
                 lastError = error;
                 
                 // Switch to next service
@@ -100,7 +100,7 @@ class MultiAIService {
         }
 
         // All services failed
-        console.error('❌ All AI services failed');
+        console.error('All AI services failed');
         throw new Error(`All AI services failed. Last error: ${lastError?.message}`);
     }
 
@@ -125,7 +125,7 @@ class MultiAIService {
             };
             
         } catch (error) {
-            console.error('❌ Multi-AI generation failed:', error);
+            console.error('Multi-AI generation failed:', error);
             throw error;
         }
     }
@@ -154,7 +154,7 @@ class MultiAIService {
     }
 
     resetAllServices() {
-        console.log('🔄 Resetting all AI services...');
+        console.log('Resetting all AI services...');
         
         this.services.forEach(s => {
             if (s.service.reset) {
@@ -163,11 +163,11 @@ class MultiAIService {
         });
         
         this.currentServiceIndex = 0;
-        console.log('✅ All AI services reset');
+        console.log('All AI services reset');
     }
 
     async healthCheck() {
-        console.log('🏥 Performing AI services health check...');
+        console.log('Performing AI services health check...');
         
         const results = [];
         
@@ -186,7 +186,7 @@ class MultiAIService {
                     response: result?.substring(0, 50) || 'No response'
                 });
                 
-                console.log(`✅ ${s.name}: Healthy (${responseTime}ms)`);
+                console.log(`${s.name}: Healthy (${responseTime}ms)`);
                 
             } catch (error) {
                 results.push({
@@ -195,13 +195,13 @@ class MultiAIService {
                     error: error.message
                 });
                 
-                console.log(`❌ ${s.name}: Unhealthy - ${error.message}`);
+                console.log(`${s.name}: Unhealthy - ${error.message}`);
             }
         }
         
         const healthyCount = results.filter(r => r.status === 'healthy').length;
         
-        console.log(`🏥 Health check complete: ${healthyCount}/${this.services.length} services healthy`);
+        console.log(`Health check complete: ${healthyCount}/${this.services.length} services healthy`);
         
         return {
             overall: healthyCount > 0 ? 'healthy' : 'unhealthy',

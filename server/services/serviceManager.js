@@ -44,7 +44,7 @@ class ServiceManager {
     this.personalizationService = personalizationService;
 
     // Initialize metrics collector
-    console.log('📊 Initializing Metrics Collector...');
+    console.log('Initializing Metrics Collector...');
     this.metricsCollector = new MetricsCollector({
       logDirectory: require('path').join(__dirname, '..', 'logs'),
       metricsInterval: 60000, // 1 minute
@@ -54,18 +54,18 @@ class ServiceManager {
     // Initialize multi-model service if enhanced search is enabled
     if (this.useEnhancedSearch) {
       try {
-        console.log('🤖 Initializing Multi-Model Service...');
+        console.log('Initializing Multi-Model Service...');
         this.multiModelService = new MultiModelService();
         await this.multiModelService.initialize();
-        console.log('✅ Multi-Model Service initialized successfully');
+        console.log('Multi-Model Service initialized successfully');
       } catch (error) {
-        console.warn('⚠️ Failed to initialize Multi-Model Service:', error.message);
+        console.warn('Failed to initialize Multi-Model Service:', error.message);
         console.warn('Falling back to standard search functionality');
         this.useEnhancedSearch = false;
       }
     }
 
-    console.log('✅ All services initialized successfully.');
+    console.log('All services initialized successfully.');
   }
 
   getDeepSearchService(userId) {
@@ -96,7 +96,7 @@ class ServiceManager {
 
           const enhancedService = new EnhancedDeepSearchService(userId, this.geminiAI, this.duckDuckGo);
           this.enhancedDeepSearchServices.set(userId, enhancedService);
-          console.log(`✅ Created Enhanced DeepSearchService for user: ${userId}`);
+          console.log(`Created Enhanced DeepSearchService for user: ${userId}`);
         }
         return this.enhancedDeepSearchServices.get(userId);
       } else {
@@ -116,7 +116,7 @@ class ServiceManager {
 
           const deepSearchService = new DeepSearchService(userId, this.geminiAI, this.duckDuckGo);
           this.deepSearchServices.set(userId, deepSearchService);
-          console.log(`✅ Created Standard DeepSearchService for user: ${userId}`);
+          console.log(`Created Standard DeepSearchService for user: ${userId}`);
         }
         return this.deepSearchServices.get(userId);
       }
@@ -176,7 +176,7 @@ class ServiceManager {
    * Cleanup all services
    */
   async cleanup() {
-    console.log('🧹 Cleaning up ServiceManager...');
+    console.log('Cleaning up ServiceManager...');
 
     // Cleanup enhanced deep search services
     for (const [userId, service] of this.enhancedDeepSearchServices) {
@@ -211,7 +211,7 @@ class ServiceManager {
       }
     }
 
-    console.log('✅ ServiceManager cleanup completed');
+    console.log('ServiceManager cleanup completed');
   }
 }
 

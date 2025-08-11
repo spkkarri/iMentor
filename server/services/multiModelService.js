@@ -28,7 +28,7 @@ class MultiModelService extends EventEmitter {
         this.requestQueue = [];
         this.isProcessingQueue = false;
         
-        console.log('🤖 MultiModelService initialized');
+        console.log('MultiModelService initialized');
     }
 
     /**
@@ -50,20 +50,20 @@ class MultiModelService extends EventEmitter {
         }
 
         try {
-            console.log('🚀 Starting MultiModelService...');
+            console.log('Starting MultiModelService...');
 
             // Temporarily skip Python service due to health check issues
             // The JavaScript-based classification is working perfectly
-            console.log('⚠️ Python service temporarily disabled - using JavaScript fallback');
-            console.log('✅ Multi-model classification available via JavaScript implementation');
+            console.log('Python service temporarily disabled - using JavaScript fallback');
+            console.log('Multi-model classification available via JavaScript implementation');
 
             this.isInitialized = true;
-            console.log('✅ MultiModelService initialized successfully (JavaScript mode)');
+            console.log('MultiModelService initialized successfully (JavaScript mode)');
 
             return true;
             
         } catch (error) {
-            console.error('❌ Failed to initialize MultiModelService:', error);
+            console.error('Failed to initialize MultiModelService:', error);
             return false;
         }
     }
@@ -77,11 +77,11 @@ class MultiModelService extends EventEmitter {
             
             // Check if the API server script exists
             if (!fs.existsSync(pythonScript)) {
-                console.log('📝 Creating Python API server...');
+                console.log('Creating Python API server...');
                 this.createPythonApiServer();
             }
 
-            console.log('🐍 Starting Python model service...');
+            console.log('Starting Python model service...');
             
             this.pythonProcess = spawn('python', [pythonScript, '--port', this.modelServicePort], {
                 cwd: path.join(__dirname, '..', 'ml_inference'),
@@ -286,7 +286,7 @@ if __name__ == "__main__":
 
         const apiServerPath = path.join(__dirname, '..', 'ml_inference', 'api_server.py');
         fs.writeFileSync(apiServerPath, apiServerCode);
-        console.log('📝 Created Python API server');
+        console.log('Created Python API server');
     }
 
     /**
@@ -300,7 +300,7 @@ if __name__ == "__main__":
                 const response = await this.makeRequest('/health');
                 if (response.status === 'healthy') {
                     this.serviceStatus.running = true;
-                    console.log('✅ Python service is ready');
+                    console.log('Python service is ready');
                     return true;
                 }
             } catch (error) {
@@ -459,7 +459,7 @@ if __name__ == "__main__":
      * Shutdown the service
      */
     async shutdown() {
-        console.log('🛑 Shutting down MultiModelService...');
+        console.log('Shutting down MultiModelService...');
         
         if (this.pythonProcess) {
             this.pythonProcess.kill('SIGTERM');
@@ -474,7 +474,7 @@ if __name__ == "__main__":
         this.isInitialized = false;
         this.serviceStatus.running = false;
         
-        console.log('✅ MultiModelService shutdown complete');
+        console.log('MultiModelService shutdown complete');
     }
 
     /**

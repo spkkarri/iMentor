@@ -15,7 +15,7 @@ const getUserApiKeys = async (req, res) => {
             // Create default configuration for new user
             userApiKeys = new UserApiKeys({
                 userId: userId,
-                email: req.user.email,
+                email: req.user.email || `${req.user.username}@example.com`, // Fallback email
                 useAdminKeys: true,
                 preferredService: 'admin',
                 adminAccessStatus: 'pending'
@@ -66,7 +66,7 @@ const updateUserApiKeys = async (req, res) => {
         if (!userApiKeys) {
             userApiKeys = new UserApiKeys({
                 userId: userId,
-                email: req.user.email
+                email: req.user.email || `${req.user.username}@example.com` // Fallback email
             });
         }
         

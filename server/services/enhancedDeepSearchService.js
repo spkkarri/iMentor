@@ -37,7 +37,7 @@ class EnhancedDeepSearchService extends DeepSearchService {
         // Initialize multi-model service asynchronously
         this.initializeMultiModel();
         
-        console.log('🔍 Enhanced Deep Search Service initialized');
+        console.log('Enhanced Deep Search Service initialized');
     }
 
     /**
@@ -47,9 +47,9 @@ class EnhancedDeepSearchService extends DeepSearchService {
         try {
             this.multiModelInitialized = await this.multiModelService.initialize();
             if (this.multiModelInitialized) {
-                console.log('✅ Multi-model service integrated with deep search');
+                console.log('Multi-model service integrated with deep search');
             } else {
-                console.log('⚠️ Multi-model service not available, using standard deep search');
+                console.log('Multi-model service not available, using standard deep search');
             }
         } catch (error) {
             console.error('Failed to initialize multi-model service:', error);
@@ -181,11 +181,11 @@ class EnhancedDeepSearchService extends DeepSearchService {
      */
     async performSearch(query, history = []) {
         try {
-            console.log(`🔍 Enhanced deep search for: "${query}"`);
-            
+            console.log(`Enhanced deep search for: "${query}"`);
+
             // Classify the query
             const classification = this.classifyQuery(query);
-            console.log(`📊 Query classified as: ${classification.subject} (confidence: ${classification.confidence.toFixed(2)})`);
+            console.log(`Query classified as: ${classification.subject} (confidence: ${classification.confidence.toFixed(2)})`);
             
             // Decide whether to use multi-model or standard approach
             const useMultiModel = this.shouldUseMultiModel(classification, query);
@@ -233,7 +233,7 @@ class EnhancedDeepSearchService extends DeepSearchService {
      * Perform search using multi-model approach
      */
     async performMultiModelSearch(query, history, classification) {
-        console.log(`🤖 Using multi-model approach for ${classification.subject}`);
+        console.log(`Using multi-model approach for ${classification.subject}`);
         
         try {
             // First, try to get a direct response from the specialized model
@@ -245,7 +245,7 @@ class EnhancedDeepSearchService extends DeepSearchService {
             
             // If the specialized model provides a good response, use it
             if (multiModelResult && multiModelResult.metadata.confidence > 0.7) {
-                console.log(`✅ High-confidence response from ${multiModelResult.metadata.model_used}`);
+                console.log(`High-confidence response from ${multiModelResult.metadata.model_used}`);
                 
                 return {
                     summary: multiModelResult.message,
@@ -263,21 +263,21 @@ class EnhancedDeepSearchService extends DeepSearchService {
             }
             
             // If confidence is low, enhance with web search
-            console.log(`🔍 Enhancing with web search due to low confidence`);
+            console.log(`Enhancing with web search due to low confidence`);
             return await this.performHybridSearch(query, history, classification, multiModelResult);
             
         } catch (error) {
             console.error('Multi-model search error:', error);
             // Enhanced fallback chain: Multi-AI → Standard → Offline
-            console.log('🤖 Trying Multi-AI service first...');
+            console.log('Trying Multi-AI service first...');
             try {
                 return await this.performMultiAISearch(query, history);
             } catch (multiAIError) {
-                console.error('🔄 Multi-AI search failed, trying standard search:', multiAIError);
+                console.error('Multi-AI search failed, trying standard search:', multiAIError);
                 try {
                     return await this.performStandardSearch(query, history);
                 } catch (standardError) {
-                    console.error('🔄 Standard search also failed, using offline deep search:', standardError);
+                    console.error('Standard search also failed, using offline deep search:', standardError);
                     return await this.performOfflineDeepSearch(query, history);
                 }
             }
@@ -288,7 +288,7 @@ class EnhancedDeepSearchService extends DeepSearchService {
      * Perform hybrid search combining web search with specialized models
      */
     async performHybridSearch(query, history, classification, initialResult) {
-        console.log('🔄 Performing hybrid search (web + specialized model)');
+        console.log('Performing hybrid search (web + specialized model)');
         
         // Perform standard web search first
         const webSearchResult = await super.performSearch(query, history);
@@ -343,7 +343,7 @@ class EnhancedDeepSearchService extends DeepSearchService {
      * Perform multi-AI search (primary fallback)
      */
     async performMultiAISearch(query, history) {
-        console.log('🤖 Using multi-AI search');
+        console.log('Using multi-AI search');
         try {
             // Build context from history
             const context = this.buildContextFromHistory(history);
@@ -387,7 +387,7 @@ class EnhancedDeepSearchService extends DeepSearchService {
      * Perform standard search (fallback)
      */
     async performStandardSearch(query, history) {
-        console.log('🔍 Using standard deep search');
+        console.log('Using standard deep search');
         try {
             const result = await super.performSearch(query, history);
 
@@ -419,7 +419,7 @@ class EnhancedDeepSearchService extends DeepSearchService {
      * Perform offline deep search (ultimate fallback)
      */
     async performOfflineDeepSearch(query, history) {
-        console.log('🔍 Using offline deep search (ultimate fallback)');
+        console.log('Using offline deep search (ultimate fallback)');
         try {
             const result = await this.offlineDeepSearch.performSearch(query, history);
 
@@ -590,7 +590,7 @@ Thank you for understanding! 🙏`,
      * Shutdown the enhanced service
      */
     async shutdown() {
-        console.log('🛑 Shutting down Enhanced Deep Search Service');
+        console.log('Shutting down Enhanced Deep Search Service');
         
         if (this.multiModelService) {
             await this.multiModelService.shutdown();
@@ -629,7 +629,7 @@ Thank you for understanding! 🙏`,
                     correct: isCorrect
                 });
                 
-                console.log(`Test: "${test.query}" -> ${classification.subject} (${isCorrect ? '✅' : '❌'})`);
+                console.log(`Test: "${test.query}" -> ${classification.subject} (${isCorrect ? 'PASS' : 'FAIL'})`);
                 
             } catch (error) {
                 results.push({
@@ -649,7 +649,7 @@ Thank you for understanding! 🙏`,
      * Generate offline fallback when all services fail
      */
     generateOfflineFallback(query, classification) {
-        console.log('🔄 Generating offline fallback response...');
+        console.log('Generating offline fallback response...');
 
         const subject = classification.subject;
         let response = '';

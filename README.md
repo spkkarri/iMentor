@@ -151,24 +151,3 @@ npm start
 | API key errors | Verify keys in `.env` file |
 | Build failures | Run `npm install` and check Node.js version (18+) |
 
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request to Team-4 branch
-
-## 📞 Support
-
-- 🐛 **Issues**: [GitHub Issues](https://github.com/spkkarri/iMentor/issues)
-- 💬 **Repository**: [iMentor Team-4](https://github.com/spkkarri/iMentor/tree/Team-4)
-- 📧 **Contact**: Team-4 Development Team
-
----
-
-**Made with ❤️ by the iMentor Team-4**

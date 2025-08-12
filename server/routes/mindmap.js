@@ -6,6 +6,7 @@ const fs = require('fs').promises;
 const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
 const MindMapGenerator = require('../services/mindMapGenerator');
+const universalAI = require('../services/universalAIService');
 
 // @route   POST /api/mindmap/generate
 // @desc    Generate a mind map from a file
@@ -50,7 +51,13 @@ router.post('/generate', tempAuth, async (req, res) => {
 
         try {
             console.log('[MindMap] Attempting AI generation...');
-            mermaidData = await geminiAI.generateMindMapFromTranscript(fileContent, file.originalname);
+
+            // Get selected model from request
+            const selectedModel = req.body.selectedModel || 'gemini-flash';
+            const userId = req.headers['x-user-id'] || req.user?.id;
+            console.log(`[MindMap] Using model: ${selectedModel} for user: ${userId}`);
+
+            mermaidData = await universalAI.generateMindMapFromTranscript(fileContent, file.originalname, selectedModel, userId);
             console.log('[MindMap] AI generation successful');
         } catch (aiError) {
             console.warn('[MindMap] AI generation failed, using fallback:', aiError.message);

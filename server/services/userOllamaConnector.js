@@ -25,7 +25,7 @@ class UserOllamaConnector {
                 throw new Error('User not found');
             }
 
-            const ollamaUrl = user.ollamaUrl || 'http://localhost:11434';
+            const ollamaUrl = user.ollamaUrl || process.env.OLLAMA_URL || 'http://localhost:11434';
             console.log(`🦙 Creating Ollama connector for user ${userId} with URL: ${ollamaUrl}`);
 
             // Create new connector with user's URL
@@ -45,13 +45,13 @@ class UserOllamaConnector {
         } catch (error) {
             console.error(`Failed to get Ollama connector for user ${userId}:`, error.message);
             
-            // Fallback to default localhost connector
-            const fallbackConnector = new OllamaConnector('http://localhost:11434');
+            // Fallback to default connector using .env URL
+            const fallbackConnector = new OllamaConnector(process.env.OLLAMA_URL || 'http://localhost:11434');
             try {
                 await fallbackConnector.initialize();
                 return {
                     connector: fallbackConnector,
-                    url: 'http://localhost:11434',
+                    url: process.env.OLLAMA_URL || 'http://localhost:11434',
                     lastUsed: Date.now(),
                     userId: userId,
                     isFallback: true

@@ -176,10 +176,7 @@ const ModelSwitcher = ({
         }
     };
 
-    // Get current model info
-    const currentModel = models.find(m => m.id === selectedModel) || models[0];
-    const typeInfo = getModelTypeInfo(currentModel?.type);
-    const statusInfo = getStatusInfo(currentModel?.status);
+
 
     return (
         <Box sx={{ mb: 2 }}>
@@ -265,53 +262,7 @@ const ModelSwitcher = ({
                 </Select>
             </FormControl>
 
-            {/* Current Model Details */}
-            {isSidebarOpen && currentModel && (
-                <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                    {/* Model Header */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Box sx={{ color: typeInfo.color }}>
-                            {currentModel.icon || typeInfo.icon}
-                        </Box>
-                        <Typography variant="body2" sx={{ fontWeight: 600, flexGrow: 1 }}>
-                            {currentModel.name}
-                        </Typography>
-                        <Box sx={{ color: statusInfo.color }}>
-                            {statusInfo.icon}
-                        </Box>
-                    </Box>
 
-                    {/* Description */}
-                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
-                        {currentModel.description}
-                    </Typography>
-
-                    {/* Specialties */}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {currentModel.specialties?.slice(0, 3).map((specialty, index) => (
-                            <Chip
-                                key={index}
-                                label={specialty}
-                                size="small"
-                                variant="outlined"
-                                sx={{ 
-                                    fontSize: '0.65rem', 
-                                    height: 20,
-                                    borderColor: typeInfo.color,
-                                    color: typeInfo.color
-                                }}
-                            />
-                        ))}
-                    </Box>
-
-                    {/* Additional Info */}
-                    {currentModel.size && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                            Size: {currentModel.size}
-                        </Typography>
-                    )}
-                </Box>
-            )}
 
             {/* Model Count */}
             {isSidebarOpen && (

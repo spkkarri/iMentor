@@ -21,7 +21,7 @@ import {
     Chip,
     Link
 } from '@mui/material';
-import { updateUserApiKeys, testUserServices, requestAdminAccess } from '../services/api';
+import { updateUserApiKeys, testUserServices, requestAdminAccess, clearUserServiceCache } from '../services/api';
 
 const ApiKeySetupPage = ({ setIsAuthenticated }) => {
     const [activeStep, setActiveStep] = useState(0);
@@ -66,10 +66,19 @@ const ApiKeySetupPage = ({ setIsAuthenticated }) => {
                 useAdminKeys: useAdminKeys
             });
 
+            // 🔥 Clear service cache to ensure new API key is used
+            console.log('🗑️ Clearing service cache after API key update...');
+            try {
+                await clearUserServiceCache();
+                console.log('✅ Service cache cleared successfully');
+            } catch (cacheError) {
+                console.warn('⚠️ Failed to clear cache, but continuing:', cacheError);
+            }
+
             // Then test the services
             const response = await testUserServices();
             setTestResults(response.data);
-            setSuccess('Configuration saved and tested successfully!');
+            setSuccess('Configuration saved, cache cleared, and tested successfully!');
         } catch (err) {
             console.error('Error testing services:', err);
             setError(err.response?.data?.message || 'Failed to test services');

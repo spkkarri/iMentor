@@ -3,24 +3,43 @@
 
 const { GeminiAI } = require('./geminiAI');
 const GeminiService = require('./geminiService');
+const userSpecificAI = require('./userSpecificAI');
 
 class SimplePodcastGenerator {
-    constructor() {
-        this.geminiAI = null;
+    constructor(selectedModel = 'gemini-flash', userId = null) {
+        this.selectedModel = selectedModel;
+        this.userId = userId;
+        this.aiService = null;
     }
 
     /**
-     * Initialize Gemini AI service
+     * Initialize AI service based on selected model
      */
     async initialize() {
-        if (!this.geminiAI) {
+        if (!this.aiService) {
             try {
-                const geminiService = new GeminiService();
-                await geminiService.initialize();
-                this.geminiAI = new GeminiAI(geminiService);
-                console.log('🎙️ SimplePodcastGenerator initialized with Gemini AI');
+                if (this.selectedModel.startsWith('ollama-') || this.selectedModel === 'llama-model') {
+                    // Use Ollama service
+                    console.log(`🎙️ SimplePodcastGenerator initializing with Ollama model: ${this.selectedModel}`);
+                    if (this.userId) {
+                        const userServices = await userSpecificAI.getUserAIServices(this.userId);
+                        this.aiService = userServices.ollama;
+                        if (!this.aiService) {
+                            throw new Error('Ollama service not available for user');
+                        }
+                    } else {
+                        throw new Error('User ID required for Ollama service');
+                    }
+                } else {
+                    // Default to Gemini
+                    console.log(`🎙️ SimplePodcastGenerator initializing with Gemini model: ${this.selectedModel}`);
+                    const geminiService = new GeminiService();
+                    await geminiService.initialize();
+                    this.aiService = new GeminiAI(geminiService);
+                }
+                console.log(`🎙️ SimplePodcastGenerator initialized with ${this.selectedModel}`);
             } catch (error) {
-                console.error('Failed to initialize Gemini AI for podcast generation:', error);
+                console.error('Failed to initialize AI service for podcast generation:', error);
                 throw error;
             }
         }

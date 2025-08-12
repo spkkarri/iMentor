@@ -1,10 +1,10 @@
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const { handleGeminiError, handleRAGError } = require('../utils/errorUtils');
 
-// Using Gemini 1.5 Flash for reliable performance:
-// - Stable and widely available
-// - Good rate limits
-// - Reliable response generation
+// Using Gemini 1.5 Flash for lower quota usage:
+// - Uses less quota than Pro model
+// - Faster responses
+// - Better for free tier limits
 const MODEL_NAME = "gemini-1.5-flash";
 
 const baseGenerationConfig = {

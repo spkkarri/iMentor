@@ -29,7 +29,7 @@ const UserSchema = new mongoose.Schema({
     // --- Ollama Configuration ---
     ollamaUrl: {
         type: String,
-        default: 'http://localhost:11434',
+        default: process.env.OLLAMA_URL || 'http://localhost:11434',
         trim: true,
         validate: {
             validator: function(v) {

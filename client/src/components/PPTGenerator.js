@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { generatePPT, generateReport } from '../services/api';
+import useSelectedModel from '../hooks/useSelectedModel';
 import './ChatPage.css';
 
 
@@ -8,6 +9,7 @@ const PPTGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [option, setOption] = useState('choose');
+  const { selectedModel } = useSelectedModel();
 
   const handleGenerate = async () => {
     if (!title.trim()) {
@@ -28,10 +30,11 @@ const PPTGenerator = () => {
         return;
       }
       let response;
+      console.log(`🎯 Generating ${option} using model: ${selectedModel}`);
       if (option === 'ppt') {
-        response = await generatePPT(title);
+        response = await generatePPT(title, selectedModel);
       } else if (option === 'report') {
-        response = await generateReport(title);
+        response = await generateReport(title, selectedModel);
       }
       const blobType = option === 'ppt' ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation' : 'application/pdf';
       const fileExtension = option === 'ppt' ? 'pptx' : 'pdf';

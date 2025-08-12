@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots, FaFile } from 'react-icons/fa'; // Added FaFile for generic file icon
 import { Box, Typography, List, ListItem, ListItemText, IconButton, CircularProgress, Paper, Menu, MenuItem, Tooltip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import PPTGenerator from '../PPTGenerator'; // Assuming this is also styled with MUI
+
 
 // Make sure these imports are correct based on your project structure
 import './index.css'; // This CSS file is correctly referenced and should contain the styles
@@ -143,10 +143,7 @@ function FileManagerWidget({
                         )}
                     </Menu>
 
-                    <Box sx={{ mt: 3 }}>
-                        {/* PPTGenerator is a separate component, ensure it's imported and styled correctly */}
-                        <PPTGenerator />
-                    </Box>
+
                 </>
             )}
         </Paper>

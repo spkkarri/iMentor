@@ -7,6 +7,7 @@ const File = require('../models/File');
 const { documentProcessor } = require('../services/serviceManager');
 const SimplePodcastGenerator = require('../services/simplePodcastGenerator');
 const TextToSpeechService = require('../services/textToSpeech');
+const universalAI = require('../services/universalAIService');
 const path = require('path');
 const fs = require('fs');
 
@@ -75,13 +76,51 @@ router.post('/generate', tempAuth, async (req, res) => {
         
         console.log(`[Podcast] Generating script for "${file.originalname}"...`);
 
-        // 4. Use SimplePodcastGenerator to create the podcast script (Gemini AI only)
-        const podcastGenerator = new SimplePodcastGenerator();
+        // 4. Generate podcast script using selected model
+        const selectedModel = req.body.selectedModel || 'gemini-flash';
+        console.log(`[Podcast] Using model: ${selectedModel} for user: ${userId}`);
 
-        // Always use single-host style
+        // Generate podcast script using selected model
         let podcastResult;
         try {
-            podcastResult = await podcastGenerator.generateSingleHostPodcast(documentContent, file.originalname);
+            let script;
+
+            if (selectedModel.startsWith('ollama-') || selectedModel === 'llama-model' || selectedModel.includes('llama')) {
+                // Use Ollama for Llama models
+                console.log(`[Podcast] Using Ollama for model: ${selectedModel}`);
+                const userSpecificAI = require('../services/userSpecificAI');
+                const userServices = await userSpecificAI.getUserAIServices(userId);
+
+                if (userServices.ollama) {
+                    const prompt = `Create a natural, engaging podcast script based on this content: ${documentContent.substring(0, 2000)}...
+
+Write a single-host podcast script that introduces the topic, explains key concepts clearly, and ends with a conclusion. Write ONLY the natural monologue.`;
+
+                    const modelName = selectedModel.replace('ollama-', '').replace('_', ':').replace('llama-model', 'llama3.2:latest');
+                    const response = await userServices.ollama.generateChatResponse(prompt, modelName);
+                    script = typeof response === 'string' ? response : response.response;
+                } else {
+                    throw new Error('Ollama service not available');
+                }
+            } else {
+                // Use Gemini for other models
+                console.log(`[Podcast] Using Gemini for model: ${selectedModel}`);
+                const podcastGenerator = new SimplePodcastGenerator();
+                await podcastGenerator.initialize();
+                const result = await podcastGenerator.generateSingleHostPodcast(documentContent, file.originalname);
+                script = result.script || result.podcastScript || 'Podcast generated successfully!';
+            }
+
+            // Format the result to match expected structure
+            podcastResult = {
+                success: true,
+                title: `Podcast: ${file.originalname}`,
+                script: script,
+                word_count: script.split(' ').length,
+                duration_estimate: Math.ceil(script.split(' ').length / 150) + " minutes",
+                key_points: ["Generated using " + selectedModel],
+                format: "single-host"
+            };
             console.log(`[Podcast][Debug] Podcast generation result:`, podcastResult);
         } catch (podcastError) {
             console.error(`[Podcast] Error during generation:`, podcastError);

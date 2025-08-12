@@ -104,19 +104,42 @@ const updateUserApiKeys = async (req, res) => {
         }
         
         await userApiKeys.save();
-        
+
+        // 🔥 CRITICAL: Clear all cached services for this user
+        console.log(`🗑️ Clearing cached services for user ${userId} after API key update`);
+
+        // Clear UserServiceManager cache
+        if (req.serviceManager && req.serviceManager.clearUserCache) {
+            req.serviceManager.clearUserCache(userId);
+        }
+
+        // Clear UserSpecificAI cache
+        const userSpecificAI = require('../services/userSpecificAI');
+        if (userSpecificAI && userSpecificAI.clearUserServices) {
+            userSpecificAI.clearUserServices(userId);
+        }
+
+        // Clear UserAwareServiceFactory cache
+        const userAwareServiceFactory = require('../services/userAwareServiceFactory');
+        if (userAwareServiceFactory && userAwareServiceFactory.clearUserCache) {
+            userAwareServiceFactory.clearUserCache(userId);
+        }
+
+        console.log(`✅ All service caches cleared for user ${userId}`);
+
         // Validate the new configuration
         await validateUserServices(userApiKeys);
-        
-        res.json({ 
-            message: 'API key configuration updated successfully',
+
+        res.json({
+            message: 'API key configuration updated successfully - services refreshed',
             configuration: {
                 hasGeminiKey: !!userApiKeys.geminiApiKey,
                 hasOllamaConfig: !!userApiKeys.ollamaUrl,
                 preferredService: userApiKeys.preferredService,
                 useAdminKeys: userApiKeys.useAdminKeys,
                 adminAccessStatus: userApiKeys.adminAccessStatus
-            }
+            },
+            cacheCleared: true
         });
     } catch (error) {
         console.error('Error updating user API keys:', error);

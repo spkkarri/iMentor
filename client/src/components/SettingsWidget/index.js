@@ -1,17 +1,70 @@
 // client/src/components/SettingsWidget/index.js
-import React from 'react';
+import React, { useState } from 'react';
 import SystemPromptWidget from '../SystemPromptWidget';
 import MemoryWidget from '../MemoryWidget';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography, Paper, Button, Alert, CircularProgress } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { clearUserServiceCache } from '../../services/api';
 
 const SettingsWidget = (props) => {
     const theme = useTheme();
+    const [clearingCache, setClearingCache] = useState(false);
+    const [cacheMessage, setCacheMessage] = useState('');
+
+    const handleClearCache = async () => {
+        setClearingCache(true);
+        setCacheMessage('');
+
+        try {
+            await clearUserServiceCache();
+            setCacheMessage('✅ Service cache cleared! Your updated API keys will now be used.');
+
+            // Clear message after 5 seconds
+            setTimeout(() => setCacheMessage(''), 5000);
+        } catch (error) {
+            console.error('Failed to clear cache:', error);
+            setCacheMessage('❌ Failed to clear cache. Please try again.');
+            setTimeout(() => setCacheMessage(''), 5000);
+        } finally {
+            setClearingCache(false);
+        }
+    };
+
     return (
         <Paper elevation={3} sx={{ p: 3, borderRadius: '12px', bgcolor: 'background.paper', border: `1px solid ${theme.palette.grey[200]}` }}>
             <Typography variant="h5" component="h3" sx={{ mb: 3, color: 'text.primary', fontWeight: 600, borderBottom: `1px solid ${theme.palette.grey[100]}`, pb: 1.5 }}>
                 Settings
             </Typography>
+
+            {/* Service Cache Management */}
+            <Box sx={{ mb: 3, p: 2, bgcolor: theme.palette.grey[50], borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ mb: 1, color: 'text.primary' }}>
+                    🔄 Service Cache
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                    If you've updated your API keys but the system is still using old keys, clear the service cache to force a refresh.
+                </Typography>
+
+                <Button
+                    variant="outlined"
+                    onClick={handleClearCache}
+                    disabled={clearingCache}
+                    startIcon={clearingCache ? <CircularProgress size={16} /> : null}
+                    sx={{ mb: 1 }}
+                >
+                    {clearingCache ? 'Clearing Cache...' : 'Clear Service Cache'}
+                </Button>
+
+                {cacheMessage && (
+                    <Alert
+                        severity={cacheMessage.includes('✅') ? 'success' : 'error'}
+                        sx={{ mt: 1 }}
+                    >
+                        {cacheMessage}
+                    </Alert>
+                )}
+            </Box>
+
             {/* SystemPromptWidget is already styled consistently */}
             <SystemPromptWidget {...props} />
             {/* MemoryWidget is also styled consistently */}

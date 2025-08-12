@@ -18,6 +18,7 @@ const { performAssetCleanup } = require('./utils/assetCleanup');
 const File = require('./models/File');
 const serviceManager = require('./services/serviceManager');
 const { injectUserApiKeys, enforceUserApiKeys } = require('./middleware/apiKeyMiddleware');
+const MCPWebSocketHandler = require('./mcp_system/websocket_handler');
 
 const PORT = process.env.PORT || 5007;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
@@ -94,6 +95,7 @@ const startServer = async () => {
         app.use('/api/admin', require('./routes/admin')); // Admin dashboard and user management
         app.use('/api/research', require('./routes/testResearch')); // Advanced Deep Research testing
         app.use('/api/agents', require('./routes/agents')); // MCP Agent system
+        app.use('/api/agent-monitoring', require('./routes/agentMonitoring')); // Agent monitoring and analytics
 
         // Initialize monitoring routes with metrics collector
         const monitoringRoutes = require('./routes/monitoring');
@@ -110,6 +112,10 @@ const startServer = async () => {
             });
             console.log('==================\n');
         });
+
+        // Initialize WebSocket handler for MCP agents
+        const mcpWebSocketHandler = new MCPWebSocketHandler(server);
+        console.log('🔌 MCP WebSocket handler initialized');
 
         // Graceful shutdown handling
         const gracefulShutdown = async (signal) => {

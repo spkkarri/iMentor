@@ -13,6 +13,7 @@ const GeminiService = require('../services/geminiService');
 const { GeminiAI } = require('../services/geminiAI');
 const DuckDuckGoService = require('../utils/duckduckgo');
 const DeepSearchService = require('../deep_search/services/deepSearchService');
+const universalAI = require('../services/universalAIService');
 const pdfMake = require('pdfmake');
 
 // GET all files for a user (no changes here)
@@ -171,12 +172,16 @@ router.post('/overview', tempAuth, async (req, res) => {
 // @desc    Generate a PPT based on topic
 // @access  Private
 router.post('/generate-ppt', tempAuth, async (req, res) => {
-    const { topic } = req.body;
+    const { topic, selectedModel } = req.body;
     if (!topic) {
         return res.status(400).json({ msg: 'Topic is required' });
     }
     try {
-        const pptPath = await generatePPT(topic);
+        const userId = req.headers['x-user-id'] || req.user?.id;
+        const modelToUse = selectedModel || 'gemini-flash';
+        console.log(`[PPT] Generating PPT for topic: ${topic} using model: ${modelToUse}`);
+
+        const pptPath = await generatePPT(topic, modelToUse, userId);
         res.download(pptPath, err => {
             if (err) {
                 console.error('Error sending PPT file:', err);
@@ -191,30 +196,28 @@ router.post('/generate-ppt', tempAuth, async (req, res) => {
 
 // --- NEW: POST route to generate report ---
 router.post('/generate-report', tempAuth, async (req, res) => {
-    const { topic } = req.body;
+    const { topic, selectedModel } = req.body;
     const userId = req.user.id;
     try {
-        // Initialize Gemini service and AI
-        const geminiService = new GeminiService();
-        await geminiService.initialize();
-        const geminiAI = new GeminiAI(geminiService);
+        const modelToUse = selectedModel || 'gemini-flash';
+        console.log(`[Report] Generating report for topic: ${topic} using model: ${modelToUse}`);
 
-        // Use the same GeminiAI for DeepSearchService
-        const deepSearchService = new DeepSearchService(userId, geminiAI, new DuckDuckGoService());
+        // Use DeepSearchService with universal AI
+        const deepSearchService = new DeepSearchService(userId, null, new DuckDuckGoService());
         const searchResults = await deepSearchService.performSearch(topic);
 
+        // Generate summary using selected AI model
+        let summary;
         if (!searchResults || !searchResults.summary) {
-            const fallbackSummary = "No summary available due to Gemini quota limits.";
-            const pdfDoc = await generateReportPdf(topic, fallbackSummary, searchResults?.sources || []);
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=${topic.replace(/\s+/g, '_')}.pdf`);
-            pdfDoc.pipe(res);
-            pdfDoc.end();
-            return;
+            // Generate summary using universal AI
+            const searchData = searchResults?.sources?.map(s => s.snippet || s.title).join('\n') || `Research data about ${topic}`;
+            summary = await universalAI.generateReportSummary(topic, searchData, modelToUse, userId);
+        } else {
+            summary = searchResults.summary;
         }
 
         // 2. Generate PDF using pdfmake
-        const pdfDoc = await generateReportPdf(topic, searchResults.summary, searchResults.sources); // Pass summary and sources
+        const pdfDoc = await generateReportPdf(topic, summary, searchResults?.sources || []);
         
         // 3. Send PDF as a download
         res.setHeader('Content-Type', 'application/pdf');

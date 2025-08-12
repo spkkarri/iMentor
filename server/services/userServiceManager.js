@@ -186,11 +186,23 @@ class UserServiceManager {
     }
 
     /**
-     * Clear user service cache
+     * Clear user service cache (called when API keys are updated)
      */
     clearUserCache(userId) {
-        this.userServices.delete(userId);
-        console.log(`🗑️ Cleared service cache for user ${userId}`);
+        const deleted = this.userServices.delete(userId);
+        if (deleted) {
+            console.log(`🗑️ Cleared UserServiceManager cache for user ${userId}`);
+        } else {
+            console.log(`ℹ️ No cached service found for user ${userId} in UserServiceManager`);
+        }
+    }
+
+    /**
+     * Force refresh user service (clears cache and gets fresh service)
+     */
+    async refreshUserService(userId) {
+        this.clearUserCache(userId);
+        return await this.getUserAIService(userId);
     }
 
     /**

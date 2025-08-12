@@ -748,37 +748,46 @@ const handleStandardMessage = async (req, res) => {
                     aiResponse = await standardUserAI.generateChatResponse(query, [], aiHistory, session.systemPrompt);
                     modelUsed = 'gemini-fallback';
                 }
-            } else if (selectedModel === 'llama-model') {
-                // Use real Ollama service for Llama model
+            } else if (selectedModel === 'llama-model' || selectedModel.startsWith('llama')) {
+                // Use user-specific Ollama service for Llama model
                 try {
-                    const { OllamaService } = require('../services/ollamaService');
-                    const ollamaService = new OllamaService();
+                    console.log(`🦙 Attempting to use user-specific Ollama service for model: ${selectedModel}`);
+                    const userServices = await userSpecificAI.getUserAIServices(userId);
 
-                    // Check if Ollama is available
-                    const isConnected = await ollamaService.checkConnection();
-                    if (!isConnected) {
-                        throw new Error('Ollama service is not available');
+                    if (userServices.ollama) {
+                        // Modify system prompt for conversational Llama-style responses
+                        const llamaSystemPrompt = session.systemPrompt +
+                            "\n\nYou are a friendly, conversational AI assistant powered by Llama. " +
+                            "Be warm, engaging, and personable in your responses. " +
+                            "Provide helpful and detailed answers while maintaining a casual, approachable tone.";
+
+                        console.log('🦙 Using user-specific Ollama service for Llama model');
+
+                        // Use the default model or extract model name from selectedModel
+                        let modelName = 'llama3.2:latest'; // Default model
+                        if (selectedModel.includes(':')) {
+                            modelName = selectedModel.replace('llama-', '').replace('_', ':');
+                        }
+
+                        const ollamaResult = await userServices.ollama.generateChatResponse(query, modelName);
+                        const responseText = typeof ollamaResult === 'string' ? ollamaResult : ollamaResult.response;
+                        aiResponse = { response: responseText, followUpQuestions: [] };
+                        modelUsed = selectedModel;
+
+                    } else {
+                        throw new Error('User-specific Ollama service not available');
                     }
 
-                    // Modify system prompt for conversational Llama-style responses
-                    const llamaSystemPrompt = session.systemPrompt +
-                        "\n\nYou are a friendly, conversational AI assistant powered by Llama. " +
-                        "Be warm, engaging, and personable in your responses. " +
-                        "Provide helpful and detailed answers while maintaining a casual, approachable tone.";
-
-                    console.log('🦙 Using real Ollama service for Llama model');
-                    aiResponse = await ollamaService.generateChatResponse(query, [], aiHistory, llamaSystemPrompt);
-                    modelUsed = 'llama-model';
-
                 } catch (error) {
-                    console.warn('🦙 Ollama service failed:', error.message);
+                    console.warn('🦙 User Ollama service failed:', error.message);
                     // Return error message instead of fallback
                     return res.status(503).json({
                         success: false,
                         error: 'Ollama service is currently unavailable',
-                        message: 'The Llama model server is not running. Please try using the Gemini model instead, or contact your administrator to start the Ollama service.',
+                        message: 'Your Ollama server is not accessible. Please check your Ollama URL configuration or try using the Gemini model instead.',
                         suggestedAction: 'switch_to_gemini',
-                        availableModels: ['gemini-flash', 'gemini-pro']
+                        availableModels: ['gemini-flash', 'gemini-pro'],
+                        ollamaError: error.message
                     });
                 }
             } else if (selectedModel.startsWith('groq-')) {
@@ -826,8 +835,9 @@ const handleStandardMessage = async (req, res) => {
                 const userServices = await userSpecificAI.getUserAIServices(userId);
                 if (userServices.ollama) {
                     const modelName = selectedModel.replace('ollama-', '').replace('_', ':');
-                    const response = await userServices.ollama.generateResponse(query, modelName);
-                    aiResponse = { response, followUpQuestions: [] };
+                    const ollamaResult = await userServices.ollama.generateChatResponse(query, modelName);
+                    const responseText = typeof ollamaResult === 'string' ? ollamaResult : ollamaResult.response;
+                    aiResponse = { response: responseText, followUpQuestions: [] };
                 } else {
                     throw new Error('Ollama service not available');
                 }
@@ -872,7 +882,41 @@ const handleStandardMessage = async (req, res) => {
         }
     } catch (error) {
         console.error('Error in /api/chat/message:', error);
-        res.status(500).json({ message: 'Failed to process chat message.', error: error.message });
+
+        // Provide specific error messages based on the error type
+        let userMessage = 'Failed to process chat message.';
+        let suggestions = [];
+
+        if (error.message.includes('quota') || error.message.includes('429')) {
+            userMessage = `🚨 API quota exceeded for ${selectedModel.includes('gemini') ? 'Gemini' : 'the selected AI model'}.`;
+            suggestions = [
+                '🦙 Switch to Llama model (unlimited local processing)',
+                '⏰ Wait for quota reset (usually resets daily)',
+                '💳 Consider upgrading your API plan for higher limits'
+            ];
+        } else if (error.message.includes('ECONNREFUSED') || error.message.includes('network')) {
+            userMessage = '🌐 Unable to connect to the AI service.';
+            suggestions = [
+                '🔄 Check your internet connection',
+                '🔀 Try switching to a different model',
+                '📞 Contact support if the issue persists'
+            ];
+        } else if (selectedModel.includes('llama') && error.message.includes('Ollama')) {
+            userMessage = '🦙 Ollama service is currently unavailable.';
+            suggestions = [
+                '🤖 Switch to Gemini model',
+                '🔧 Check if Ollama is running properly',
+                '⏳ Try again in a few moments'
+            ];
+        }
+
+        res.status(500).json({
+            message: userMessage,
+            error: error.message,
+            suggestions: suggestions,
+            recommendedAction: suggestions.length > 0 ? suggestions[0] : '🔄 Try again later',
+            currentModel: selectedModel
+        });
     }
 };
 
@@ -1062,95 +1106,77 @@ const handleEnhancedDeepSearch = async (req, res) => {
             return res.status(400).json({ message: 'Query is required for deep search.' });
         }
 
-        // Import enhanced web search service
-        const EnhancedWebSearchService = require('../services/enhancedWebSearch');
-        const webSearchService = new EnhancedWebSearchService();
+        // Use efficient deep search as fallback for enhanced search
+        const EfficientDeepSearch = require('../services/efficientDeepSearch');
+        const deepSearchService = new EfficientDeepSearch('gemini-flash', userId);
 
-        // Get user's AI service
-        const userServices = await userSpecificAI.getUserAIServices(userId);
-        const userAI = userServices.gemini || userServices.openai;
+        // Perform the search
+        const searchResults = await deepSearchService.performSearch(query, history);
 
-        // Perform enhanced search with media
-        const searchResults = await webSearchService.performEnhancedSearch(query, {
-            includeMedia: true,
-            maxResults: 8
-        });
-
-        console.log(`📊 Search completed: ${searchResults.totalResults} total results`);
-
-        // Format search results for AI processing
-        const formattedResults = webSearchService.formatResultsForAI(searchResults);
-
-        // Generate comprehensive response using AI
-        const aiPrompt = `Based on the following search results, provide a comprehensive and accurate answer to the user's question: "${query}"
-
-${formattedResults}
-
-Please provide:
-1. A detailed answer based on the search results
-2. Key insights and important information
-3. If there are videos, mention them as helpful resources
-4. If there are recent news, include relevant updates
-5. Cite sources when making specific claims
-
-Make the response informative, well-structured, and engaging.`;
-
-        const aiResponse = await userAI.generateChatResponse(
-            aiPrompt,
-            [],
-            history.slice(-5), // Last 5 messages for context
-            "You are a helpful AI assistant that provides comprehensive answers based on web search results. Always cite your sources and provide accurate information."
-        );
-
-        // Prepare media content for frontend
-        const mediaContent = {
-            videos: searchResults.videoResults.map(video => ({
-                title: video.title,
-                url: video.url,
-                embedUrl: video.embedUrl,
-                thumbnail: video.thumbnail,
-                duration: video.duration,
-                platform: video.platform
-            })),
-            images: searchResults.imageResults.map(image => ({
-                title: image.title,
-                url: image.url,
-                thumbnail: image.thumbnail
-            })),
-            news: searchResults.newsResults.map(news => ({
-                title: news.title,
-                url: news.url,
-                snippet: news.snippet,
-                source: news.source
-            }))
-        };
-
-        // Format the response
-        const response = {
-            response: aiResponse || 'No results found.',
-            sources: searchResults.webResults.map(result => ({
-                title: result.title,
-                url: result.url,
-                snippet: result.snippet
-            })),
-            media: mediaContent,
+        // Return the results in enhanced format
+        res.json({
+            response: searchResults.response,
+            sources: searchResults.sources || [],
+            media: {
+                videos: [],
+                images: [],
+                news: []
+            },
             metadata: {
                 searchType: 'enhanced_deep_search',
-                resultsCount: searchResults.totalResults,
-                webResults: searchResults.webResults.length,
-                videoResults: searchResults.videoResults.length,
-                imageResults: searchResults.imageResults.length,
-                newsResults: searchResults.newsResults.length,
+                model: 'gemini-flash',
+                sourcesCount: searchResults.sources?.length || 0,
                 timestamp: new Date().toISOString(),
                 enhanced: true,
-                hasMedia: searchResults.videoResults.length > 0 || searchResults.imageResults.length > 0
+                hasMedia: false
             }
-        };
-
-        res.json(response);
+        });
 
     } catch (error) {
         console.error('Enhanced deep search error:', error);
+        res.status(500).json({
+            message: 'Deep search failed',
+            error: error.message,
+            response: 'I apologize, but I encountered an error while searching. Please try again with a different query.'
+        });
+    }
+};
+
+// Efficient Deep Search - Reliable and fast
+const handleEfficientDeepSearch = async (req, res) => {
+    try {
+        const { query, history = [], selectedModel = 'gemini-flash' } = req.body;
+        const userId = req.user.id;
+
+        console.log(`🔍 Efficient deep search request: "${query}" from user ${userId} using model ${selectedModel}`);
+
+        if (!query || query.trim().length === 0) {
+            return res.status(400).json({ message: 'Query is required for deep search.' });
+        }
+
+        // Use the efficient deep search service
+        const EfficientDeepSearch = require('../services/efficientDeepSearch');
+        const deepSearchService = new EfficientDeepSearch(selectedModel, userId);
+
+        // Perform the search
+        const searchResults = await deepSearchService.performSearch(query, history);
+
+        console.log(`✅ [EfficientDeepSearch] Search completed successfully`);
+
+        // Return the results
+        res.json({
+            response: searchResults.response,
+            sources: searchResults.sources || [],
+            metadata: searchResults.metadata,
+            followUpQuestions: [
+                "Can you search for more specific information about this topic?",
+                "What are the latest developments in this area?",
+                "Are there any related topics I should explore?"
+            ]
+        });
+
+    } catch (error) {
+        console.error('[EfficientDeepSearch] Error:', error);
         res.status(500).json({
             message: 'Deep search failed',
             error: error.message,
@@ -1222,6 +1248,49 @@ const testDeepSearch = async (req, res) => {
     }
 };
 
+// Efficient Deep Search Handler
+const handleEfficientDeepSearchNew = async (req, res) => {
+    try {
+        const { query, history = [], selectedModel = 'gemini-flash' } = req.body;
+        const userId = req.user.id;
+
+        console.log(`🔍 [EfficientDeepSearch] Starting search for: "${query}" using model: ${selectedModel}`);
+
+        if (!query || query.trim().length === 0) {
+            return res.status(400).json({ message: 'Query is required for deep search.' });
+        }
+
+        // Use the efficient deep search service
+        const EfficientDeepSearch = require('../services/efficientDeepSearch');
+        const deepSearchService = new EfficientDeepSearch(selectedModel, userId);
+
+        // Perform the search
+        const searchResults = await deepSearchService.performSearch(query, history);
+
+        console.log(`✅ [EfficientDeepSearch] Search completed successfully`);
+
+        // Return the results
+        res.json({
+            response: searchResults.response,
+            sources: searchResults.sources || [],
+            metadata: searchResults.metadata,
+            followUpQuestions: [
+                "Can you search for more specific information about this topic?",
+                "What are the latest developments in this area?",
+                "Are there any related topics I should explore?"
+            ]
+        });
+
+    } catch (error) {
+        console.error('[EfficientDeepSearch] Error:', error);
+        res.status(500).json({
+            message: 'Deep search failed',
+            error: error.message,
+            response: 'I apologize, but I encountered an error while searching. Please try again with a different query.'
+        });
+    }
+};
+
 module.exports = {
     createSession,
     getSessions,
@@ -1231,5 +1300,7 @@ module.exports = {
     handleRagMessage,
     handleDeepSearch,
     handleEnhancedDeepSearch,
-    testDeepSearch
+    handleEfficientDeepSearch,
+    testDeepSearch,
+    handleEfficientDeepSearchNew
 };

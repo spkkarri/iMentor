@@ -30,7 +30,7 @@
 
 /* --- Main Layout --- */
 .chat-page-container {
-  display: flex;
+  position: relative;
   height: 100vh;
   background-color: var(--primary-bg);
   color: var(--text-primary);
@@ -38,46 +38,56 @@
   transition: var(--transition);
 }
 
-/* --- Sidebar --- */
+/* --- Enhanced Sidebar with Smart Positioning --- */
 .sidebar-area {
-  width: 280px;
-  flex-shrink: 0;
+  position: fixed; /* Fixed positioning for overlay effect */
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 70px; /* Default collapsed width */
   background-color: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
   display: flex;
-  transition: width 0.3s ease;
-  z-index: 100;
+  transition: width 0.3s ease, box-shadow 0.3s ease;
+  z-index: 1000; /* High z-index to overlay content */
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05); /* Subtle shadow for depth */
 }
 
-/* Collapsed sidebar (desktop only) */
-.sidebar-area:not(.open) {
-  width: 60px;
+/* Expanded sidebar (when open or hovered) */
+.sidebar-area.open {
+  width: 380px;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15); /* Enhanced shadow when expanded */
 }
 
+/* Content area visibility */
 .sidebar-area:not(.open) .sidebar-content-area {
   opacity: 0;
   pointer-events: none;
   transform: translateX(-20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.sidebar-area:not(.open) .sidebar-icon-nav {
-  width: 100%;
+/* Icon navigation always visible */
+.sidebar-area .sidebar-icon-nav {
+  width: 70px; /* Fixed width for icon area */
+  flex-shrink: 0;
 }
 
-/* Sidebar Icon Navigation */
+/* Enhanced Sidebar Icon Navigation */
 .sidebar-icon-nav {
-  width: 60px;
+  width: 70px; /* Increased for better touch targets */
   background-color: var(--primary-bg);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 16px 8px;
-  gap: 8px;
+  align-items: center; /* Center align icons */
+  padding: 20px 8px; /* Increased top/bottom padding */
+  gap: 12px; /* Increased gap for better visual separation */
 }
 
 .sidebar-icon-item {
-  width: 44px;
-  height: 44px;
+  width: 50px; /* Increased for better touch targets */
+  height: 50px; /* Increased for better touch targets */
   border: none;
   border-radius: var(--border-radius-small);
   background: none;
@@ -86,7 +96,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 20px; /* Slightly larger icons */
   transition: var(--transition);
   position: relative;
 }
@@ -103,16 +113,29 @@
   color: white;
 }
 
+/* Hamburger menu button styling */
+.hamburger-menu-btn {
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+  padding-bottom: 12px;
+}
+
+.hamburger-menu-btn:hover {
+  background-color: var(--accent-color) !important;
+  color: white !important;
+}
+
 .sidebar-icon-spacer {
   flex: 1;
 }
 
-/* Sidebar Content Area */
+/* Enhanced Sidebar Content Area */
 .sidebar-content-area {
   flex: 1;
-  padding: 20px;
+  padding: 24px; /* Increased padding for better spacing */
   overflow-y: auto;
   transition: opacity 0.3s ease, transform 0.3s ease;
+  background: linear-gradient(135deg, var(--sidebar-bg) 0%, rgba(255,255,255,0.02) 100%); /* Subtle gradient */
 }
 
 .sidebar-tab-content {
@@ -120,12 +143,15 @@
 }
 
 .sidebar-tab-title {
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 20px; /* Increased for better hierarchy */
+  font-weight: 600; /* Bolder for better emphasis */
   color: var(--text-primary);
-  margin: 0 0 20px 0;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color);
+  margin: 0 0 24px 0; /* Increased bottom margin */
+  padding-bottom: 16px; /* Increased padding */
+  border-bottom: 2px solid var(--accent-color); /* Thicker, colored border */
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Space for potential icons */
 }
 
 /* Sidebar Buttons */
@@ -270,11 +296,20 @@
 
 /* --- Main Chat Area --- */
 .chat-container {
-  flex: 1;
+  width: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: var(--secondary-bg);
   position: relative;
+  padding-left: 70px; /* Account for fixed sidebar */
+  transition: padding-left 0.3s ease;
+  box-sizing: border-box;
+}
+
+/* Adjust chat container when sidebar is expanded */
+.chat-container.sidebar-expanded {
+  padding-left: 380px; /* Make room for expanded sidebar */
 }
 
 /* --- Chat Header --- */
@@ -294,8 +329,9 @@
   gap: 16px;
 }
 
-.mobile-menu-btn {
-  display: none;
+/* Mobile hamburger button */
+.mobile-hamburger-btn {
+  display: none; /* Hidden on desktop */
   background: none;
   border: none;
   padding: 8px;
@@ -303,10 +339,13 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition: var(--transition);
+  font-size: 18px;
+  margin-right: 12px;
 }
 
-.mobile-menu-btn:hover {
+.mobile-hamburger-btn:hover {
   background-color: var(--border-color);
+  color: var(--text-primary);
 }
 
 .chat-title {
@@ -322,24 +361,7 @@
   gap: 16px;
 }
 
-.hamburger-btn {
-  background: none;
-  border: none;
-  padding: 8px;
-  border-radius: var(--border-radius-small);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: var(--transition);
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
-.hamburger-btn:hover {
-  background-color: var(--border-color);
-  color: var(--text-primary);
-}
 
 .theme-toggle-header {
   background: none;
@@ -889,24 +911,27 @@
   }
 
   .sidebar-area {
-    position: fixed;
-    top: 0;
-    left: -280px;
-    height: 100vh;
-    z-index: 1000;
-    transition: left 0.3s ease;
-    box-shadow: var(--shadow-medium);
-    width: 280px !important; /* Override collapsed width on mobile */
+    left: -380px; /* Hidden by default on mobile */
+    width: 380px !important; /* Full width on mobile */
+  }
+
+  .chat-container {
+    padding-left: 0 !important; /* No padding on mobile */
+  }
+
+  .chat-container.sidebar-expanded {
+    padding-left: 0 !important; /* Override expanded padding on mobile */
   }
 
   .sidebar-area.open {
     left: 0;
   }
 
-  .sidebar-area:not(.open) .sidebar-content-area {
-    opacity: 1; /* Override collapsed opacity on mobile */
-    pointer-events: auto;
-    transform: none;
+  /* Show mobile hamburger button */
+  .mobile-hamburger-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
   }
 
   .chat-container {
@@ -1067,21 +1092,74 @@
   background-color: var(--border-color);
 }
 
-/* --- Scrollbar Styling --- */
+/* --- Enhanced Scrollbar Styling --- */
 .chat-messages::-webkit-scrollbar,
-.sidebar-content::-webkit-scrollbar {
-  width: 6px;
+.sidebar-content::-webkit-scrollbar,
+.sidebar-content-area::-webkit-scrollbar {
+  width: 8px; /* Slightly wider for better usability */
 }
 
 .chat-messages::-webkit-scrollbar-track,
-.sidebar-content::-webkit-scrollbar-track {
+.sidebar-content::-webkit-scrollbar-track,
+.sidebar-content-area::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: 4px;
 }
 
 .chat-messages::-webkit-scrollbar-thumb,
-.sidebar-content::-webkit-scrollbar-thumb {
+.sidebar-content::-webkit-scrollbar-thumb,
+.sidebar-content-area::-webkit-scrollbar-thumb {
   background-color: var(--border-color);
-  border-radius: 3px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover,
+.sidebar-content::-webkit-scrollbar-thumb:hover,
+.sidebar-content-area::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* --- Enhanced Sidebar Styling --- */
+.sidebar-tab-content {
+  height: 100%;
+  animation: fadeInUp 0.3s ease-out; /* Smooth content transition */
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced spacing for sidebar elements */
+.sidebar-content-area > * + * {
+  margin-top: 16px; /* Consistent spacing between elements */
+}
+
+/* Better visual hierarchy for settings sections */
+.sidebar-content-area h3,
+.sidebar-content-area h4 {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* Enhanced button styling in sidebar */
+.sidebar-content-area button {
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.sidebar-content-area button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .chat-messages::-webkit-scrollbar-thumb:hover,

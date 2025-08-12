@@ -168,7 +168,7 @@ const ApiKeyManager = ({ userId, isSidebarOpen = true }) => {
 
     return (
         <Box sx={{ mb: 2 }}>
-            <Accordion>
+            <Accordion defaultExpanded={true}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <KeyIcon sx={{ fontSize: 20 }} />

@@ -57,14 +57,16 @@ export const getSessionDetails = (sessionId) => api.get(`/chat/session/${session
 export const uploadFile = (formData) => api.post('/upload', formData);
 export const getUserFiles = () => api.get('/files');
 export const deleteUserFile = (fileId) => api.delete(`/files/${fileId}`);
-export const generatePodcast = (fileId, style = 'single-host') => api.post('/podcast/generate', { fileId, style });
-export const generateMindMap = (fileId) => api.post('/mindmap/generate', { fileId });
-export const generatePPT = (topic) => api.post('/files/generate-ppt', { topic }, { responseType: 'blob' });
-export const generateReport = (topic) => api.post('/files/generate-report', { topic }, { responseType: 'blob' });
-export const performDeepSearch = async (query, history = []) => {
+export const generatePodcast = (fileId, style = 'single-host', selectedModel = 'gemini-flash') => api.post('/podcast/generate', { fileId, style, selectedModel });
+export const generateMindMap = (fileId, selectedModel = 'gemini-flash') => api.post('/mindmap/generate', { fileId, selectedModel });
+export const generatePPT = (topic, selectedModel = 'gemini-flash') => api.post('/files/generate-ppt', { topic, selectedModel }, { responseType: 'blob' });
+export const generateReport = (topic, selectedModel = 'gemini-flash') => api.post('/files/generate-report', { topic, selectedModel }, { responseType: 'blob' });
+export const performDeepSearch = async (query, history = [], selectedModel = 'gemini-flash') => {
     try {
-        const response = await api.post('/chat/enhanced-deep-search', {
+        // Try the new efficient deep search first
+        const response = await api.post('/chat/efficient-deep-search', {
             query,
+            selectedModel,
             history: history.map(msg => ({
                 role: msg.role,
                 content: msg.parts?.[0]?.text || msg.content || ''
@@ -72,10 +74,10 @@ export const performDeepSearch = async (query, history = []) => {
         });
         return response;
     } catch (error) {
-        console.error('Enhanced deep search failed:', error);
-        // Fallback to original deep search
+        console.error('Efficient deep search failed:', error);
+        // Fallback to enhanced deep search
         try {
-            const fallbackResponse = await api.post('/chat/deep-search', {
+            const fallbackResponse = await api.post('/chat/enhanced-deep-search', {
                 query,
                 history: history.map(msg => ({
                     role: msg.role,
@@ -84,8 +86,21 @@ export const performDeepSearch = async (query, history = []) => {
             });
             return fallbackResponse;
         } catch (fallbackError) {
-            console.error('Fallback deep search also failed:', fallbackError);
-            throw error;
+            console.error('Enhanced deep search also failed:', fallbackError);
+            // Final fallback to original deep search
+            try {
+                const finalFallbackResponse = await api.post('/chat/deep-search', {
+                    query,
+                    history: history.map(msg => ({
+                        role: msg.role,
+                        content: msg.parts?.[0]?.text || msg.content || ''
+                    }))
+                });
+                return finalFallbackResponse;
+            } catch (finalError) {
+                console.error('All deep search methods failed:', finalError);
+                throw error;
+            }
         }
     }
 };
@@ -163,6 +178,7 @@ export const pullOllamaModel = (modelName) => api.post('/ollama/pull', { modelNa
 export const getUserApiKeys = () => api.get('/user-api-keys');
 export const updateUserApiKeys = (data) => api.put('/user-api-keys', data);
 export const testUserServices = () => api.post('/user-api-keys/test');
+export const clearUserServiceCache = () => api.post('/user-api-keys/clear-cache');
 export const requestAdminAccess = (data) => api.post('/user-api-keys/request-admin-access', data);
 
 // Admin Dashboard

@@ -34,9 +34,9 @@ import {
 import FileUploadWidget from './FileUploadWidget';
 import HistorySidebarWidget from './HistorySidebarWidget';
 import FileManagerWidget from './FileManagerWidget';
-import DSAWidget from './DSAWidget';
 import MediaRenderer from './MediaRenderer';
 import ModelSwitcher from './ModelSwitcher';
+import TutorModeSelector from './TutorModeSelector';
 import MindMap from './MindMap';
 import ApiKeyManager from './ApiKeyManager';
 import { ToastContainer, useToast } from './Toast';
@@ -69,11 +69,12 @@ const ChatPage = () => {
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
         const saved = localStorage.getItem('isSidebarOpen');
-        return saved ? JSON.parse(saved) : true;
+        return saved ? JSON.parse(saved) : false; // Default to closed
     });
+    const [isSidebarHovered, setIsSidebarHovered] = useState(false);
     const [activeTab, setActiveTab] = useState('upload');
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-    const [showApiKeyManager, setShowApiKeyManager] = useState(false);
+    const [showApiKeyManager, setShowApiKeyManager] = useState(true);
 
     // RAG and search state
     const [isRagEnabled, setIsRagEnabled] = useState(false);
@@ -94,6 +95,13 @@ const ChatPage = () => {
         const saved = localStorage.getItem('selectedModel');
         return saved || 'gemini-flash';
     });
+
+    // Tutor mode state
+    const [selectedTutorMode, setSelectedTutorMode] = useState(() => {
+        const saved = localStorage.getItem('selectedTutorMode');
+        return saved || 'friendly-tutor';
+    });
+    const [tutorModeConfig, setTutorModeConfig] = useState(null);
 
     const recognitionRef = useRef(null);
 
@@ -116,6 +124,44 @@ const ChatPage = () => {
 
         initializeSession();
     }, [navigate]);
+
+    // Initialize tutor mode configuration
+    useEffect(() => {
+        const initializeTutorMode = () => {
+            // Default tutor modes
+            const defaultModes = [
+                {
+                    id: 'friendly-tutor',
+                    name: 'Friendly Tutor',
+                    description: 'Encouraging, patient, and supportive teaching style',
+                    systemPrompt: 'You are a friendly and encouraging tutor. Be patient, supportive, and use simple explanations. Always encourage the student and celebrate their progress. Use positive language and break down complex topics into easy-to-understand steps.'
+                },
+                {
+                    id: 'professional-tutor',
+                    name: 'Professional Tutor',
+                    description: 'Formal, structured, and comprehensive teaching approach',
+                    systemPrompt: 'You are a professional tutor with expertise in your field. Provide structured, comprehensive explanations with proper terminology. Be formal yet approachable, and ensure accuracy in all information. Include relevant examples and practical applications.'
+                },
+                {
+                    id: 'code-mentor',
+                    name: 'Code Mentor',
+                    description: 'Technical programming guidance with best practices',
+                    systemPrompt: 'You are an experienced programming mentor. Focus on clean code, best practices, and efficient solutions. Explain programming concepts clearly, provide code examples, suggest improvements, and help debug issues. Always consider performance and maintainability.'
+                },
+                {
+                    id: 'research-assistant',
+                    name: 'Research Assistant',
+                    description: 'Academic research support with critical thinking',
+                    systemPrompt: 'You are a research-oriented academic assistant. Help with critical thinking, analysis, and research methodology. Provide well-sourced information, encourage deeper investigation, and help structure academic arguments. Focus on evidence-based reasoning.'
+                }
+            ];
+
+            const currentMode = defaultModes.find(mode => mode.id === selectedTutorMode) || defaultModes[0];
+            setTutorModeConfig(currentMode);
+        };
+
+        initializeTutorMode();
+    }, [selectedTutorMode]);
 
     // Load user files
     const loadUserFiles = useCallback(async () => {
@@ -195,8 +241,24 @@ const ChatPage = () => {
 
     // Model change handler
     const handleModelChange = useCallback((model) => {
-        setSelectedModel(model);
-    }, []);
+        console.log('🔄 Model changed to:', model);
+        // Handle both string IDs and model objects
+        const modelId = typeof model === 'string' ? model : model.id;
+        const modelName = typeof model === 'string' ? model : model.name;
+
+        setSelectedModel(modelId);
+        localStorage.setItem('selectedModel', modelId);
+        showSuccess(`Switched to ${modelName}`);
+    }, [showSuccess]);
+
+    // Tutor mode change handler
+    const handleTutorModeChange = useCallback((mode) => {
+        console.log('🎓 Tutor mode changed to:', mode);
+        setSelectedTutorMode(mode.id);
+        setTutorModeConfig(mode);
+        localStorage.setItem('selectedTutorMode', mode.id);
+        showSuccess(`Switched to ${mode.name} mode`);
+    }, [showSuccess]);
 
     // Theme toggle
     const toggleTheme = useCallback(() => {
@@ -325,10 +387,11 @@ const ChatPage = () => {
             let metadata = {};
 
             if (isDeepSearchEnabled) {
-                // Use deep search
-                response = await performDeepSearch(trimmedInput, messages);
+                // Use deep search with selected model
+                console.log(`🔍 Using deep search with model: ${selectedModel}`);
+                response = await performDeepSearch(trimmedInput, messages, selectedModel);
                 responseText = response.data?.response || response.data?.answer || 'No response received';
-                metadata = { searchType: 'deep-search', enhanced: true };
+                metadata = { searchType: 'efficient-deep-search', model: selectedModel };
             } else if (isRagEnabled) {
                 if (selectedFiles.length === 0) {
                     // Show error if RAG is enabled but no files selected
@@ -341,7 +404,7 @@ const ChatPage = () => {
                     query: trimmedInput,
                     sessionId,
                     userId,
-                    model: selectedModel,
+                    selectedModel: selectedModel,
                     systemPrompt: "You are a helpful AI assistant. Use the provided documents to answer questions accurately.",
                     fileIds: selectedFiles
                 });
@@ -354,18 +417,27 @@ const ChatPage = () => {
                     filesUsed: selectedFiles.length
                 };
             } else {
-                // Standard message
+                // Standard message with tutor mode
+                const tutorSystemPrompt = tutorModeConfig?.systemPrompt || "You are a helpful AI assistant.";
+
                 response = await apiSendMessage({
                     query: trimmedInput,
                     sessionId,
                     userId,
-                    model: selectedModel,
-                    systemPrompt: "You are a helpful AI assistant.",
+                    systemPrompt: tutorSystemPrompt,
                     autoDetectWebSearch: true,  // Enable automatic web search detection
-                    selectedModel: selectedModel
+                    selectedModel: selectedModel,
+                    tutorMode: tutorModeConfig ? {
+                        id: tutorModeConfig.id,
+                        name: tutorModeConfig.name,
+                        description: tutorModeConfig.description
+                    } : null
                 });
                 responseText = response.data?.response || 'No response received';
-                metadata = { searchType: 'standard' };
+                metadata = {
+                    searchType: 'standard',
+                    tutorMode: tutorModeConfig?.name || 'Default'
+                };
             }
 
             if (responseText) {
@@ -380,7 +452,44 @@ const ChatPage = () => {
                 setMessages(prev => [...prev, assistantMessage]);
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to send message');
+            console.error('❌ Message send error:', err);
+
+            // Extract detailed error information
+            const errorData = err.response?.data || {};
+            const suggestions = errorData.suggestions || [];
+            const recommendedAction = errorData.recommendedAction;
+            const currentModel = errorData.currentModel;
+
+            // Create comprehensive error message
+            let errorMessage = errorData.message || err.message || 'Failed to send message';
+
+            if (suggestions.length > 0) {
+                errorMessage += '\n\n💡 Suggestions:\n';
+                suggestions.forEach((suggestion, index) => {
+                    errorMessage += `${index + 1}. ${suggestion}\n`;
+                });
+            }
+
+            if (recommendedAction) {
+                errorMessage += `\n🎯 Recommended: ${recommendedAction}`;
+            }
+
+            if (currentModel) {
+                errorMessage += `\n\n🤖 Current Model: ${currentModel}`;
+            }
+
+            // Add helpful error message to chat
+            const errorChatMessage = {
+                id: uuidv4(),
+                role: 'assistant',
+                parts: [{ text: errorMessage }],
+                timestamp: new Date(),
+                isError: true
+            };
+
+            setMessages(prev => [...prev, errorChatMessage]);
+            setError(errorData.message || err.message || 'Failed to send message');
+            showError(errorData.message || err.message || 'Failed to send message');
         } finally {
             setIsProcessing(false);
         }
@@ -475,7 +584,8 @@ const ChatPage = () => {
             setMessages(prev => [...prev, userMessage]);
 
             console.log('Generating podcast for file:', fileId, fileName);
-            const response = await generatePodcast(fileId);
+            console.log(`🎙️ Using model: ${selectedModel} for podcast generation`);
+            const response = await generatePodcast(fileId, 'single-host', selectedModel);
             console.log('Podcast response:', response);
 
             if (response.data && response.data.success) {
@@ -574,7 +684,8 @@ Thank you for using TutorAI!`;
             setMessages(prev => [...prev, userMessage]);
 
             console.log('Generating mind map for file:', fileId, fileName);
-            const response = await generateMindMap(fileId);
+            console.log(`🧠 Using model: ${selectedModel} for mind map generation`);
+            const response = await generateMindMap(fileId, selectedModel);
             console.log('Mind map response:', response);
 
             if (response.data && response.data.mermaidData) {
@@ -662,15 +773,6 @@ Thank you for using TutorAI!`;
 
 
 
-    // DSA query handler
-    const handleDSAQuery = useCallback((query, type, metadata) => {
-        // Set the input text and trigger send
-        setInputText(query);
-        // Add a small delay to ensure the input is set before sending
-        setTimeout(() => {
-            handleSendMessage();
-        }, 100);
-    }, [handleSendMessage]);
 
     // History modal handlers
     const handleLoadSession = useCallback(async (sessionId) => {
@@ -721,9 +823,22 @@ Thank you for using TutorAI!`;
             {isSidebarOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
 
             {/* Sidebar */}
-            <div className={`sidebar-area ${isSidebarOpen ? 'open' : ''}`}>
+            <div
+                className={`sidebar-area ${isSidebarOpen || isSidebarHovered ? 'open' : ''}`}
+                onMouseEnter={() => setIsSidebarHovered(true)}
+                onMouseLeave={() => setIsSidebarHovered(false)}
+            >
                 {/* Sidebar Icon Navigation */}
                 <div className="sidebar-icon-nav">
+                    {/* Hamburger Menu Button */}
+                    <button
+                        className="sidebar-icon-item hamburger-menu-btn"
+                        onClick={toggleSidebar}
+                        title="Toggle sidebar"
+                    >
+                        <FaBars />
+                    </button>
+
                     <button
                         className={`sidebar-icon-item ${activeTab === 'upload' ? 'active' : ''}`}
                         onClick={() => setActiveTab('upload')}
@@ -771,11 +886,6 @@ Thank you for using TutorAI!`;
                         <div className="sidebar-tab-content">
                             <h3 className="sidebar-tab-title">Upload Files</h3>
                             <FileUploadWidget onUploadSuccess={handleUploadSuccess} />
-
-
-
-                            {/* DSA Learning Widget */}
-                            <DSAWidget onDSAQuery={handleDSAQuery} />
                         </div>
                     )}
 
@@ -821,13 +931,24 @@ Thank you for using TutorAI!`;
 
                             {/* Assistant Mode Section */}
                             <div className="settings-section">
-                                <h4 className="settings-section-title">Assistant Mode</h4>
+                                <h4 className="settings-section-title">ASSISTANT MODE</h4>
+
+                                {/* Tutor Mode Selection - Main Dropdown */}
+                                <div className="setting-item">
+                                    <TutorModeSelector
+                                        selectedMode={selectedTutorMode}
+                                        onModeChange={handleTutorModeChange}
+                                        isSidebarOpen={isSidebarOpen || isSidebarHovered}
+                                    />
+                                </div>
+
+                                {/* AI Model Selection */}
                                 <div className="setting-item">
                                     <label>AI Model Selection</label>
                                     <ModelSwitcher
                                         selectedModel={selectedModel}
                                         onModelChange={handleModelChange}
-                                        isSidebarOpen={isSidebarOpen}
+                                        isSidebarOpen={isSidebarOpen || isSidebarHovered}
                                         userId={userId}
                                     />
                                 </div>
@@ -842,14 +963,14 @@ Thank you for using TutorAI!`;
                                         className="config-btn"
                                         onClick={() => setShowApiKeyManager(!showApiKeyManager)}
                                     >
-                                        {showApiKeyManager ? 'Hide' : 'Configure'} API Keys
+                                        {showApiKeyManager ? 'Hide API Keys' : 'Show API Keys'}
                                     </button>
                                 </div>
                                 {showApiKeyManager && (
                                     <div className="api-key-manager-container">
                                         <ApiKeyManager
                                             userId={userId}
-                                            isSidebarOpen={isSidebarOpen}
+                                            isSidebarOpen={isSidebarOpen || isSidebarHovered}
                                         />
                                     </div>
                                 )}
@@ -872,10 +993,11 @@ Thank you for using TutorAI!`;
             </div>
 
             {/* Main Chat Container */}
-            <div className="chat-container">
+            <div className={`chat-container ${(isSidebarOpen || isSidebarHovered) ? 'sidebar-expanded' : ''}`}>
                 <header className="chat-header">
                     <div className="header-left">
-                        <button className="hamburger-btn" onClick={toggleSidebar} title="Toggle sidebar">
+                        {/* Mobile Hamburger Button */}
+                        <button className="mobile-hamburger-btn" onClick={toggleSidebar} title="Toggle sidebar">
                             <FaBars />
                         </button>
                         <h1 className="chat-title">TutorAI</h1>

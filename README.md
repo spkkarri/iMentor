@@ -1,250 +1,174 @@
-# Engineering Tutor AI: Agentic Research Assistant for Engineering Education
+# 🤖 TutorAI Chatbot
 
-A smart, interactive platform to revolutionize engineering education using Retrieval-Augmented Generation (RAG), AI voice tools, and visual learning enhancements.
+An advanced AI-powered tutoring system with multi-model support, RAG capabilities, and intelligent document processing.
+Built with React, Node.js, and MongoDB for seamless learning experiences.
 
----
+## ✨ Features
 
-## 🎮 Demo Videos
+- **� Multi-Model Support** - Switch between Gemini, Ollama, and DeepSeek models
+- **📚 RAG (Retrieval-Augmented Generation)** - Upload and query documents intelligently
+- **🔍 Deep Search** - Web search with AI-powered analysis and summarization
+- **🤝 MCP Agents** - Model Context Protocol for advanced AI interactions
+- **� File Processing** - Support for PDF, DOCX, PPTX, images, and more
+- **💬 Real-time Chat** - WebSocket-based instant communication
+- **👤 User Management** - Authentication and personalized experiences
+- **🎯 Smart Routing** - Intelligent query classification and model selection
 
-* 🧪 [Product Walkthrough](https://github.com/user-attachments/assets/b2d8fa7f-f7df-431d-b1f5-64173e8b7944)
-* 🛠️ [Code Explanation](https://github.com/user-attachments/assets/a4dc6e7f-1783-41e5-b5c7-9b1cc3810da2)
+## 🚀 Quick Installation
 
----
-
-## 🧠 Key Features
-
-### 1. 🗣️ Conversational Podcast Generator
-
-* Converts technical documents into dialogue scripts.
-* Uses TTS to generate MP3 audio.
-* FFmpeg + eSpeak for high-quality synthesis.
-
-**Requirements:**
-
-* [FFmpeg](https://ffmpeg.org/download.html)
-* [eSpeak](http://espeak.sourceforge.net/download.html)
-
-**Packages:**
-
+### One-Command Setup
 ```bash
-npm install @ffmpeg/ffmpeg @ffmpeg/core @ffmpeg-installer/ffmpeg fluent-ffmpeg say
+# Clone and install everything automatically
+curl -fsSL https://raw.githubusercontent.com/spkkarri/iMentor/Team-4/install.sh | bash
 ```
 
-### 2. 🧠 Interactive Mind Map Generator
-
-* Creates readable mind maps with Dagre layout.
-* Interactive fullscreen view.
-
-**Packages:**
-
+### Manual Installation
 ```bash
-npm install dagre reactflow react-icons react-tiny-popover
-```
-
-### 3. 📂 Multi-File Upload Support
-
-* Upload PDFs, DOCX, PPTX, TXT with real-time progress.
-* Action menu: rename, delete, convert to podcast, generate mind map.
-
-### 4. 🔗 Chain-of-Thought Reasoning with RAG
-
-* Answers pulled directly from uploaded docs.
-* Uses FAISS for vector search.
-
-**Packages:**
-
-```bash
-npm install @langchain/community @langchain/core @langchain/google-genai faiss-node
-```
-
-### 5. 💾 Persistent Chat History
-
-* MongoDB for storing user sessions.
-* Load, delete, manage chats via modal interface.
-
-### 6. 🎤 STT & TTS Interaction
-
-* STT: Voice-to-text using browser APIs.
-* TTS: Replies spoken using real-time engines.
-
-**Packages:**
-
-```bash
-npm install @google-cloud/text-to-speech say
-```
-
-### 7. 🔍 Deep Search Integration
-
-* Uses DuckDuckGo API for advanced search.
-* Decomposes queries, aggregates and caches results.
-
-**Packages:**
-
-```bash
-npm install duck-duck-scrape axios node-cache
-```
-
----
-
-## ⚙️ Setup & Installation Guide
-
-### Prerequisites
-
-* Node.js (v18+)
-* MongoDB
-* FFmpeg
-* eSpeak
-
-### Installation Steps
-
-1. **Clone the Repository**
-
-```bash
+# Clone repository
 git clone -b Team-4 https://github.com/spkkarri/iMentor.git
+cd iMentor
+
+# Run installation script
+chmod +x install.sh
+./install.sh
+
+# Or with Docker
+./install.sh --docker
 ```
 
-2. **Install System Dependencies**
-
-**FFmpeg:**
-
-* Windows: [FFmpeg for Windows](https://ffmpeg.org/download.html#build-windows)
-* macOS: `brew install ffmpeg`
-* Linux: `sudo apt-get install ffmpeg`
-
-**eSpeak:**
-
-* Windows: [eSpeak Windows](http://espeak.sourceforge.net/download.html)
-* macOS: `brew install espeak`
-* Linux: `sudo apt-get install espeak`
-
-3. **Terminal 1: Backend Setup**
-
+### Docker Installation
 ```bash
-cd server
-npm install
+# Using Docker Compose
+git clone -b Team-4 https://github.com/spkkarri/iMentor.git
+cd iMentor
+docker-compose up -d
 ```
 
-Create `.env` file in `/server`:
+## ⚙️ Environment Variables
+
+Create `server/.env` file with these variables:
 
 ```env
+# Server Configuration
 PORT=5007
-MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
-GEMINI_API_KEY=your_key
-JWT_SECRET=random_secret1234
-HF_API_KEY=your_huggingface_api_key
+NODE_ENV=development
+
+# Database
+MONGO_URI=mongodb://localhost:27017/iMentor_chatbot
+
+# AI Services (Required)
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Optional AI Services
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+OLLAMA_URL=http://localhost:11434
+
+# Security
+JWT_SECRET=your_secure_jwt_secret_here
+
+# Feature Toggles
+ENABLE_DEEP_SEARCH=true
+ENABLE_MCP_AGENTS=true
+ENABLE_FILE_UPLOAD=true
+ENABLE_VOICE_FEATURES=false
+
+# Performance
+MAX_FILE_SIZE=50MB
+CACHE_TTL=3600
+RATE_LIMIT_REQUESTS=100
 ```
 
-Start Backend:
+## 🔑 API Keys Setup
 
+| Service | Required | Setup Instructions |
+|---------|----------|-------------------|
+| **Gemini** | ✅ Yes | [Google AI Studio](https://makersuite.google.com/app/apikey) → Create API Key |
+| **DeepSeek** | ⚪ Optional | [DeepSeek Platform](https://platform.deepseek.com/) → Generate Key |
+| **Ollama** | ⚪ Optional | [Install Ollama](https://ollama.ai/) → `ollama run llama2` |
+
+## 🛠️ Development
+
+### Available Scripts
 ```bash
+npm run dev          # Start development mode
+npm run server       # Server only
+npm run client       # Client only
+npm run build        # Build for production
+npm start           # Production mode
+npm run pm2:start   # Start with PM2
+npm run pm2:logs    # View PM2 logs
+```
+
+### Project Structure
+```
+iMentor/
+├── 📁 client/              # React frontend
+│   ├── src/components/     # UI components
+│   ├── src/services/       # API services
+│   └── public/            # Static assets
+├── � server/              # Node.js backend
+│   ├── routes/            # API routes
+│   ├── services/          # Business logic
+│   ├── models/            # Database models
+│   └── middleware/        # Express middleware
+├── 🐳 docker-compose.yml   # Docker configuration
+├── ⚙️ ecosystem.config.js  # PM2 configuration
+└── 🚀 install.sh          # Installation script
+```
+
+## 🌐 Access URLs
+
+- **Frontend**: http://localhost:3004
+- **Backend API**: http://localhost:5007
+- **MongoDB**: mongodb://localhost:27017
+
+## � Production Deployment
+
+### Using PM2
+```bash
+npm install -g pm2
+pm2 start ecosystem.config.js --env production
+pm2 save && pm2 startup
+```
+
+### Using Docker
+```bash
+docker-compose -f docker-compose.yml up -d
+```
+
+### Manual Deployment
+```bash
+npm run build
 npm start
 ```
 
-4. **Terminal 2: Frontend Setup**
+## � Troubleshooting
 
-```bash
-cd client
-npm install
-PORT=3004 npm start
-```
+| Issue | Solution |
+|-------|----------|
+| Port already in use | Change `PORT` in `.env` file |
+| MongoDB connection failed | Ensure MongoDB is running: `sudo systemctl start mongod` |
+| API key errors | Verify keys in `.env` file |
+| Build failures | Run `npm install` and check Node.js version (18+) |
 
----
+## 📄 License
 
-## 🏗️ Architecture
+MIT License - see [LICENSE](LICENSE) file for details.
 
-### Backend (Node.js/Express)
+## 🤝 Contributing
 
-* RAG pipeline with vector embeddings
-* Gemini AI integration
-* Multi-format file processing
-* Podcast generation with FFmpeg + eSpeak
-* Deep search engine with DuckDuckGo
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request to Team-4 branch
 
-### Frontend (React)
+## 📞 Support
 
-* Chat UI with RAG support
-* File upload manager
-* Mind map visualizer
-* Audio player
-* Deep search interface
-* Mobile-friendly design
-
-### Database (MongoDB)
-
-* Auth & session management
-* Persistent chats
-* File metadata
-* FAISS vector store
-* Search cache
+- 🐛 **Issues**: [GitHub Issues](https://github.com/spkkarri/iMentor/issues)
+- 💬 **Repository**: [iMentor Team-4](https://github.com/spkkarri/iMentor/tree/Team-4)
+- 📧 **Contact**: Team-4 Development Team
 
 ---
 
-## 📦 Environment Variables
-
-`.env` for `/server`:
-
-```env
-PORT=5005
-MONGO_URI=mongodb://localhost:27017/chatbotGeminiDB4
-GEMINI_API_KEY=your_key
-JWT_SECRET=random_secret1234
-HF_API_KEY=your_huggingface_api_key
-```
-
----
-
-## 📦 Key Dependencies
-
-### Backend
-
-* `@google/generative-ai`
-* `@langchain/community`
-* `faiss-node`
-* `mongoose`
-* `express`
-* `multer`
-* `fluent-ffmpeg`
-* `duck-duck-scrape`
-* `node-cache`
-* `say`
-
-### Frontend
-
-* `react`
-* `reactflow`
-* `dagre`
-* `axios`
-* `react-markdown`
-
----
-
-## 🚀 Development
-
-### Dev Mode
-
-```bash
-cd server
-npm run dev
-
-cd client
-npm start
-```
-
-### Testing
-
-```bash
-cd server
-npm test
-
-cd client
-npm test
-```
-
----
-
-## 👥 Team Contributions
-
-| Name              | GitHub Username                               | Contributions                                                                                             |
-| ----------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Jaya Aswanth Allu | [AswanthAllu](https://github.com/AswanthAllu) | Chain of Thought, Persistent Chat History, STT/TTS, Podcast Generator, Mind Maps, RAG, Deep Search, UI/UX |
-| Solomon Matthews  | [7nos](https://github.com/7nos)               | Deep Search Engine                                                                                        |
+**Made with ❤️ by the iMentor Team-4**

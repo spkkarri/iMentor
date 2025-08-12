@@ -1,27 +1,13 @@
 const PptxGenJS = require("pptxgenjs");
 const path = require('path');
 const fs = require('fs');
-const { GeminiAI } = require('./geminiAI'); // Import GeminiAI class properly
-const GeminiService = require('./geminiService'); // Import GeminiService class
+const universalAI = require('./universalAIService');
 
-let geminiAI;
-let geminiService;
-
-async function initializeGemini() {
-  geminiService = new GeminiService();
-  await geminiService.initialize();
-  geminiAI = new GeminiAI(geminiService);
-}
-
-async function generatePPT(topic) {
+async function generatePPT(topic, selectedModel = 'gemini-flash', userId = null) {
   try {
-    if (!geminiAI) {
-      await initializeGemini();
-    }
-
     let pptx = new PptxGenJS();
 
-    // Generate content for each slide using GeminiAI
+    // Generate content for each slide using selected AI model
     const slideTitles = [
       "Introduction",
       "Background",
@@ -31,57 +17,43 @@ async function generatePPT(topic) {
       "Conclusion"
     ];
 
-    // Generate reliable template-based content
-    const slideContents = [
-      // Introduction
-      [
-        `Overview of ${topic}`,
-        `Key objectives and goals`,
-        `Scope and importance`,
-        `Target audience and stakeholders`,
-        `Presentation agenda`
-      ],
-      // Background
-      [
-        `Historical context of ${topic}`,
-        `Current market situation`,
-        `Key players and stakeholders`,
-        `Relevant trends and developments`,
-        `Foundation and prerequisites`
-      ],
-      // Current Status
-      [
-        `Present state of ${topic}`,
-        `Recent developments and progress`,
-        `Current metrics and performance`,
-        `Existing solutions and approaches`,
-        `Market position and adoption`
-      ],
-      // Challenges
-      [
-        `Primary obstacles in ${topic}`,
-        `Technical and operational challenges`,
-        `Resource and budget constraints`,
-        `Regulatory and compliance issues`,
-        `Market and competitive pressures`
-      ],
-      // Opportunities
-      [
-        `Growth potential in ${topic}`,
-        `Emerging technologies and innovations`,
-        `Market expansion possibilities`,
-        `Strategic partnerships and collaborations`,
-        `Future development prospects`
-      ],
-      // Conclusion
-      [
-        `Key takeaways from ${topic}`,
-        `Strategic recommendations`,
-        `Next steps and action items`,
-        `Expected outcomes and benefits`,
-        `Call to action and follow-up`
-      ]
-    ];
+    console.log(`[PPT] Generating content using ${selectedModel} for user ${userId}`);
+
+    // Generate AI content for each slide
+    const slideContents = [];
+
+    for (let i = 0; i < slideTitles.length; i++) {
+      try {
+        const content = await universalAI.generatePPTContent(topic, slideTitles[i], selectedModel, userId);
+
+        // Parse the AI response to extract bullet points
+        const lines = content.split('\n').filter(line => line.trim());
+        const bulletPoints = lines
+          .filter(line => line.startsWith('•') || line.startsWith('-') || line.startsWith('*'))
+          .map(line => line.replace(/^[•\-*]\s*/, '').trim())
+          .filter(point => point.length > 0);
+
+        // If no bullet points found, create some from the content
+        if (bulletPoints.length === 0) {
+          const sentences = content.split('.').filter(s => s.trim().length > 10);
+          slideContents.push(sentences.slice(0, 5).map(s => s.trim()));
+        } else {
+          slideContents.push(bulletPoints.slice(0, 5));
+        }
+
+        console.log(`[PPT] Generated content for slide ${i + 1}: ${slideTitles[i]}`);
+      } catch (error) {
+        console.warn(`[PPT] Failed to generate content for slide ${i + 1}, using fallback:`, error.message);
+        // Fallback content
+        slideContents.push([
+          `Key aspects of ${topic}`,
+          `Important considerations`,
+          `Relevant information`,
+          `Strategic insights`,
+          `Action items`
+        ]);
+      }
+    }
 
     // Slide 1: Title slide
     let slide1 = pptx.addSlide();

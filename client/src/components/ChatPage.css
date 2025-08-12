@@ -192,6 +192,7 @@
   color: var(--text-secondary);
   margin-bottom: 12px;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* API Key Manager Container */
@@ -201,8 +202,6 @@
   background: var(--primary-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-small);
-}
-  letter-spacing: 0.5px;
 }
 
 .setting-item {

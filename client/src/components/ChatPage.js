@@ -1199,7 +1199,7 @@ Thank you for using TutorAI!`;
                                             ? "Ask anything - I'll search the web for comprehensive answers..."
                                             : isMcpEnabled
                                                 ? "Ask anything - AI agents will help you..."
-                                                : "Message Gemini..."
+                                                : "Ask TutorAi"
                                 }
                                 disabled={isProcessing}
                                 rows={1}

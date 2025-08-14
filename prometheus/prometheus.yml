@@ -11,9 +11,9 @@ scrape_configs:
   # --- FIX: Target the host machine where your Node.js app is running ---
   - job_name: 'nodejs_backend'
     static_configs:
-      - targets: ['host.docker.internal:5001']
+      - targets: ['host.docker.internal:2000']
 
   # --- FIX: Target the host machine where your Python app is running ---
   - job_name: 'python_rag_service'
     static_configs:
-      - targets: ['host.docker.internal:5000']
+      - targets: ['host.docker.internal:2001']

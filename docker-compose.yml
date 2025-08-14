@@ -4,7 +4,7 @@ services:
     image: qdrant/qdrant:latest
     container_name: qdrant_service
     ports:
-      - "7000:6333" # Port changed
+      - "2003:6333" # Port changed
       - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
@@ -17,7 +17,7 @@ services:
     image: neo4j:5.17.0
     container_name: neo4j_service
     ports:
-      - "7001:7474" # Port changed
+      - "2004:7474" # Port changed
       - "7687:7687"
     volumes:
       - neo4j_data:/data
@@ -33,7 +33,7 @@ services:
     image: redis:7.2-alpine
     container_name: redis_service
     ports:
-      - "6379:6379" # No change requested, keeping as is
+      - "2005:6379" # No change requested, keeping as is
     volumes:
       - redis_data:/data
     networks:
@@ -49,7 +49,7 @@ services:
       - "xpack.security.enabled=false"
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
-      - "7002:9200" # Port changed
+      - "2006:9200" # Port changed
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     healthcheck:
@@ -86,7 +86,7 @@ services:
     image: docker.elastic.co/kibana/kibana:8.11.3
     container_name: kibana
     ports:
-      - "7003:5601" # Port changed
+      - "2007:5601" # Port changed
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     depends_on:
@@ -101,7 +101,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
-      - "7004:9090" # Port changed
+      - "2008:9090" # Port changed
     volumes:
       - ./prometheus/:/etc/prometheus/
       - prometheus_data:/prometheus
@@ -118,7 +118,7 @@ services:
     image: grafana/grafana-oss:latest
     container_name: grafana
     ports:
-      - "7005:3000" # Port changed
+      - "2009:3000" # Port changed
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/:/etc/grafana/provisioning/

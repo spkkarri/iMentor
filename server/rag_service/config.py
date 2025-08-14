@@ -134,7 +134,7 @@ QDRANT_SEARCH_MIN_RELEVANCE_SCORE = float(os.getenv("QDRANT_SEARCH_MIN_RELEVANCE
 SPACY_MODEL_NAME = os.getenv('SPACY_MODEL_NAME', 'en_core_web_sm')
 
 # --- API Port Configuration ---
-API_PORT = int(os.getenv('API_PORT', 5000))
+API_PORT = int(os.getenv('API_PORT', 2001))
 
 # --- Tesseract OCR Path ---
 TESSERACT_CMD = os.getenv('TESSERACT_CMD', r'C:\Program Files\Tesseract-OCR\tesseract.exe')

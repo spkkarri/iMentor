@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# TutorAI Chatbot - Complete Installation Script
+# iMentor - Advanced AI Tutoring Platform Installation Script
 # This script handles everything from system setup to running the application
+# Features: Agentic MCP, Multi-Model AI, Document Processing, Content Generation
 
 set -e  # Exit on any error
 
@@ -10,17 +11,22 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Configuration
-APP_NAME="iMentor TutorAI Chatbot"
+APP_NAME="iMentor - Advanced AI Tutoring Platform"
 APP_DIR="iMentor"
 REPO_URL="https://github.com/spkkarri/iMentor.git"
-REPO_BRANCH="Team-4"
+REPO_BRANCH="main"
 NODE_VERSION="18"
+PYTHON_VERSION="3.9"
+CONDA_ENV_NAME="imentor"
 
 echo -e "${BLUE}🚀 $APP_NAME - Complete Installation${NC}"
-echo "=================================================="
+echo "=============================================================="
+echo -e "${PURPLE}Features: Agentic MCP • Multi-Model AI • Document Processing${NC}"
+echo "=============================================================="
 
 # Function to detect OS
 detect_os() {
@@ -42,10 +48,105 @@ detect_os() {
 OS=$(detect_os)
 echo -e "${BLUE}📋 Detected OS: $OS${NC}"
 
+# Function to check and install conda
+install_conda() {
+    echo -e "${YELLOW}🐍 Checking Conda installation...${NC}"
+
+    if command -v conda &> /dev/null; then
+        echo -e "${GREEN}✅ Conda already installed${NC}"
+        return
+    fi
+
+    echo -e "${YELLOW}📦 Installing Miniconda...${NC}"
+
+    case $OS in
+        "ubuntu"|"linux")
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+            bash miniconda.sh -b -p $HOME/miniconda3
+            rm miniconda.sh
+            echo 'export PATH="$HOME/miniconda3/bin:$PATH"' >> ~/.bashrc
+            source ~/.bashrc
+            ;;
+        "macos")
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh
+            bash miniconda.sh -b -p $HOME/miniconda3
+            rm miniconda.sh
+            echo 'export PATH="$HOME/miniconda3/bin:$PATH"' >> ~/.bash_profile
+            source ~/.bash_profile
+            ;;
+        *)
+            echo -e "${RED}❌ Please install Conda manually from https://docs.conda.io/en/latest/miniconda.html${NC}"
+            exit 1
+            ;;
+    esac
+
+    # Initialize conda
+    $HOME/miniconda3/bin/conda init bash
+    source ~/.bashrc
+}
+
+# Function to check and install Docker
+install_docker() {
+    echo -e "${YELLOW}🐳 Checking Docker installation...${NC}"
+
+    if command -v docker &> /dev/null; then
+        echo -e "${GREEN}✅ Docker already installed${NC}"
+        # Test sudo docker access
+        if sudo docker ps &> /dev/null; then
+            echo -e "${GREEN}✅ Docker sudo access confirmed${NC}"
+        else
+            echo -e "${RED}❌ Docker requires sudo access. Please ensure your user can run 'sudo docker'${NC}"
+            exit 1
+        fi
+        return
+    fi
+
+    echo -e "${YELLOW}📦 Installing Docker...${NC}"
+
+    case $OS in
+        "ubuntu")
+            # Install Docker
+            sudo apt update
+            sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt update
+            sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+            # Install Docker Compose
+            sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+
+            # Start Docker service
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            ;;
+        "centos")
+            sudo yum install -y yum-utils
+            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            ;;
+        "macos")
+            echo -e "${YELLOW}⚠️ Please install Docker Desktop for Mac from https://docs.docker.com/desktop/mac/install/${NC}"
+            echo -e "${YELLOW}⚠️ After installation, ensure Docker Desktop is running${NC}"
+            read -p "Press Enter after Docker Desktop is installed and running..."
+            ;;
+        *)
+            echo -e "${RED}❌ Please install Docker manually${NC}"
+            exit 1
+            ;;
+    esac
+
+    echo -e "${GREEN}✅ Docker installed successfully${NC}"
+    echo -e "${YELLOW}⚠️ Note: This script uses 'sudo docker' commands${NC}"
+}
+
 # Function to install system dependencies
 install_system_deps() {
     echo -e "${YELLOW}📦 Installing system dependencies...${NC}"
-    
+
     case $OS in
         "ubuntu")
             sudo apt update && sudo apt upgrade -y
@@ -142,6 +243,44 @@ EOF
     esac
 }
 
+# Function to setup conda environment
+setup_conda_env() {
+    echo -e "${YELLOW}🐍 Setting up Conda environment...${NC}"
+
+    # Ensure conda is available
+    if ! command -v conda &> /dev/null; then
+        echo -e "${RED}❌ Conda not found. Please install Conda first.${NC}"
+        exit 1
+    fi
+
+    # Create conda environment if it doesn't exist
+    if conda env list | grep -q "^${CONDA_ENV_NAME} "; then
+        echo -e "${GREEN}✅ Conda environment '${CONDA_ENV_NAME}' already exists${NC}"
+    else
+        echo -e "${YELLOW}📦 Creating Conda environment '${CONDA_ENV_NAME}' with Python ${PYTHON_VERSION}...${NC}"
+        conda create -n $CONDA_ENV_NAME python=$PYTHON_VERSION -y
+    fi
+
+    # Activate environment and install Python dependencies
+    echo -e "${YELLOW}📦 Installing Python dependencies in Conda environment...${NC}"
+    source $(conda info --base)/etc/profile.d/conda.sh
+    conda activate $CONDA_ENV_NAME
+
+    # Install Python packages
+    if [ -f "server/requirements.txt" ]; then
+        pip install -r server/requirements.txt
+    else
+        # Install common ML/AI packages
+        pip install numpy pandas scikit-learn transformers torch torchvision torchaudio
+        pip install langchain langchain-community chromadb faiss-cpu
+        pip install fastapi uvicorn pydantic requests beautifulsoup4
+        pip install python-multipart aiofiles python-dotenv
+    fi
+
+    echo -e "${GREEN}✅ Conda environment setup complete${NC}"
+    echo -e "${YELLOW}💡 To activate: conda activate ${CONDA_ENV_NAME}${NC}"
+}
+
 # Function to install PM2
 install_pm2() {
     echo -e "${YELLOW}🚀 Installing PM2...${NC}"
@@ -175,7 +314,7 @@ setup_environment() {
     if [ ! -f server/.env ]; then
         cat > server/.env << EOF
 # Server Configuration
-PORT=5007
+PORT=4007
 NODE_ENV=development
 
 # Database
@@ -243,8 +382,8 @@ setup_firewall() {
             ;;
         "centos")
             if command -v firewall-cmd &> /dev/null; then
-                sudo firewall-cmd --permanent --add-port=3004/tcp
-                sudo firewall-cmd --permanent --add-port=5007/tcp
+                sudo firewall-cmd --permanent --add-port=4004/tcp
+                sudo firewall-cmd --permanent --add-port=4007/tcp
                 sudo firewall-cmd --permanent --add-port=27017/tcp
                 sudo firewall-cmd --reload
                 echo -e "${GREEN}✅ Firewall rules added${NC}"
@@ -270,13 +409,19 @@ main() {
     
     # Install system dependencies
     install_system_deps
-    
+
+    # Install and setup Conda
+    install_conda
+
+    # Install and setup Docker
+    install_docker
+
     # Install Node.js
     install_nodejs
-    
+
     # Install MongoDB
     install_mongodb
-    
+
     # Install PM2
     install_pm2
     
@@ -287,7 +432,10 @@ main() {
     
     # Install dependencies
     install_deps
-    
+
+    # Setup Conda environment
+    setup_conda_env
+
     # Setup environment
     setup_environment
     
@@ -301,22 +449,34 @@ main() {
     start_app
     
     echo ""
-    echo -e "${GREEN}🎉 Installation completed successfully!${NC}"
+    echo -e "${GREEN}🎉 iMentor Installation completed successfully!${NC}"
+    echo ""
+    echo -e "${PURPLE}🤖 Agentic MCP Features Available:${NC}"
+    echo -e "   • Research Analyst Agent    - Web research & analysis"
+    echo -e "   • Content Creator Agent     - Document & presentation generation"
+    echo -e "   • Document Processor Agent  - File processing & extraction"
+    echo -e "   • Learning Assistant Agent  - Educational support & tutoring"
+    echo -e "   • Workflow Coordinator Agent - Task orchestration & optimization"
     echo ""
     echo -e "${BLUE}📋 Application URLs:${NC}"
-    echo -e "   Frontend: ${GREEN}http://localhost:3004${NC}"
-    echo -e "   Backend:  ${GREEN}http://localhost:5007${NC}"
+    echo -e "   Frontend: ${GREEN}http://localhost:4004${NC}"
+    echo -e "   Backend:  ${GREEN}http://localhost:4007${NC}"
     echo ""
     echo -e "${BLUE}🔧 Useful commands:${NC}"
-    echo -e "   pm2 status          - Check application status"
-    echo -e "   pm2 logs            - View logs"
-    echo -e "   pm2 restart all     - Restart application"
-    echo -e "   npm run dev         - Start in development mode"
+    echo -e "   pm2 status              - Check application status"
+    echo -e "   pm2 logs                - View logs"
+    echo -e "   pm2 restart all         - Restart application"
+    echo -e "   npm run dev             - Start in development mode"
+    echo -e "   conda activate ${CONDA_ENV_NAME}  - Activate Python environment"
+    echo -e "   sudo docker-compose ps  - Check Docker services"
     echo ""
     echo -e "${YELLOW}⚠️ Don't forget to:${NC}"
     echo -e "   1. Edit server/.env with your API keys"
-    echo -e "   2. Configure your firewall if needed"
-    echo -e "   3. Set up SSL certificates for production"
+    echo -e "   2. Enable Agentic MCP in the chat interface"
+    echo -e "   3. Configure your firewall if needed"
+    echo -e "   4. Set up SSL certificates for production"
+    echo ""
+    echo -e "${GREEN}🚀 Ready to experience intelligent AI agents!${NC}"
 }
 
 # Run main function

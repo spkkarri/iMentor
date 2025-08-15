@@ -297,13 +297,34 @@ console.log('Gemini API Key for DeepSearch:', process.env.GEMINI_API_KEY);
 // --- NEW: Route to serve generated files ---
 router.get('/download-generated/:filename', tempAuth, (req, res) => {
     const { filename } = req.params;
-    const generatedDir = path.join(__dirname, '../public/generated_ppts');
-    const filePath = path.join(generatedDir, filename);
+
+    // Check multiple possible directories for generated files
+    const possibleDirs = [
+        path.join(__dirname, '../public/generated_ppts'),
+        path.join(__dirname, '../public/generated'),
+        path.join(__dirname, '../generated_content')
+    ];
+
+    let filePath = null;
+    let generatedDir = null;
+
+    // Find the file in one of the directories
+    for (const dir of possibleDirs) {
+        const testPath = path.join(dir, filename);
+        if (fs.existsSync(testPath)) {
+            filePath = testPath;
+            generatedDir = dir;
+            break;
+        }
+    }
 
     // Security check - ensure file exists and is in the correct directory
-    if (!fs.existsSync(filePath) || !filePath.startsWith(generatedDir)) {
+    if (!filePath || !filePath.startsWith(generatedDir)) {
+        console.log(`[FileDownload] File not found: ${filename} in directories:`, possibleDirs);
         return res.status(404).json({ message: 'File not found' });
     }
+
+    console.log(`[FileDownload] Serving file: ${filePath}`);
 
     // Set appropriate headers for download
     const ext = path.extname(filename).toLowerCase();
@@ -317,11 +338,34 @@ router.get('/download-generated/:filename', tempAuth, (req, res) => {
         contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     } else if (ext === '.xlsx') {
         contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    } else if (ext === '.txt') {
+        contentType = 'text/plain';
     }
 
+    // Set CORS headers for download
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Type, Content-Length');
+
+    // Set download headers
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.sendFile(filePath);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    // Send file
+    res.sendFile(filePath, (err) => {
+        if (err) {
+            console.error(`[FileDownload] Error sending file ${filename}:`, err);
+            if (!res.headersSent) {
+                res.status(500).json({ message: 'Error downloading file' });
+            }
+        } else {
+            console.log(`[FileDownload] Successfully sent file: ${filename}`);
+        }
+    });
 });
 
 module.exports = router;

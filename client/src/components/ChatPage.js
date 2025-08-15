@@ -4,6 +4,7 @@ import {
     sendMessage as apiSendMessage,
     queryRagService,
     performDeepSearch,
+    performEnhancedDeepSearchV2,
     getUserFiles,
     deleteUserFile,
     renameUserFile,
@@ -14,6 +15,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { v4 as uuidv4 } from 'uuid';
+import MediaRenderer from './MediaRenderer';
+import DownloadLink from './DownloadLink';
+import MCPToggle from './MCPToggle';
+import AgenticMCPToggle from './AgenticMCPToggle';
+import EnhancedVideoPlayer from './EnhancedVideoPlayer';
 import {
     FaMicrophone,
     FaStop,
@@ -34,7 +40,6 @@ import {
 import FileUploadWidget from './FileUploadWidget';
 import HistorySidebarWidget from './HistorySidebarWidget';
 import FileManagerWidget from './FileManagerWidget';
-import MediaRenderer from './MediaRenderer';
 import ModelSwitcher from './ModelSwitcher';
 import TutorModeSelector from './TutorModeSelector';
 import MindMap from './MindMap';
@@ -81,6 +86,10 @@ const ChatPage = () => {
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
     const [isMcpEnabled, setIsMcpEnabled] = useState(() => {
         const saved = localStorage.getItem('mcpEnabled');
+        return saved !== null ? JSON.parse(saved) : false;
+    });
+    const [isAgenticMCPEnabled, setIsAgenticMCPEnabled] = useState(() => {
+        const saved = localStorage.getItem('agenticMCPEnabled');
         return saved !== null ? JSON.parse(saved) : false;
     });
     const [selectedFiles, setSelectedFiles] = useState([]);
@@ -202,6 +211,11 @@ const ChatPage = () => {
         localStorage.setItem('mcpEnabled', JSON.stringify(isMcpEnabled));
     }, [isMcpEnabled]);
 
+    // Save Agentic MCP state
+    useEffect(() => {
+        localStorage.setItem('agenticMCPEnabled', JSON.stringify(isAgenticMCPEnabled));
+    }, [isAgenticMCPEnabled]);
+
     // Save selected model
     useEffect(() => {
         localStorage.setItem('selectedModel', selectedModel);
@@ -285,6 +299,73 @@ const ChatPage = () => {
     }, [showProfileDropdown]);
 
     // MCP search handler
+    const handleAgenticMCPSearch = useCallback(async (query) => {
+        if (isProcessing) return;
+
+        setIsProcessing(true);
+        setError('');
+
+        const newUserMessage = {
+            id: uuidv4(),
+            role: 'user',
+            parts: [{ text: query }],
+            timestamp: new Date()
+        };
+
+        setMessages(prev => [...prev, newUserMessage]);
+
+        try {
+            const response = await fetch('/api/chat/message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'X-User-ID': userId
+                },
+                body: JSON.stringify({
+                    query: query.trim(),
+                    sessionId,
+                    history: [...messages, newUserMessage],
+                    systemPrompt: 'You are an intelligent agentic AI assistant with access to comprehensive application features.',
+                    ragEnabled: false,
+                    deepSearch: false,
+                    autoDetectWebSearch: false,
+                    multiLLM: false,
+                    mcpEnabled: false,
+                    agenticMCP: true,
+                    selectedModel: selectedModel
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Agentic MCP processing failed');
+
+            const assistantMessage = {
+                id: uuidv4(),
+                role: 'assistant',
+                parts: [{ text: data.response }],
+                timestamp: new Date(),
+                metadata: data.metadata || {},
+                // Add Agentic MCP-specific data
+                agenticData: data.agenticData || null,
+                agentsUsed: data.metadata?.agentsUsed || null,
+                confidence: data.metadata?.confidence || null,
+                processingTime: data.metadata?.processingTime || null,
+                workflowType: data.metadata?.workflowType || null,
+                downloadableFiles: data.agenticData?.downloadableFiles || []
+            };
+
+            setMessages(prev => [...prev, assistantMessage]);
+
+        } catch (error) {
+            console.error('Agentic MCP search failed:', error);
+            setError(error.message || 'Agentic MCP processing failed');
+            showError(error.message || 'Agentic MCP processing failed');
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [isProcessing, sessionId, userId, selectedModel, messages, showError]);
+
     const handleMcpSearch = useCallback(async (query) => {
         if (!query.trim() || isProcessing) return;
 
@@ -301,29 +382,41 @@ const ChatPage = () => {
         try {
             console.log('🤖 MCP search enabled for query:', query);
 
-            const response = await fetch('/api/agents/search', {
+            const response = await fetch('/api/chat/message', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
                     'X-User-ID': userId
                 },
                 body: JSON.stringify({
-                    input: query.trim(),
-                    history: [...messages, newUserMessage],
+                    query: query.trim(),
                     sessionId,
-                    systemPrompt: 'You are a helpful AI assistant with specialized agents.'
+                    history: [...messages, newUserMessage],
+                    systemPrompt: 'You are a helpful AI assistant with specialized agents.',
+                    ragEnabled: false,
+                    deepSearch: false,
+                    autoDetectWebSearch: false,
+                    multiLLM: false,
+                    mcpEnabled: true,
+                    selectedModel: selectedModel
                 })
             });
 
             const data = await response.json();
-            if (!data.success) throw new Error(data.error || 'MCP search failed');
+            if (!response.ok) throw new Error(data.message || 'MCP processing failed');
 
             const assistantMessage = {
                 id: uuidv4(),
                 role: 'assistant',
-                parts: [{ text: data.data.response }],
+                parts: [{ text: data.response }],
                 timestamp: new Date(),
-                metadata: data.data.metadata
+                metadata: data.metadata || {},
+                // Add MCP-specific data
+                mcpData: data.mcpData || null,
+                agentsUsed: data.metadata?.agentsUsed || null,
+                confidence: data.metadata?.confidence || null,
+                processingTime: data.metadata?.processingTime || null
             };
 
             setMessages(prev => [...prev, assistantMessage]);
@@ -363,6 +456,12 @@ const ChatPage = () => {
             return;
         }
 
+        // Check if Agentic MCP is enabled and handle Agentic MCP processing
+        if (isAgenticMCPEnabled) {
+            setInputText(''); // Clear input immediately for Agentic MCP
+            return handleAgenticMCPSearch(trimmedInput);
+        }
+
         // Check if MCP is enabled and handle MCP search
         if (isMcpEnabled) {
             setInputText(''); // Clear input immediately for MCP
@@ -387,11 +486,22 @@ const ChatPage = () => {
             let metadata = {};
 
             if (isDeepSearchEnabled) {
-                // Use deep search with selected model
-                console.log(`🔍 Using deep search with model: ${selectedModel}`);
-                response = await performDeepSearch(trimmedInput, messages, selectedModel);
-                responseText = response.data?.response || response.data?.answer || 'No response received';
-                metadata = { searchType: 'efficient-deep-search', model: selectedModel };
+                // Use enhanced deep search V2 with rich media content
+                console.log(`🔍 Using enhanced deep search V2 with model: ${selectedModel}`);
+                response = await performEnhancedDeepSearchV2(trimmedInput, messages, selectedModel);
+
+                // Fix response data access - the API returns data nested under 'data'
+                const responseData = response.data?.data || response.data;
+                responseText = responseData?.response || responseData?.answer || 'No response received';
+
+                metadata = {
+                    searchType: 'enhanced-deep-search-v2',
+                    model: selectedModel,
+                    hasRichMedia: responseData?.metadata?.hasRichMedia || false,
+                    videoCount: responseData?.metadata?.videoCount || 0,
+                    blogCount: responseData?.metadata?.blogCount || 0,
+                    academicCount: responseData?.metadata?.academicCount || 0
+                };
             } else if (isRagEnabled) {
                 if (selectedFiles.length === 0) {
                     // Show error if RAG is enabled but no files selected
@@ -441,13 +551,26 @@ const ChatPage = () => {
             }
 
             if (responseText) {
+                // Fix response data access for rich media content
+                const responseData = response.data?.data || response.data;
+
                 const assistantMessage = {
                     id: uuidv4(),
                     role: 'assistant',
                     parts: [{ text: responseText }],
                     timestamp: new Date(),
                     metadata,
-                    media: response.data?.media || null
+                    // Rich media content for enhanced deep search V2
+                    videos: responseData?.videos || [],
+                    blogs: responseData?.blogs || [],
+                    academic: responseData?.academic || [],
+                    wikipedia: responseData?.wikipedia || [],
+                    documentation: responseData?.documentation || [],
+                    sources: responseData?.sources || [],
+                    // Legacy media support
+                    media: responseData?.media || null,
+                    // Original query for video player context
+                    originalQuery: trimmedInput
                 };
                 setMessages(prev => [...prev, assistantMessage]);
             }
@@ -1133,6 +1256,10 @@ Thank you for using TutorAI!`;
                                                 remarkPlugins={[remarkGfm]}
                                                 rehypePlugins={[rehypeRaw]}
                                                 components={{
+                                                    // Custom download link handler
+                                                    a: ({node, ...props}) => (
+                                                        <DownloadLink {...props} />
+                                                    ),
                                                     // Custom styling for embedded content
                                                     iframe: ({node, ...props}) => (
                                                         <div className="video-container" style={{margin: '10px 0', textAlign: 'center'}}>
@@ -1159,11 +1286,16 @@ Thank you for using TutorAI!`;
                                                 <div className="search-type-badge">
                                                     {metadata.searchType === 'rag' && <><FaDatabase /> RAG Search</>}
                                                     {metadata.searchType === 'deep-search' && <><FaSearch /> Deep Search</>}
+                                                    {metadata.searchType === 'enhanced-deep-search-v2' && <><FaSearch /> Enhanced Deep Search</>}
                                                     {metadata.enhanced && <span className="enhanced-badge">Enhanced</span>}
+                                                    {metadata.hasRichMedia && <span className="rich-media-badge">Rich Media</span>}
                                                 </div>
                                                 {metadata.sources && metadata.sources.length > 0 && (
                                                     <div className="sources">
-                                                        <small>Sources: {metadata.sources.join(', ')}</small>
+                                                        <small>Sources: {metadata.sources.map(source =>
+                                                            typeof source === 'string' ? source :
+                                                            source?.title || source?.url || 'Unknown Source'
+                                                        ).join(', ')}</small>
                                                     </div>
                                                 )}
                                                 {metadata.documentsFound > 0 && (
@@ -1178,11 +1310,86 @@ Thank you for using TutorAI!`;
                                                 )}
                                             </div>
                                         )}
-                                        {/* Media Content for Deep Search */}
-                                        {msg.role === 'assistant' && metadata.searchType === 'enhanced_deep_search' && msg.media && (
-                                            <MediaRenderer
-                                                media={msg.media}
-                                            />
+
+                                        {/* MCP Action Verification */}
+                                        {msg.role === 'assistant' && msg.verification && (
+                                            <div className="verification-indicator">
+                                                {msg.verification.real_action ? (
+                                                    <span className="real-action-badge">
+                                                        ✅ REAL ACTION PERFORMED
+                                                    </span>
+                                                ) : (
+                                                    <span className="simulated-action-badge">
+                                                        ⚠️ SIMULATED ACTION
+                                                    </span>
+                                                )}
+
+                                                {/* Show verification details */}
+                                                {!msg.verification.real_action && msg.verification.simulation_reason && (
+                                                    <div className="simulation-reason">
+                                                        <small>Reason: {msg.verification.simulation_reason}</small>
+                                                    </div>
+                                                )}
+
+                                                {msg.verification.real_action && msg.verification.github_url && (
+                                                    <div className="real-action-link">
+                                                        <a href={msg.verification.github_url} target="_blank" rel="noopener noreferrer">
+                                                            🔗 View on GitHub
+                                                        </a>
+                                                    </div>
+                                                )}
+
+                                                {msg.verification.real_action && msg.verification.calendar_link && (
+                                                    <div className="real-action-link">
+                                                        <a href={msg.verification.calendar_link} target="_blank" rel="noopener noreferrer">
+                                                            📅 View in Calendar
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* MCP Agent Suggestions */}
+                                        {msg.role === 'assistant' && metadata.suggestions && metadata.suggestions.length > 0 && (
+                                            <div className="mcp-suggestions">
+                                                <div className="suggestions-header">
+                                                    <small>💡 Try asking:</small>
+                                                </div>
+                                                <div className="suggestion-chips">
+                                                    {metadata.suggestions.map((suggestion, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            className="suggestion-chip"
+                                                            onClick={() => setInputText(suggestion)}
+                                                            disabled={isProcessing}
+                                                        >
+                                                            {suggestion}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Rich Media Content for Enhanced Deep Search V2 */}
+                                        {msg.role === 'assistant' && metadata.searchType === 'enhanced-deep-search-v2' && (
+                                            <div className="enhanced-media-content">
+                                                {/* Enhanced Video Player */}
+                                                {msg.videos && msg.videos.length > 0 && (
+                                                    <EnhancedVideoPlayer
+                                                        videos={msg.videos}
+                                                        query={msg.originalQuery || 'search results'}
+                                                    />
+                                                )}
+
+                                                {/* Other Media Content */}
+                                                <MediaRenderer
+                                                    videos={[]} // Videos handled by EnhancedVideoPlayer
+                                                    blogs={msg.blogs || []}
+                                                    academic={msg.academic || []}
+                                                    wikipedia={msg.wikipedia || []}
+                                                    documentation={msg.documentation || []}
+                                                    sources={msg.sources || []}
+                                                />
+                                            </div>
                                         )}
                                     </div>
                                     <div className="message-timestamp">{timestamp}</div>
@@ -1240,6 +1447,7 @@ Thank you for using TutorAI!`;
                                     if (!isMcpEnabled) {
                                         setIsRagEnabled(false);
                                         setIsDeepSearchEnabled(false);
+                                        setIsAgenticMCPEnabled(false);
                                     }
                                 }}
                                 disabled={isProcessing}
@@ -1247,6 +1455,23 @@ Thank you for using TutorAI!`;
                             >
                                 <span className="btn-icon">🤖</span>
                                 <span>MCP Agents</span>
+                            </button>
+
+                            <button
+                                className={`mode-btn-inside ${isAgenticMCPEnabled ? 'active agentic-active' : ''}`}
+                                onClick={() => {
+                                    setIsAgenticMCPEnabled(!isAgenticMCPEnabled);
+                                    if (!isAgenticMCPEnabled) {
+                                        setIsRagEnabled(false);
+                                        setIsDeepSearchEnabled(false);
+                                        setIsMcpEnabled(false);
+                                    }
+                                }}
+                                disabled={isProcessing}
+                                title="Agentic MCP - Intelligent agents with full application access"
+                            >
+                                <span className="btn-icon">🤖</span>
+                                <span>Agentic MCP</span>
                             </button>
                         </div>
 
@@ -1289,7 +1514,7 @@ Thank you for using TutorAI!`;
                             </div>
                         )}
 
-                        {(isRagEnabled || isDeepSearchEnabled || isMcpEnabled) && (
+                        {(isRagEnabled || isDeepSearchEnabled || isMcpEnabled || isAgenticMCPEnabled) && (
                             <div className="mode-indicator">
                                 {isRagEnabled && (
                                     <span className="mode-badge rag-badge">
@@ -1304,6 +1529,11 @@ Thank you for using TutorAI!`;
                                 {isMcpEnabled && (
                                     <span className="mode-badge mcp-badge">
                                         🤖 MCP Agents
+                                    </span>
+                                )}
+                                {isAgenticMCPEnabled && (
+                                    <span className="mode-badge agentic-mcp-badge">
+                                        🤖 Agentic MCP
                                     </span>
                                 )}
                             </div>

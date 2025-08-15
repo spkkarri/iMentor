@@ -10,11 +10,11 @@ module.exports = {
       max_memory_restart: '1G',
       env: {
         NODE_ENV: 'production',
-        PORT: 5007
+        PORT: 4007
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 5007
+        PORT: 4007
       },
       error_file: '/var/log/pm2/tutorAI-server-error.log',
       out_file: '/var/log/pm2/tutorAI-server-out.log',
@@ -24,7 +24,7 @@ module.exports = {
     {
       name: 'tutorAI-client',
       script: 'serve',
-      args: '-s client/build -l 3004',
+      args: '-s client/build -l 4004',
       cwd: '/opt/tutorAI',
       instances: 1,
       autorestart: true,
@@ -32,7 +32,7 @@ module.exports = {
       max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
-        PORT: 3004
+        PORT: 4004
       },
       error_file: '/var/log/pm2/tutorAI-client-error.log',
       out_file: '/var/log/pm2/tutorAI-client-out.log',

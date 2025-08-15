@@ -104,6 +104,28 @@ export const performDeepSearch = async (query, history = [], selectedModel = 'ge
         }
     }
 };
+
+// Enhanced Deep Search V2 with rich media content
+export const performEnhancedDeepSearchV2 = async (query, history = [], selectedModel = 'gemini-flash') => {
+    try {
+        console.log('🚀 Calling Enhanced Deep Search V2 API...');
+        const response = await api.post('/chat/enhanced-deep-search-v2', {
+            query,
+            selectedModel,
+            history: history.map(msg => ({
+                role: msg.role,
+                content: msg.parts?.[0]?.text || msg.content || ''
+            }))
+        });
+
+        console.log('✅ Enhanced Deep Search V2 response received:', response.data);
+        return response;
+    } catch (error) {
+        console.error('Enhanced Deep Search V2 failed:', error);
+        throw error;
+    }
+};
+
 export const renameUserFile = (fileId, newOriginalName) => api.patch(`/files/${fileId}`, { newOriginalName });
 export const getFileOverview = (fileId) => api.post('/files/overview', { fileId });
 

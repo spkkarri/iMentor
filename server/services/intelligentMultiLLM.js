@@ -8,6 +8,8 @@ const DeepSeekConnector = require('./modelConnectors/deepseekConnector');
 const QwenConnector = require('./modelConnectors/qwenConnector');
 const userOllamaConnector = require('./userOllamaConnector');
 const userSpecificAI = require('./userSpecificAI');
+const EnhancedPromptSystem = require('./enhancedPromptSystem');
+const PerformanceOptimizer = require('./performanceOptimizer');
 
 class IntelligentMultiLLM {
     constructor() {
@@ -20,6 +22,60 @@ class IntelligentMultiLLM {
             userSatisfaction: {}
         };
         this.isInitialized = false;
+
+        // Initialize enhanced systems
+        this.promptSystem = new EnhancedPromptSystem();
+        this.performanceOptimizer = new PerformanceOptimizer();
+
+        // Enhanced routing rules
+        this.routingRules = this.initializeEnhancedRouting();
+    }
+
+    /**
+     * Initialize enhanced routing rules for optimal model selection
+     */
+    initializeEnhancedRouting() {
+        return {
+            // Conversational queries -> Llama 3.2
+            conversational: {
+                keywords: ['chat', 'talk', 'conversation', 'hello', 'hi', 'how are you', 'tell me about yourself'],
+                patterns: [/^(hi|hello|hey)/i, /how are you/i, /tell me about/i],
+                preferredModel: 'llama3.2',
+                confidence: 0.9
+            },
+
+            // Reasoning and analysis -> DeepSeek
+            reasoning: {
+                keywords: ['analyze', 'compare', 'evaluate', 'solve', 'calculate', 'prove', 'logic', 'reasoning', 'problem', 'strategy', 'decision', 'optimize'],
+                patterns: [/why.*because/i, /analyze.*data/i, /solve.*problem/i, /compare.*with/i],
+                preferredModel: 'deepseek',
+                confidence: 0.95
+            },
+
+            // Technical and programming -> Qwen
+            technical: {
+                keywords: ['code', 'programming', 'function', 'algorithm', 'api', 'database', 'javascript', 'python', 'react', 'node', 'sql', 'html', 'css', 'debug', 'error', 'implementation'],
+                patterns: [/write.*code/i, /fix.*bug/i, /implement.*function/i, /create.*api/i],
+                preferredModel: 'qwen',
+                confidence: 0.9
+            },
+
+            // Educational content -> Gemini
+            educational: {
+                keywords: ['learn', 'teach', 'explain', 'understand', 'concept', 'definition', 'example', 'tutorial', 'guide', 'lesson'],
+                patterns: [/what is/i, /how to/i, /explain.*concept/i, /teach me/i],
+                preferredModel: 'gemini-flash',
+                confidence: 0.85
+            },
+
+            // Creative tasks -> Llama 3.2
+            creative: {
+                keywords: ['create', 'generate', 'write', 'story', 'poem', 'creative', 'imagine', 'brainstorm', 'design'],
+                patterns: [/write.*story/i, /create.*poem/i, /generate.*content/i],
+                preferredModel: 'llama3.2',
+                confidence: 0.8
+            }
+        };
     }
 
     async initialize() {
@@ -430,10 +486,17 @@ Return in JSON format:
      */
     async generateResponse(query, conversationHistory = [], userPreferences = {}) {
         try {
-            // Route query to optimal model
-            const routing = await this.routeQuery(query, conversationHistory, userPreferences);
+            // Route query to optimal model with enhanced routing
+            const routing = await this.enhancedRouteQuery(query, conversationHistory, userPreferences);
 
-            console.log(`🎯 Using ${routing.selectedModel.name} for response generation`);
+            console.log(`🎯 Using ${routing.selectedModel.name} for response generation (confidence: ${routing.confidence})`);
+
+            // Get optimized prompt configuration
+            const promptConfig = await this.promptSystem.getOptimizedPrompt(
+                routing.conversationType.type,
+                userPreferences,
+                conversationHistory
+            );
 
             // Get the appropriate connector
             const connector = this.connectors[routing.selectedModel.connector];
@@ -729,6 +792,228 @@ Return in JSON format:
                 status: connector.getStatus ? connector.getStatus() : { name }
             }))
         };
+    }
+
+    /**
+     * Enhanced query routing with improved accuracy
+     */
+    async enhancedRouteQuery(query, conversationHistory = [], userPreferences = {}) {
+        const startTime = Date.now();
+
+        try {
+            // Analyze query with multiple methods
+            const queryAnalysis = await this.analyzeQueryEnhanced(query, conversationHistory);
+
+            // Get model recommendations
+            const modelRecommendations = this.getModelRecommendations(queryAnalysis, userPreferences);
+
+            // Select best available model
+            const selectedModel = await this.selectOptimalModel(modelRecommendations, userPreferences);
+
+            // Record routing decision
+            this.recordRoutingDecision(query, selectedModel, queryAnalysis);
+
+            const processingTime = Date.now() - startTime;
+            console.log(`[MultiLLM] Enhanced routing completed in ${processingTime}ms`);
+
+            return {
+                selectedModel,
+                conversationType: queryAnalysis,
+                confidence: selectedModel.confidence || 0.8,
+                reasoning: `Selected ${selectedModel.name} for ${queryAnalysis.type} query`,
+                fallbackModels: modelRecommendations.slice(1, 3),
+                processingTime
+            };
+
+        } catch (error) {
+            console.error('[MultiLLM] Enhanced routing failed:', error);
+            // Fallback to basic routing
+            return await this.routeQuery(query, conversationHistory, userPreferences);
+        }
+    }
+
+    /**
+     * Enhanced query analysis with multiple detection methods
+     */
+    async analyzeQueryEnhanced(query, conversationHistory = []) {
+        const queryLower = query.toLowerCase().trim();
+        let bestMatch = { type: 'conversational', confidence: 0.5 };
+
+        // Rule-based analysis
+        for (const [type, rules] of Object.entries(this.routingRules)) {
+            let confidence = 0;
+
+            // Keyword matching
+            const keywordMatches = rules.keywords.filter(keyword =>
+                queryLower.includes(keyword.toLowerCase())
+            ).length;
+            confidence += (keywordMatches / rules.keywords.length) * 0.6;
+
+            // Pattern matching
+            const patternMatches = rules.patterns.filter(pattern =>
+                pattern.test(query)
+            ).length;
+            confidence += (patternMatches / rules.patterns.length) * 0.4;
+
+            if (confidence > bestMatch.confidence) {
+                bestMatch = {
+                    type,
+                    confidence: Math.min(confidence, rules.confidence),
+                    matchedKeywords: rules.keywords.filter(keyword =>
+                        queryLower.includes(keyword.toLowerCase())
+                    )
+                };
+            }
+        }
+
+        // Context analysis from conversation history
+        if (conversationHistory.length > 0) {
+            const contextAnalysis = this.analyzeConversationContext(conversationHistory);
+            if (contextAnalysis.confidence > 0.7) {
+                bestMatch.confidence = Math.max(bestMatch.confidence, contextAnalysis.confidence * 0.8);
+                bestMatch.contextualType = contextAnalysis.type;
+            }
+        }
+
+        return bestMatch;
+    }
+
+    /**
+     * Get model recommendations based on query analysis
+     */
+    getModelRecommendations(queryAnalysis, userPreferences = {}) {
+        const recommendations = [];
+
+        // Primary recommendation based on query type
+        const primaryModel = this.getModelForType(queryAnalysis.type);
+        if (primaryModel) {
+            recommendations.push({
+                ...primaryModel,
+                confidence: queryAnalysis.confidence,
+                reason: `Primary choice for ${queryAnalysis.type} queries`
+            });
+        }
+
+        // Secondary recommendations
+        const fallbackModels = this.getFallbackModels(queryAnalysis.type);
+        recommendations.push(...fallbackModels);
+
+        // User preference adjustments
+        if (userPreferences.preferredModel) {
+            const preferredModel = this.models.get(userPreferences.preferredModel);
+            if (preferredModel && preferredModel.available) {
+                recommendations.unshift({
+                    ...preferredModel,
+                    confidence: 0.9,
+                    reason: 'User preference'
+                });
+            }
+        }
+
+        return recommendations;
+    }
+
+    /**
+     * Select optimal model from recommendations
+     */
+    async selectOptimalModel(recommendations, userPreferences = {}) {
+        // Filter available models
+        const availableModels = recommendations.filter(model =>
+            model.available !== false
+        );
+
+        if (availableModels.length === 0) {
+            // Fallback to default
+            return this.models.get(this.fallbackModel) || {
+                name: 'Gemini Flash',
+                model: 'gemini-flash',
+                connector: 'gemini',
+                available: true,
+                confidence: 0.7
+            };
+        }
+
+        // Select highest confidence available model
+        return availableModels.reduce((best, current) =>
+            current.confidence > best.confidence ? current : best
+        );
+    }
+
+    /**
+     * Get model configuration for specific type
+     */
+    getModelForType(type) {
+        const typeModelMap = {
+            'conversational': 'llama3.2',
+            'reasoning': 'deepseek',
+            'technical': 'qwen',
+            'educational': 'gemini-flash',
+            'creative': 'llama3.2',
+            'research': 'gemini-pro'
+        };
+
+        const modelKey = typeModelMap[type] || 'gemini-flash';
+        return this.models.get(modelKey);
+    }
+
+    /**
+     * Get fallback models for a type
+     */
+    getFallbackModels(type) {
+        const fallbackMap = {
+            'conversational': ['gemini-flash', 'deepseek'],
+            'reasoning': ['gemini-pro', 'qwen'],
+            'technical': ['deepseek', 'gemini-flash'],
+            'educational': ['llama3.2', 'gemini-pro'],
+            'creative': ['gemini-flash', 'qwen'],
+            'research': ['deepseek', 'gemini-flash']
+        };
+
+        const fallbacks = fallbackMap[type] || ['gemini-flash'];
+        return fallbacks.map(modelKey => this.models.get(modelKey))
+                       .filter(model => model && model.available);
+    }
+
+    /**
+     * Analyze conversation context for better routing
+     */
+    analyzeConversationContext(conversationHistory) {
+        const recentMessages = conversationHistory.slice(-5);
+        const contextText = recentMessages
+            .map(msg => msg.content || msg.text || '')
+            .join(' ')
+            .toLowerCase();
+
+        // Analyze context patterns
+        if (contextText.includes('code') || contextText.includes('programming')) {
+            return { type: 'technical', confidence: 0.8 };
+        }
+
+        if (contextText.includes('analyze') || contextText.includes('solve')) {
+            return { type: 'reasoning', confidence: 0.8 };
+        }
+
+        if (contextText.includes('explain') || contextText.includes('learn')) {
+            return { type: 'educational', confidence: 0.7 };
+        }
+
+        return { type: 'conversational', confidence: 0.6 };
+    }
+
+    /**
+     * Record routing decision for analytics
+     */
+    recordRoutingDecision(query, selectedModel, queryAnalysis) {
+        this.routingStats.totalQueries++;
+
+        const modelName = selectedModel.name || selectedModel.model;
+        if (!this.routingStats.routingDecisions[modelName]) {
+            this.routingStats.routingDecisions[modelName] = 0;
+        }
+        this.routingStats.routingDecisions[modelName]++;
+
+        // Log routing decision
+        console.log(`[MultiLLM] Routed "${query.substring(0, 50)}..." to ${modelName} (${queryAnalysis.type}, confidence: ${queryAnalysis.confidence.toFixed(2)})`);
     }
 }
 

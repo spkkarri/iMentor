@@ -20,7 +20,7 @@ const serviceManager = require('./services/serviceManager');
 const { injectUserApiKeys, enforceUserApiKeys } = require('./middleware/apiKeyMiddleware');
 const MCPWebSocketHandler = require('./mcp_system/websocket_handler');
 
-const PORT = process.env.PORT || 5007;
+const PORT = process.env.PORT || 4007;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatbotGeminiDB4';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -84,6 +84,7 @@ const startServer = async () => {
         app.use('/api/podcast', require('./routes/podcast'));
         app.use('/api/mindmap', require('./routes/mindmap'));
         app.use('/api/memory', require('./routes/memory')); // <-- ADD THIS LINE
+        app.use('/api/mcp', require('./routes/mcp')); // MCP (Model Context Protocol) routes
         app.use('/api/multi-model', require('./routes/multiModel')); // Multi-model LLM routes
         app.use('/api/multi-llm', require('./routes/multiLLM')); // Intelligent Multi-LLM routing
         app.use('/api/user-ollama', require('./routes/userOllama')); // User-specific Ollama configuration
@@ -96,6 +97,7 @@ const startServer = async () => {
         app.use('/api/research', require('./routes/testResearch')); // Advanced Deep Research testing
         app.use('/api/agents', require('./routes/agents')); // MCP Agent system
         app.use('/api/agent-monitoring', require('./routes/agentMonitoring')); // Agent monitoring and analytics
+        app.use('/api/enhanced', require('./routes/enhancedFeaturesSimple')); // Enhanced features (reports, training, personalization)
 
         // Initialize monitoring routes with metrics collector
         const monitoringRoutes = require('./routes/monitoring');
@@ -108,7 +110,7 @@ const startServer = async () => {
             console.log(`Server listening on port ${PORT}`);
             console.log('Access URLs:');
             availableIPs.forEach(ip => {
-                console.log(`   - http://${ip}:3004 (Frontend) -> Backend: http://${ip}:${PORT}`);
+                console.log(`   - http://${ip}:4004 (Frontend) -> Backend: http://${ip}:${PORT}`);
             });
             console.log('==================\n');
         });

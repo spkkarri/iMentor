@@ -21,7 +21,8 @@ const {
     handleEnhancedDeepSearch,
     handleEfficientDeepSearch,
     testDeepSearch,
-    handleEfficientDeepSearchNew
+    handleEfficientDeepSearchNew,
+    handleEnhancedDeepSearchV2
 } = require('../controllers/chatController');
 const { ChatSession, SESSION_STATES, SESSION_CONTEXTS, MESSAGE_TYPES } = require('../models/ChatSession');
 const DeepSearchService = require('../deep_search/services/deepSearchService');
@@ -63,6 +64,7 @@ router.post('/rag', tempAuth, handleRagMessage);
 router.post('/deep-search', tempAuth, handleDeepSearch);
 router.post('/enhanced-deep-search', tempAuth, handleEnhancedDeepSearch);
 router.post('/efficient-deep-search', tempAuth, handleEfficientDeepSearch);
+router.post('/enhanced-deep-search-v2', tempAuth, handleEnhancedDeepSearchV2);
 
 // Test endpoint for DeepSearch debugging
 router.post('/test-deep-search', tempAuth, testDeepSearch);

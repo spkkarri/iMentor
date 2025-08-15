@@ -13,6 +13,8 @@ const GroqAI = require('../services/groqAI');
 const TogetherAI = require('../services/togetherAI');
 const CohereAI = require('../services/cohereAI');
 const HuggingFaceAI = require('../services/huggingFaceAI');
+const MCPOrchestrator = require('../services/mcpOrchestrator');
+const AgenticMCPIntegration = require('../services/agenticMCPIntegration');
 
 const createSession = async (req, res) => {
     try {
@@ -100,11 +102,13 @@ const handleStandardMessage = async (req, res) => {
             deepSearch = false,
             autoDetectWebSearch = false,
             multiLLM = false,
+            mcpEnabled = false,
+            agenticMCP = false,
             selectedModel = 'gemini-flash'
         } = req.body;
         const userId = req.user.id;
 
-        console.log(`[Chat] Request: query="${query.substring(0, 50)}...", ragEnabled=${ragEnabled}, deepSearch=${deepSearch}, autoDetectWebSearch=${autoDetectWebSearch}, multiLLM=${multiLLM}, selectedModel=${selectedModel}`);
+        console.log(`[Chat] Request: query="${query.substring(0, 50)}...", ragEnabled=${ragEnabled}, deepSearch=${deepSearch}, autoDetectWebSearch=${autoDetectWebSearch}, multiLLM=${multiLLM}, mcpEnabled=${mcpEnabled}, agenticMCP=${agenticMCP}, selectedModel=${selectedModel}`);
 
         if (!query || !sessionId) {
             return res.status(400).json({ message: 'Query and Session ID are required.' });
@@ -140,8 +144,17 @@ const handleStandardMessage = async (req, res) => {
             if (hasDocKeyword && hasGenKeyword) {
                 shouldGenerateDocument = true;
                 documentType = type;
-                // Extract topic from query (remove generation keywords)
-                documentTopic = query.replace(/\b(generate|create|make|build|prepare|ppt|powerpoint|presentation|slides|report|pdf|document|excel|spreadsheet|xls|xlsx|word|doc|docx|for|me|a|an|the)\b/gi, '').trim();
+                // Extract topic from query (remove generation keywords and common words)
+                documentTopic = query
+                    .replace(/\b(generate|create|make|build|prepare|ppt|powerpoint|presentation|slides|report|pdf|document|excel|spreadsheet|xls|xlsx|word|doc|docx|for|me|a|an|the|on|about|of)\b/gi, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                // If topic is empty or too short, use a default based on the original query
+                if (!documentTopic || documentTopic.length < 2) {
+                    documentTopic = query.replace(/\b(generate|create|make|build|prepare)\b/gi, '').trim() || 'General Topic';
+                }
+
                 console.log(`🔍 [DEBUG] Document generation detected! Type: ${type}, Topic: "${documentTopic}"`);
                 break;
             }
@@ -203,95 +216,164 @@ const handleStandardMessage = async (req, res) => {
 
             try {
                 if (documentType === 'ppt') {
-                    const { generateSimplePPT } = require('../services/simplePptGenerator');
+                    const { generateSimplePPTWithFallback } = require('../services/simplePptGenerator');
 
                     try {
-                        // Generate PPT using simple generator
-                        const pptPath = await generateSimplePPT(documentTopic || query);
-                        const path = require('path');
-                        const fileName = path.basename(pptPath);
+                        // Generate PPT using enhanced generator with fallback
+                        console.log(`[DocGen] 📊 Starting PPT generation for topic: "${documentTopic}"`);
 
-                        // Create download URL
-                        const downloadUrl = `/api/files/download-generated/${fileName}`;
+                        const result = await generateSimplePPTWithFallback(documentTopic || query, {
+                            selectedModel: selectedModel,
+                            userId: userId,
+                            maxRetries: 2
+                        });
 
-                        const responseText = `✅ **PowerPoint Presentation Generated Successfully!**\n\n📊 **Topic:** ${documentTopic}\n\nYour presentation includes:\n- Title slide\n- Introduction\n- Background information\n- Current status\n- Challenges and opportunities\n- Conclusion\n\nThe presentation has been generated with professional formatting and is ready for use!`;
+                        if (!result.success) {
+                            throw new Error(result.error || 'PPT generation failed');
+                        }
+
+                        const responseText = `✅ **PowerPoint Presentation Generated Successfully!**\n\n📊 **Topic:** ${documentTopic}\n\n🎯 **Features:**\n- Professional title slide\n- Comprehensive introduction\n- Background information\n- Current status analysis\n- Challenges and opportunities\n- Conclusion and next steps\n\n📁 **File:** ${result.fileName}\n💾 **Ready for download**\n🎨 **Format:** Professional PowerPoint (.pptx)\n\n[📥 Download Presentation](${result.downloadUrl})`;
 
                         session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', responseText);
                         await session.save();
 
                         return res.json({
                             response: responseText,
-                            downloadUrl: downloadUrl,
-                            fileName: fileName,
+                            downloadUrl: result.downloadUrl,
+                            fileName: result.fileName,
                             documentType: 'ppt',
                             metadata: {
                                 searchType: 'document_generation',
                                 generatedType: 'ppt',
-                                downloadUrl: downloadUrl,
-                                fileName: fileName,
-                                documentType: 'ppt'
+                                downloadUrl: result.downloadUrl,
+                                fileName: result.fileName,
+                                documentType: 'ppt',
+                                attempt: result.attempt
                             },
                             sessionId: session.sessionId,
                             history: session.messages
                         });
                     } catch (pptError) {
-                        console.error('[DocGen] PPT generation failed:', pptError);
+                        console.error('[DocGen] AI PPT generation failed:', pptError);
+                        console.log('[DocGen] Attempting standalone PPT generation...');
 
-                        // Provide fallback response with manual instructions
-                        const fallbackText = `📄 **PowerPoint Presentation Outline Generated!**\n\n📊 **Topic:** ${documentTopic}\n\n**Here's a comprehensive outline for your presentation:**\n\n**Slide 1: Title Slide**\n- Title: ${documentTopic}\n- Subtitle: A Comprehensive Overview\n\n**Slide 2: Introduction**\n- Overview of the topic\n- Key objectives\n- Agenda\n\n**Slide 3: Background**\n- Historical context\n- Current situation\n- Importance\n\n**Slide 4: Key Points**\n- Main concept 1\n- Main concept 2\n- Main concept 3\n\n**Slide 5: Analysis**\n- Benefits and advantages\n- Challenges and limitations\n- Opportunities\n\n**Slide 6: Conclusion**\n- Summary of key points\n- Recommendations\n- Next steps\n\n💡 **Note:** Due to high demand, I've provided you with a detailed outline. You can use this structure to create your presentation in PowerPoint, Google Slides, or any presentation software.`;
+                        try {
+                            // Use standalone PPT generator as fallback
+                            const { generateStandalonePPTWithResult } = require('../services/standalonePptGenerator');
 
-                        session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', fallbackText);
-                        await session.save();
+                            const standaloneResult = await generateStandalonePPTWithResult(documentTopic || query, {
+                                selectedModel: selectedModel,
+                                userId: userId
+                            });
 
-                        return res.json({
-                            response: fallbackText,
-                            documentType: 'ppt',
-                            metadata: { searchType: 'document_generation_outline', generatedType: 'ppt_outline' },
-                            sessionId: session.sessionId,
-                            history: session.messages
-                        });
+                            if (standaloneResult.success) {
+                                const responseText = `✅ **PowerPoint Presentation Generated Successfully!**\n\n📊 **Topic:** ${documentTopic}\n\n🎯 **Features:**\n- Professional title slide\n- Structured content\n- Multiple informative slides\n- Professional formatting\n\n📁 **File:** ${standaloneResult.fileName}\n💾 **Ready for download**\n🎨 **Format:** Professional PowerPoint (.pptx)\n\n[📥 Download Presentation](${standaloneResult.downloadUrl})\n\n💡 **Note:** Generated using our reliable presentation template system.`;
+
+                                session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', responseText);
+                                await session.save();
+
+                                return res.json({
+                                    response: responseText,
+                                    downloadUrl: standaloneResult.downloadUrl,
+                                    fileName: standaloneResult.fileName,
+                                    documentType: 'ppt',
+                                    metadata: {
+                                        searchType: 'document_generation',
+                                        generatedType: 'ppt',
+                                        downloadUrl: standaloneResult.downloadUrl,
+                                        fileName: standaloneResult.fileName,
+                                        documentType: 'ppt',
+                                        generationType: 'standalone'
+                                    },
+                                    sessionId: session.sessionId,
+                                    history: session.messages
+                                });
+                            } else {
+                                throw new Error(standaloneResult.error);
+                            }
+                        } catch (standaloneError) {
+                            console.error('[DocGen] Standalone PPT generation also failed:', standaloneError);
+
+                            // Final fallback - provide outline
+                            const fallbackText = `📄 **PowerPoint Presentation Outline Generated!**\n\n📊 **Topic:** ${documentTopic}\n\n**Here's a comprehensive outline for your presentation:**\n\n**Slide 1: Title Slide**\n- Title: ${documentTopic}\n- Subtitle: A Comprehensive Overview\n\n**Slide 2: Introduction**\n- Overview of the topic\n- Key objectives\n- Agenda\n\n**Slide 3: Background**\n- Historical context\n- Current situation\n- Importance\n\n**Slide 4: Key Points**\n- Main concept 1\n- Main concept 2\n- Main concept 3\n\n**Slide 5: Analysis**\n- Benefits and advantages\n- Challenges and limitations\n- Opportunities\n\n**Slide 6: Conclusion**\n- Summary of key points\n- Recommendations\n- Next steps\n\n💡 **Note:** Due to technical issues, I've provided you with a detailed outline. You can use this structure to create your presentation in PowerPoint, Google Slides, or any presentation software.`;
+
+                            session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', fallbackText);
+                            await session.save();
+
+                            return res.json({
+                                response: fallbackText,
+                                documentType: 'ppt',
+                                metadata: { searchType: 'document_generation_outline', generatedType: 'ppt_outline' },
+                                sessionId: session.sessionId,
+                                history: session.messages
+                            });
+                        }
                     }
 
                 } else if (documentType === 'report') {
-                    // For reports, we'll use the existing report generation logic
+                    // For reports, we'll use the enhanced PDF generation logic
                     const GeminiService = require('../services/geminiService');
                     const { GeminiAI } = require('../services/geminiAI');
                     const DuckDuckGoService = require('../utils/duckduckgo');
                     const DeepSearchService = require('../deep_search/services/deepSearchService');
                     const { generateReportPdf } = require('../services/pdfGenerator');
 
-                    // Initialize services
-                    const geminiService = new GeminiService();
-                    await geminiService.initialize();
-                    const geminiAI = new GeminiAI(geminiService);
-                    const deepSearchService = new DeepSearchService(userId, geminiAI, new DuckDuckGoService());
+                    try {
+                        // Initialize services
+                        const geminiService = new GeminiService();
+                        await geminiService.initialize();
+                        const geminiAI = new GeminiAI(geminiService);
+                        const deepSearchService = new DeepSearchService(userId, geminiAI, new DuckDuckGoService());
 
-                    // Perform search for report content
-                    const searchResults = await deepSearchService.performSearch(documentTopic || query);
+                        console.log(`[PDFGen] Starting research for topic: ${documentTopic || query}`);
 
-                    // Generate PDF file
-                    const pdfPath = await generateReportPdf(documentTopic || query, searchResults.summary || "Report content based on research", searchResults.sources || []);
-                    const path = require('path');
-                    const fileName = path.basename(pdfPath);
+                        // Perform search for report content
+                        const searchResults = await deepSearchService.performSearch(documentTopic || query);
 
-                    // Create download URL
-                    const downloadUrl = `/api/files/download-generated/${fileName}`;
+                        console.log(`[PDFGen] Research completed, generating PDF...`);
 
-                    const responseText = `✅ **Research Report Generated Successfully!**\n\n📋 **Topic:** ${documentTopic}\n\n🔗 **Download Link:** [Click here to download your report](${downloadUrl})\n\n📊 **Report Contents:**\n- Executive Summary\n- Detailed Analysis\n- Key Findings\n- Sources and References\n\nThe report has been generated based on current research and is formatted professionally.`;
+                        // Generate PDF file
+                        const pdfResult = await generateReportPdf(
+                            documentTopic || query,
+                            searchResults.summary || "Report content based on research",
+                            searchResults.sources || []
+                        );
 
-                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', responseText);
-                    await session.save();
+                        console.log(`[PDFGen] PDF generated successfully: ${pdfResult.filename}`);
 
-                    return res.json({
-                        response: responseText,
-                        documentType: 'report',
-                        downloadUrl: downloadUrl,
-                        fileName: fileName,
-                        reportData: searchResults,
-                        metadata: { searchType: 'document_generation', generatedType: 'report' },
-                        sessionId: session.sessionId,
-                        history: session.messages
-                    });
+                        const responseText = `✅ **Research Report Generated Successfully!**\n\n📋 **Topic:** ${documentTopic || query}\n\n🔗 **Download Link:** [Click here to download your report](${pdfResult.downloadUrl})\n\n📊 **Report Contents:**\n- Executive Summary\n- Detailed Analysis\n- Key Findings\n- Sources and References\n\nThe report has been generated based on current research and is formatted professionally.`;
+
+                        session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', responseText);
+                        await session.save();
+
+                        return res.json({
+                            response: responseText,
+                            documentType: 'report',
+                            downloadUrl: pdfResult.downloadUrl,
+                            fileName: pdfResult.filename,
+                            reportData: searchResults,
+                            metadata: { searchType: 'document_generation', generatedType: 'report' },
+                            sessionId: session.sessionId,
+                            history: session.messages
+                        });
+
+                    } catch (pdfError) {
+                        console.error('[PDFGen] Error generating PDF:', pdfError);
+
+                        const errorText = `❌ **Error Generating REPORT**\n\nI encountered an error while generating your report. Please try again or contact support if the issue persists.\n\n**Error:** ${pdfError.message}`;
+
+                        session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', errorText);
+                        await session.save();
+
+                        return res.json({
+                            response: errorText,
+                            documentType: 'report',
+                            error: pdfError.message,
+                            metadata: { searchType: 'document_generation', generatedType: 'report', error: true },
+                            sessionId: session.sessionId,
+                            history: session.messages
+                        });
+                    }
 
                 } else if (documentType === 'excel') {
                     const { generateExcel } = require('../services/excelGenerator');
@@ -451,6 +533,195 @@ const handleStandardMessage = async (req, res) => {
                 history: session.messages,
                 metadata: responseMetadata
             });
+        } else if (mcpEnabled) {
+            // Handle MCP (Model Context Protocol) - Intelligent Agent Routing
+            console.log(`[MCP] 🤖 Starting intelligent agent processing for user: ${userId}, query: "${query}"`);
+
+            try {
+                const mcpOrchestrator = new MCPOrchestrator();
+
+                // Create enhanced context for MCP processing
+                const mcpContext = {
+                    userId: userId,
+                    sessionId: sessionId,
+                    history: history,
+                    selectedModel: selectedModel,
+                    systemPrompt: systemPrompt,
+                    userPreferences: req.user.preferences || {},
+                    timestamp: new Date().toISOString()
+                };
+
+                // Process query through MCP system
+                const mcpResult = await mcpOrchestrator.processQuery(query, mcpContext);
+
+                let session = await ChatSession.findOne({ sessionId, user: userId });
+                if (!session) {
+                    session = new ChatSession({
+                        sessionId,
+                        user: userId,
+                        title: query.substring(0, 50),
+                        systemPrompt: systemPrompt || "You are a helpful AI assistant with specialized agents."
+                    });
+                }
+
+                session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+
+                if (mcpResult.success) {
+                    // Format MCP response for user
+                    const mcpResponse = formatMCPResponse(mcpResult, query);
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', mcpResponse.text);
+                    await session.save();
+
+                    console.log(`[MCP] ✅ Query processed successfully by agents: ${mcpResult.agentsUsed?.join(', ')} in ${mcpResult.processingTime}ms`);
+
+                    return res.json({
+                        response: mcpResponse.text,
+                        metadata: {
+                            searchType: 'mcp_processing',
+                            agentsUsed: mcpResult.agentsUsed,
+                            processingTime: mcpResult.processingTime,
+                            confidence: mcpResult.confidence,
+                            analysis: mcpResult.analysis,
+                            mcpVersion: '2.0.0'
+                        },
+                        sessionId: session.sessionId,
+                        history: session.messages,
+                        mcpData: {
+                            agentRecommendations: mcpResult.analysis?.recommendedAgents,
+                            taskComplexity: mcpResult.analysis?.complexity,
+                            collaborationUsed: mcpResult.analysis?.needsCollaboration
+                        }
+                    });
+                } else {
+                    // MCP failed, provide fallback response
+                    const fallbackResponse = `I encountered an issue processing your request through our specialized agents. ${mcpResult.fallbackSuggestion || 'Please try rephrasing your question or contact support.'}`;
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', fallbackResponse);
+                    await session.save();
+
+                    console.log(`[MCP] ❌ Processing failed: ${mcpResult.error}`);
+
+                    return res.json({
+                        response: fallbackResponse,
+                        metadata: {
+                            searchType: 'mcp_fallback',
+                            error: mcpResult.error,
+                            suggestion: mcpResult.fallbackSuggestion
+                        },
+                        sessionId: session.sessionId,
+                        history: session.messages
+                    });
+                }
+
+            } catch (mcpError) {
+                console.error('[MCP] Unexpected error:', mcpError);
+
+                // Fallback to standard processing
+                console.log('[MCP] Falling back to standard message processing...');
+                // Continue to standard processing below
+            }
+        } else if (agenticMCP) {
+            // Handle Agentic MCP - Full Application Integration
+            console.log(`[Agentic MCP] 🤖 Starting agentic task processing for user: ${userId}, query: "${query}"`);
+
+            try {
+                // Initialize Agentic MCP Integration with service manager
+                const serviceManager = req.app.locals.serviceManager || {
+                    getServices: () => ({}),
+                    getDeepSearchService: () => null,
+                    getMetricsCollector: () => null
+                };
+
+                const agenticMCP = new AgenticMCPIntegration(serviceManager);
+
+                // Create enhanced context for agentic processing
+                const agenticContext = {
+                    userId: userId,
+                    sessionId: sessionId,
+                    history: history,
+                    selectedModel: selectedModel,
+                    systemPrompt: systemPrompt,
+                    userPreferences: req.user?.preferences || {},
+                    timestamp: new Date().toISOString(),
+                    requestMetadata: {
+                        userAgent: req.headers['user-agent'],
+                        ip: req.ip
+                    }
+                };
+
+                // Process query through Agentic MCP system
+                const agenticResult = await agenticMCP.processAgenticTask(query, agenticContext);
+
+                let session = await ChatSession.findOne({ sessionId, user: userId });
+                if (!session) {
+                    session = new ChatSession({
+                        sessionId,
+                        user: userId,
+                        title: query.substring(0, 50),
+                        systemPrompt: systemPrompt || "You are an intelligent agentic AI assistant with access to comprehensive application features."
+                    });
+                }
+
+                session.addMessage(MESSAGE_TYPES.TEXT, 'user', query);
+
+                if (agenticResult.success) {
+                    // Format Agentic MCP response for user
+                    const agenticResponse = formatAgenticMCPResponse(agenticResult, query);
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', agenticResponse.text);
+                    await session.save();
+
+                    console.log(`[Agentic MCP] ✅ Task completed successfully by agents: ${agenticResult.agentsUsed?.join(', ')} in ${agenticResult.processingTime}ms`);
+
+                    return res.json({
+                        response: agenticResponse.text,
+                        metadata: {
+                            searchType: 'agentic_mcp_processing',
+                            agentsUsed: agenticResult.agentsUsed,
+                            processingTime: agenticResult.processingTime,
+                            confidence: agenticResult.confidence,
+                            workflowType: agenticResult.workflowType,
+                            analysis: agenticResult.analysis,
+                            agenticVersion: '1.0.0'
+                        },
+                        sessionId: session.sessionId,
+                        history: session.messages,
+                        agenticData: {
+                            strategy: agenticResult.strategy,
+                            workflow: agenticResult.result?.workflow,
+                            downloadableFiles: agenticResult.result?.downloadableFiles || [],
+                            recommendations: agenticResult.result?.recommendations || []
+                        }
+                    });
+                } else {
+                    // Agentic MCP failed, provide fallback response
+                    const fallbackResponse = `I encountered an issue processing your request through our agentic system. ${agenticResult.fallbackSuggestion || 'Please try breaking down your request into smaller, specific tasks.'}`;
+
+                    session.addMessage(MESSAGE_TYPES.TEXT, 'assistant', fallbackResponse);
+                    await session.save();
+
+                    console.log(`[Agentic MCP] ❌ Processing failed: ${agenticResult.error}`);
+
+                    return res.json({
+                        response: fallbackResponse,
+                        metadata: {
+                            searchType: 'agentic_mcp_fallback',
+                            error: agenticResult.error,
+                            suggestion: agenticResult.fallbackSuggestion
+                        },
+                        sessionId: session.sessionId,
+                        history: session.messages
+                    });
+                }
+
+            } catch (agenticError) {
+                console.error('[Agentic MCP] Unexpected error:', agenticError);
+
+                // Fallback to standard processing
+                console.log('[Agentic MCP] Falling back to standard message processing...');
+                // Continue to standard processing below
+            }
         } else if (deepSearch) {
             // Handle Advanced Deep Research with 6-stage verification process
             console.log(`[AdvancedDeepResearch] Starting 6-stage deep research for user: ${userId}, query: "${query}"`);
@@ -1291,6 +1562,262 @@ const handleEfficientDeepSearchNew = async (req, res) => {
     }
 };
 
+// Enhanced Deep Search V2 - Rich media content with YouTube, blogs, and embedded videos
+const handleEnhancedDeepSearchV2 = async (req, res) => {
+    try {
+        const { query, history = [], selectedModel = 'gemini-flash' } = req.body;
+        const userId = req.user.id;
+
+        console.log(`🚀 [EnhancedDeepSearchV2] Starting enhanced search for: "${query}" using model: ${selectedModel}`);
+
+        if (!query || query.trim().length === 0) {
+            return res.status(400).json({ message: 'Query is required for enhanced deep search.' });
+        }
+
+        // Use the enhanced deep search service V2
+        const EnhancedDeepSearchV2 = require('../services/enhancedDeepSearchV2');
+        const deepSearchService = new EnhancedDeepSearchV2(selectedModel, userId);
+
+        // Perform the enhanced search
+        const searchResults = await deepSearchService.performEnhancedSearch(query, history);
+
+        console.log(`✅ [EnhancedDeepSearchV2] Enhanced search completed successfully`);
+
+        // Return the comprehensive enhanced results with ALL media types
+        res.json({
+            success: true,
+            data: {
+                response: searchResults.answer,
+                sources: searchResults.sources,
+                videos: searchResults.media.videos,
+                blogs: searchResults.media.blogs,
+                academic: searchResults.media.academic,
+                wikipedia: searchResults.media.wikipedia,
+                documentation: searchResults.media.documentation,
+                news: searchResults.media.news || [],
+                tutorials: searchResults.media.tutorials || [],
+                community: searchResults.media.community || [],
+                metadata: {
+                    searchType: 'enhanced-deep-search-v2',
+                    query: query,
+                    timestamp: searchResults.timestamp,
+                    model: selectedModel,
+                    userId: userId,
+                    hasRichMedia: true,
+                    videoCount: searchResults.media.videos.length,
+                    blogCount: searchResults.media.blogs.length,
+                    academicCount: searchResults.media.academic.length,
+                    newsCount: searchResults.media.news?.length || 0,
+                    tutorialCount: searchResults.media.tutorials?.length || 0,
+                    communityCount: searchResults.media.community?.length || 0,
+                    totalSources: searchResults.totalSources || searchResults.sources.length
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('[EnhancedDeepSearchV2] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Enhanced deep search failed',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Format Agentic MCP response for user display
+ * @param {Object} agenticResult - Result from Agentic MCP orchestrator
+ * @param {string} originalQuery - Original user query
+ * @returns {Object} Formatted response object
+ */
+function formatAgenticMCPResponse(agenticResult, originalQuery) {
+    const { result, analysis, agentsUsed, confidence, processingTime, workflowType } = agenticResult;
+
+    // Create agent badges with specialized icons
+    const agentBadges = agentsUsed?.map(agent => {
+        const agentEmojis = {
+            'Research Analyst Agent': '🔬',
+            'Content Creator Agent': '📝',
+            'Document Processor Agent': '📄',
+            'Learning Assistant Agent': '🎓',
+            'Workflow Coordinator Agent': '⚙️'
+        };
+        return `${agentEmojis[agent] || '🤖'} ${agent}`;
+    }).join(' • ') || '🤖 Agentic AI System';
+
+    // Format confidence level
+    const confidenceLevel = confidence >= 0.9 ? 'Excellent' :
+                           confidence >= 0.8 ? 'High' :
+                           confidence >= 0.7 ? 'Good' : 'Moderate';
+
+    const confidenceEmoji = confidence >= 0.9 ? '🎯' :
+                           confidence >= 0.8 ? '✅' :
+                           confidence >= 0.7 ? '👍' : '⚡';
+
+    // Create response header
+    let responseText = `${confidenceEmoji} **Agentic AI Response** (${confidenceLevel} Confidence)\n\n`;
+    responseText += `**🤖 Agents Used:** ${agentBadges}\n`;
+    responseText += `**🔍 Task Analysis:** ${analysis?.intents?.join(', ') || 'Comprehensive assistance'}\n`;
+    responseText += `**⚡ Processing Time:** ${processingTime}ms\n`;
+    responseText += `**🔄 Workflow Type:** ${workflowType === 'multi_agent' ? 'Multi-Agent Collaboration' : 'Single Agent Execution'}\n\n`;
+    responseText += `---\n\n`;
+
+    // Add the main result content
+    if (result.type === 'agentic_workflow_result') {
+        responseText += `## 🎯 Agentic Workflow Results\n\n`;
+        responseText += `**Summary:** ${result.summary}\n\n`;
+        responseText += `**Steps Completed:** ${result.stepsCompleted}\n`;
+        responseText += `**Agents Involved:** ${result.agentsInvolved?.join(', ')}\n\n`;
+
+        if (result.downloadableFiles && result.downloadableFiles.length > 0) {
+            responseText += `**📁 Generated Files:**\n`;
+            result.downloadableFiles.forEach((file, index) => {
+                responseText += `${index + 1}. [📥 Download ${file.type.toUpperCase()}](${file.url}) - ${file.filename}\n`;
+            });
+            responseText += `\n`;
+        }
+
+        if (result.recommendations && result.recommendations.length > 0) {
+            responseText += `**💡 Recommendations:**\n`;
+            result.recommendations.forEach(rec => {
+                responseText += `• ${rec}\n`;
+            });
+        }
+    } else if (result.finalResult) {
+        responseText += `## 🎯 Task Completion Summary\n\n`;
+        responseText += `${result.finalResult.summary || 'Task completed successfully using agentic workflow.'}\n\n`;
+
+        if (result.outputs && result.outputs.length > 0) {
+            responseText += `**📊 Generated Outputs:**\n`;
+            result.outputs.forEach((output, index) => {
+                if (output.result && output.result.data) {
+                    responseText += `${index + 1}. ${output.tool || 'Processing step'}: ${output.result.data.summary || 'Completed'}\n`;
+                }
+            });
+        }
+    } else {
+        // Generic agentic response format
+        responseText += result.message || result.content || 'Agentic task completed successfully with comprehensive analysis and processing.';
+    }
+
+    // Add footer with Agentic MCP info
+    responseText += `\n\n---\n\n`;
+    responseText += `🤖 **Powered by Agentic MCP (Model Context Protocol)**\n`;
+    responseText += `This response was generated using intelligent agents that can autonomously access and coordinate all application features including research, document generation, analysis, and personalization.`;
+
+    return {
+        text: responseText,
+        confidence: confidence,
+        agentsUsed: agentsUsed,
+        processingTime: processingTime,
+        workflowType: workflowType
+    };
+}
+
+/**
+ * Format MCP response for user display
+ * @param {Object} mcpResult - Result from MCP orchestrator
+ * @param {string} originalQuery - Original user query
+ * @returns {Object} Formatted response object
+ */
+function formatMCPResponse(mcpResult, originalQuery) {
+    const { result, analysis, agentsUsed, confidence, processingTime } = mcpResult;
+
+    // Create agent badges
+    const agentBadges = agentsUsed?.map(agent => {
+        const agentEmojis = {
+            'Research Specialist': '🔬',
+            'Code Specialist': '💻',
+            'Academic Specialist': '🎓',
+            'Creative Specialist': '🎨'
+        };
+        return `${agentEmojis[agent] || '🤖'} ${agent}`;
+    }).join(' • ') || '🤖 AI Assistant';
+
+    // Format confidence level
+    const confidenceLevel = confidence >= 0.9 ? 'Very High' :
+                           confidence >= 0.8 ? 'High' :
+                           confidence >= 0.7 ? 'Good' : 'Moderate';
+
+    const confidenceEmoji = confidence >= 0.9 ? '🎯' :
+                           confidence >= 0.8 ? '✅' :
+                           confidence >= 0.7 ? '👍' : '⚡';
+
+    // Create response header
+    let responseText = `${confidenceEmoji} **Intelligent Response** (${confidenceLevel} Confidence)\n\n`;
+    responseText += `**Processed by:** ${agentBadges}\n`;
+    responseText += `**Analysis:** ${analysis?.intents?.join(', ') || 'General assistance'}\n`;
+    responseText += `**Processing Time:** ${processingTime}ms\n\n`;
+    responseText += `---\n\n`;
+
+    // Add the main result content
+    if (result.type === 'research_report') {
+        responseText += `## 🔬 Research Report\n\n`;
+        responseText += `**Topic:** ${result.query}\n\n`;
+        responseText += `**Analysis:** ${result.analysis.summary}\n\n`;
+        responseText += `**Key Findings:**\n`;
+        result.analysis.keyFindings?.forEach((finding, index) => {
+            responseText += `${index + 1}. ${finding}\n`;
+        });
+        responseText += `\n**Recommendations:**\n`;
+        result.recommendations?.forEach((rec, index) => {
+            responseText += `• ${rec}\n`;
+        });
+    } else if (result.type === 'code_generation') {
+        responseText += `## 💻 Code Generation\n\n`;
+        responseText += `**Language:** ${result.language}\n\n`;
+        responseText += `**Generated Code:**\n\`\`\`${result.language}\n${result.code}\n\`\`\`\n\n`;
+        if (result.tests) {
+            responseText += `**Tests:**\n\`\`\`${result.language}\n${result.tests}\n\`\`\`\n\n`;
+        }
+        responseText += `**Best Practices:**\n`;
+        result.bestPractices?.forEach(practice => {
+            responseText += `• ${practice}\n`;
+        });
+    } else if (result.type === 'concept_explanation') {
+        responseText += `## 🎓 Concept Explanation\n\n`;
+        responseText += `**Concept:** ${result.concept}\n\n`;
+        responseText += `**Explanation:**\n${result.explanation.detailed}\n\n`;
+        responseText += `**Examples:**\n`;
+        result.examples?.forEach((example, index) => {
+            responseText += `${index + 1}. **${example.type}:** ${example.example}\n`;
+        });
+        responseText += `\n**Next Steps:**\n`;
+        result.nextSteps?.forEach(step => {
+            responseText += `• ${step}\n`;
+        });
+    } else if (result.type === 'creative_content') {
+        responseText += `## 🎨 Creative Content\n\n`;
+        responseText += `**${result.content.title}**\n\n`;
+        responseText += `${result.content.introduction}\n\n`;
+        responseText += `${result.content.body}\n\n`;
+        responseText += `**Conclusion:** ${result.content.conclusion}\n\n`;
+        if (result.content.callToAction) {
+            responseText += `**Call to Action:** ${result.content.callToAction}\n\n`;
+        }
+        responseText += `**Creative Recommendations:**\n`;
+        result.recommendations?.forEach(rec => {
+            responseText += `• ${rec}\n`;
+        });
+    } else {
+        // Generic response format
+        responseText += result.message || result.content || 'Response generated successfully.';
+    }
+
+    // Add footer with MCP info
+    responseText += `\n\n---\n\n`;
+    responseText += `💡 **Powered by MCP (Model Context Protocol)**\n`;
+    responseText += `This response was intelligently routed to specialized agents for optimal accuracy and relevance.`;
+
+    return {
+        text: responseText,
+        confidence: confidence,
+        agentsUsed: agentsUsed,
+        processingTime: processingTime
+    };
+}
+
 module.exports = {
     createSession,
     getSessions,
@@ -1302,5 +1829,8 @@ module.exports = {
     handleEnhancedDeepSearch,
     handleEfficientDeepSearch,
     testDeepSearch,
-    handleEfficientDeepSearchNew
+    handleEfficientDeepSearchNew,
+    handleEnhancedDeepSearchV2,
+    formatMCPResponse,
+    formatAgenticMCPResponse
 };

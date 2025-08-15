@@ -1,11 +1,11 @@
 // server/services/LangchainVectorStore.js
 
-const { MemoryVectorStore } = require("langchain/vectorstores/memory");
 const { GoogleGenerativeAIEmbeddings } = require("@langchain/google-genai");
+const { Document } = require("@langchain/core/documents");
 
 class LangchainVectorStore {
     constructor() {
-        this.store = null;
+        this.documents = [];
         this.embeddings = null;
     }
 
@@ -23,9 +23,9 @@ class LangchainVectorStore {
             modelName: "embedding-001"
         });
 
-        // Create an empty in-memory store. It will be populated by the startup script.
-        this.store = new MemoryVectorStore(this.embeddings);
-        
+        // Initialize empty document store
+        this.documents = [];
+
         console.log("✅ In-memory vector store initialized successfully.");
     }
 
@@ -33,66 +33,99 @@ class LangchainVectorStore {
      * Adds documents to the in-memory vector store.
      */
     async addDocuments(documents) {
-        if (!this.store) throw new Error("MemoryVectorStore not initialized.");
+        if (!this.embeddings) throw new Error("LangchainVectorStore not initialized.");
         if (!documents || documents.length === 0) return { count: 0 };
 
-        const contents = documents.map(doc => doc.content);
-        const metadatas = documents.map(doc => doc.metadata);
+        // Convert documents to LangChain Document format if needed
+        const langchainDocs = documents.map(doc => {
+            if (doc.pageContent) {
+                return doc; // Already a LangChain Document
+            }
+            return new Document({
+                pageContent: doc.content,
+                metadata: doc.metadata || {}
+            });
+        });
 
-        await this.store.addDocuments(documents);
-        
-        const count = await this.getStatistics();
-        console.log(`[MemoryVectorStore] Added ${documents.length} documents. Total now: ${count.documentCount}`);
+        // Generate embeddings and store documents
+        for (const doc of langchainDocs) {
+            const embedding = await this.embeddings.embedQuery(doc.pageContent);
+            this.documents.push({
+                document: doc,
+                embedding: embedding
+            });
+        }
+
+        console.log(`[LangchainVectorStore] Added ${documents.length} documents. Total now: ${this.documents.length}`);
         return { count: documents.length };
     }
 
     /**
      * Deletes documents by rebuilding the store without the specified documents.
-     * Note: This is less efficient for memory stores but ensures consistency.
      */
     async deleteDocumentsByFileId(fileId) {
-        if (!this.store) return;
-        
-        // MemoryVectorStore doesn't have a direct delete method.
-        // The reprocessing on startup is the main way to keep it in sync.
-        // This function is less critical now but can be implemented if needed.
-        console.log(`[MemoryVectorStore] Deletion requested for fileId: ${fileId}. Store will be refreshed on next restart.`);
+        if (!this.embeddings) return;
+
+        const initialCount = this.documents.length;
+        this.documents = this.documents.filter(item =>
+            item.document.metadata.fileId !== fileId
+        );
+
+        const deletedCount = initialCount - this.documents.length;
+        console.log(`[LangchainVectorStore] Deleted ${deletedCount} documents for fileId: ${fileId}`);
     }
 
     /**
-     * Searches for relevant documents using metadata filters.
+     * Searches for relevant documents using metadata filters and cosine similarity.
      */
     async searchDocuments(query, options = {}) {
-        if (!this.store) return [];
+        if (!this.embeddings || this.documents.length === 0) return [];
 
-        // The filter function for MemoryVectorStore
-        const filterFn = (doc) => {
-            if (options.filters?.userId && doc.metadata.userId !== options.filters.userId) return false;
-            if (options.filters?.fileId && doc.metadata.fileId !== options.filters.fileId) return false;
-            return true;
-        };
+        // Generate embedding for the query
+        const queryEmbedding = await this.embeddings.embedQuery(query);
 
-        const results = await this.store.similaritySearchWithScore(
-            query,
-            options.limit || 5,
-            filterFn
-        );
+        // Calculate similarities and filter
+        const results = [];
+        for (const item of this.documents) {
+            const doc = item.document;
 
-        // Format results to match the expected { content, metadata, score } structure
-        return results.map(([doc, score]) => ({
-            content: doc.pageContent,
-            metadata: doc.metadata,
-            score: score // For MemoryVectorStore, similarity is 0 (bad) to 1 (good)
-        }));
+            // Apply filters
+            if (options.filters?.userId && doc.metadata.userId !== options.filters.userId) continue;
+            if (options.filters?.fileId && doc.metadata.fileId !== options.filters.fileId) continue;
+
+            // Calculate cosine similarity
+            const similarity = this.cosineSimilarity(queryEmbedding, item.embedding);
+
+            results.push({
+                content: doc.pageContent,
+                metadata: doc.metadata,
+                score: similarity
+            });
+        }
+
+        // Sort by similarity (highest first) and limit results
+        results.sort((a, b) => b.score - a.score);
+        return results.slice(0, options.limit || 5);
+    }
+
+    /**
+     * Calculate cosine similarity between two vectors
+     */
+    cosineSimilarity(vecA, vecB) {
+        if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+
+        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
+        const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+        const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+
+        return magnitudeA && magnitudeB ? dotProduct / (magnitudeA * magnitudeB) : 0;
     }
 
     /**
      * Gets statistics about the in-memory store.
      */
     async getStatistics() {
-        if (!this.store) return { documentCount: 0 };
-        // A simple way to get the count from the internal store
-        return { documentCount: this.store.memoryVectors.length };
+        return { documentCount: this.documents.length };
     }
 }
 

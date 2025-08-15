@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Enhanced Deep Search V2</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-form {
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 70%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .video-item {
+            background: white;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .video-title {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .video-meta {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+        }
+        .video-description {
+            color: #333;
+            line-height: 1.4;
+        }
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            color: #007bff;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Enhanced Deep Search V2 Test</h1>
+        
+        <div class="test-form">
+            <input type="text" id="queryInput" placeholder="Enter your search query (e.g., artificial intelligence)" value="artificial intelligence">
+            <button onclick="testDeepSearch()">🔍 Test Deep Search</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function testDeepSearch() {
+            const query = document.getElementById('queryInput').value;
+            const resultsDiv = document.getElementById('results');
+            
+            if (!query.trim()) {
+                resultsDiv.innerHTML = '<div class="error">Please enter a search query</div>';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<div class="loading">🔍 Searching... Please wait</div>';
+            
+            try {
+                const response = await fetch('http://localhost:5007/api/chat/enhanced-deep-search-v2', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-id': '689db692915891a4c3456438'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        selectedModel: 'gemini-flash',
+                        history: []
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    displayResults(data.data);
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">❌ Search failed: ' + (data.message || 'Unknown error') + '</div>';
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="error">❌ Network error: ' + error.message + '</div>';
+            }
+        }
+        
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = '<div class="results">';
+            html += '<h3>📊 Search Results Summary</h3>';
+            html += `<p><strong>🎥 Videos:</strong> ${data.videos?.length || 0}</p>`;
+            html += `<p><strong>📝 Blogs:</strong> ${data.blogs?.length || 0}</p>`;
+            html += `<p><strong>🎓 Academic:</strong> ${data.academic?.length || 0}</p>`;
+            html += `<p><strong>📖 Wikipedia:</strong> ${data.wikipedia?.length || 0}</p>`;
+            html += `<p><strong>📚 Total Sources:</strong> ${data.sources?.length || 0}</p>`;
+            html += '</div>';
+            
+            // Display response text
+            if (data.response) {
+                html += '<div class="results">';
+                html += '<h3>📄 AI Response</h3>';
+                html += '<div>' + data.response.replace(/\n/g, '<br>') + '</div>';
+                html += '</div>';
+            }
+            
+            // Display videos
+            if (data.videos && data.videos.length > 0) {
+                html += '<div class="results">';
+                html += '<h3>🎥 Relevant Videos</h3>';
+                data.videos.forEach(video => {
+                    html += '<div class="video-item">';
+                    html += `<div class="video-title"><a href="${video.url}" target="_blank">${video.title}</a></div>`;
+                    html += `<div class="video-meta">📺 ${video.channel} • 👁 ${video.views} • ⏱ ${video.duration}</div>`;
+                    html += `<div class="video-description">${video.description}</div>`;
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            // Display blogs
+            if (data.blogs && data.blogs.length > 0) {
+                html += '<div class="results">';
+                html += '<h3>📝 Related Articles</h3>';
+                data.blogs.forEach(blog => {
+                    html += '<div class="video-item">';
+                    html += `<div class="video-title"><a href="${blog.url}" target="_blank">${blog.title}</a></div>`;
+                    html += `<div class="video-meta">📰 ${blog.source} • ⏱ ${blog.readTime}</div>`;
+                    html += `<div class="video-description">${blog.snippet}</div>`;
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Allow Enter key to trigger search
+        document.getElementById('queryInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                testDeepSearch();
+            }
+        });
+    </script>
+</body>
+</html>

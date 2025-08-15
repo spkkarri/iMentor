@@ -1,6 +1,9 @@
+const path = require('path');
+
 module.exports = {
   devServer: {
     allowedHosts: 'all',
+    port: 4004,
     client: {
       webSocketURL: 'auto://0.0.0.0:0/ws'
     },
@@ -16,6 +19,25 @@ module.exports = {
       if (webpackConfig.devServer) {
         webpackConfig.devServer.allowedHosts = 'all';
       }
+
+      // Fix for babel-loader and html-webpack-plugin resolution
+      webpackConfig.resolveLoader = {
+        ...webpackConfig.resolveLoader,
+        modules: [
+          path.resolve(__dirname, 'node_modules'),
+          'node_modules'
+        ]
+      };
+
+      // Add alias for easier imports
+      webpackConfig.resolve = {
+        ...webpackConfig.resolve,
+        alias: {
+          ...webpackConfig.resolve.alias,
+          '@': path.resolve(__dirname, 'src')
+        }
+      };
+
       return webpackConfig;
     }
   }

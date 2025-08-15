@@ -1,69 +1,69 @@
 {
-  "name": "tutorAI-chatbot",
-  "version": "1.0.0",
-  "description": "TutorAI - Advanced Multi-Model Chatbot with RAG, Deep Search, and MCP Agents",
-  "main": "server/server.js",
-  "scripts": {
-    "install-all": "npm install && npm install --prefix server && npm install --prefix client",
-    "postinstall": "npm install --prefix server && npm install --prefix client",
-    "start": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd server && npm start",
-    "client": "cd client && cross-env PORT=3004 npm start",
-    "dev": "concurrently \"npm run server:dev\" \"npm run client\"",
-    "server:dev": "cd server && npm run dev",
-    "build": "cd client && npm run build",
-    "test": "cd server && npm test",
-    "test:client": "cd client && npm test",
-    "audit": "npm audit && npm audit --prefix server && npm audit --prefix client",
-    "audit:fix": "npm audit fix && npm audit fix --prefix server && npm audit fix --prefix client",
-    "clean": "rimraf node_modules server/node_modules client/node_modules",
-    "setup": "npm run clean && npm run install-all",
-    "docker": "chmod +x install.sh && ./install.sh --docker",
-    "pm2:start": "pm2 start ecosystem.config.js --env production",
-    "pm2:stop": "pm2 stop all",
-    "pm2:restart": "pm2 restart all",
-    "pm2:logs": "pm2 logs",
-    "pm2:status": "pm2 status"
-  },
-  "keywords": [
-    "chatbot",
-    "ai",
-    "tutorAI",
-    "multi-model",
-    "rag",
-    "deep-search",
-    "mcp-agents",
-    "gemini",
-    "ollama",
-    "langchain",
-    "react",
-    "nodejs",
-    "express",
-    "mongodb"
-  ],
-  "author": "TutorAI Team",
-  "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
-  },
-  "workspaces": [
-    "server",
-    "client"
-  ],
-  "devDependencies": {
-    "concurrently": "^9.1.0",
-    "cross-env": "^7.0.3",
-    "nodemon": "^3.1.10",
-    "pm2": "^5.4.2",
-    "rimraf": "^6.0.1",
-    "serve": "^14.2.4"
-  },
-  "dependencies": {
-    "pdfmake": "^0.2.20",
-    "axios": "^1.11.0",
-    "franc-min": "^6.2.0",
-    "sbd": "^1.0.19"
-  },
-  "private": true
+    "name": "tutorAI-chatbot",
+    "version": "1.0.0",
+    "description": "TutorAI - Advanced Multi-Model Chatbot with RAG, Deep Search, and MCP Agents",
+    "main": "server/server.js",
+    "scripts": {
+        "install-all": "npm install && npm install --prefix server && npm install --prefix client",
+        "postinstall": "npm install --prefix server && npm install --prefix client",
+        "start": "concurrently \"npm run server\" \"npm run client\"",
+        "server": "cd server && npm start",
+        "client": "cd client && cross-env PORT=4004 npm start",
+        "dev": "concurrently \"npm run server:dev\" \"npm run client\"",
+        "server:dev": "cd server && npm run dev",
+        "build": "cd client && npm run build",
+        "test": "cd server && npm test",
+        "test:client": "cd client && npm test",
+        "audit": "npm audit && npm audit --prefix server && npm audit --prefix client",
+        "audit:fix": "npm audit fix && npm audit fix --prefix server && npm audit fix --prefix client",
+        "clean": "rimraf node_modules server/node_modules client/node_modules",
+        "setup": "npm run clean && npm run install-all",
+        "docker": "chmod +x install.sh && ./install.sh --docker",
+        "pm2:start": "pm2 start ecosystem.config.js --env production",
+        "pm2:stop": "pm2 stop all",
+        "pm2:restart": "pm2 restart all",
+        "pm2:logs": "pm2 logs",
+        "pm2:status": "pm2 status"
+    },
+    "keywords": [
+        "chatbot",
+        "ai",
+        "tutorAI",
+        "multi-model",
+        "rag",
+        "deep-search",
+        "mcp-agents",
+        "gemini",
+        "ollama",
+        "langchain",
+        "react",
+        "nodejs",
+        "express",
+        "mongodb"
+    ],
+    "author": "TutorAI Team",
+    "license": "MIT",
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=8.0.0"
+    },
+    "workspaces": [
+        "server",
+        "client"
+    ],
+    "devDependencies": {
+        "concurrently": "^9.1.0",
+        "cross-env": "^7.0.3",
+        "nodemon": "^3.1.10",
+        "pm2": "^5.4.2",
+        "rimraf": "^6.0.1",
+        "serve": "^14.2.4"
+    },
+    "dependencies": {
+        "pdfmake": "^0.2.20",
+        "axios": "^1.11.0",
+        "franc-min": "^6.2.0",
+        "sbd": "^1.0.19"
+    },
+    "private": true
 }

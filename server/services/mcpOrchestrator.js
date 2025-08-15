@@ -281,8 +281,8 @@ class MCPOrchestrator extends EventEmitter {
             intents.push('research');
         }
         
-        // Coding intents
-        if (query.match(/code|program|debug|function|algorithm|software/)) {
+        // Coding intents - Enhanced detection
+        if (query.match(/code|program|debug|function|algorithm|software|script|app|website|api|database|class|method|variable|loop|condition|array|object|json|html|css|javascript|python|java|cpp|c\+\+|php|ruby|go|rust|swift|kotlin|typescript|react|vue|angular|node|express|django|flask|spring|laravel|build|develop|implement|create.*function|write.*code|generate.*code|make.*program|coding|programming|development|developer|syntax|compile|execute|run.*code|test.*code|unit.*test|integration.*test|refactor|optimize.*code|fix.*bug|error.*handling|exception|try.*catch|async|await|promise|callback|api.*call|http.*request|database.*query|sql|nosql|mongodb|mysql|postgresql|redis|git|github|version.*control|deployment|docker|kubernetes|ci\/cd|devops/)) {
             intents.push('coding');
         }
         
@@ -407,22 +407,66 @@ class MCPOrchestrator extends EventEmitter {
 
     async routeToSingleAgent(analysis, context, recommendedAgent) {
         const agent = this.agents.get(recommendedAgent.agentId);
-        
+
         const task = {
             id: require('uuid').v4(),
             type: this.determineTaskType(analysis),
             query: analysis.query,
             complexity: analysis.complexity,
             priority: analysis.priority,
+            language: this.detectProgrammingLanguage(analysis.query),
             context: context
         };
 
         this.performanceMetrics.agentUtilization[agent.id]++;
-        
+
         const result = await agent.processTask(task, context);
         result.agentsUsed = [agent.name];
-        
+
         return result;
+    }
+
+    detectProgrammingLanguage(query) {
+        const queryLower = query.toLowerCase();
+
+        // Language detection patterns
+        const languagePatterns = {
+            'javascript': /javascript|js|node\.?js|react|vue|angular|express|npm|yarn/,
+            'typescript': /typescript|ts/,
+            'python': /python|py|django|flask|pandas|numpy|pip/,
+            'java': /java|spring|maven|gradle|jvm/,
+            'cpp': /c\+\+|cpp|cxx/,
+            'c': /\bc\b|clang|gcc/,
+            'csharp': /c#|csharp|\.net|dotnet|visual studio/,
+            'php': /php|laravel|symfony|composer/,
+            'ruby': /ruby|rails|gem/,
+            'go': /golang|go\b/,
+            'rust': /rust|cargo/,
+            'swift': /swift|ios|xcode/,
+            'kotlin': /kotlin|android/,
+            'scala': /scala|sbt/,
+            'html': /html|markup|web page/,
+            'css': /css|stylesheet|styling/,
+            'sql': /sql|database|query|mysql|postgresql|sqlite/,
+            'bash': /bash|shell|terminal|command line/,
+            'powershell': /powershell|ps1/,
+            'json': /json|api response/,
+            'xml': /xml|markup/,
+            'yaml': /yaml|yml|configuration/
+        };
+
+        for (const [language, pattern] of Object.entries(languagePatterns)) {
+            if (pattern.test(queryLower)) {
+                return language;
+            }
+        }
+
+        // Default language based on common patterns
+        if (queryLower.includes('function') || queryLower.includes('script')) {
+            return 'javascript';
+        }
+
+        return 'javascript'; // Default fallback
     }
 
     determineTaskType(analysis) {

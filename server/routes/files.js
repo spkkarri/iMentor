@@ -368,4 +368,235 @@ router.get('/download-generated/:filename', tempAuth, (req, res) => {
     });
 });
 
+// @route   POST /api/files/generate-faq
+// @desc    Generate FAQs from document content
+// @access  Private
+router.post('/generate-faq', tempAuth, async (req, res) => {
+    try {
+        const { fileId, fileName } = req.body;
+        const userId = req.user._id || req.user.id;
+
+        console.log(`[FAQ Generator] Request details:`, {
+            fileId,
+            fileName,
+            userId,
+            userObject: req.user
+        });
+
+        if (!fileId) {
+            return res.status(400).json({
+                success: false,
+                message: 'File ID is required'
+            });
+        }
+
+        console.log(`[FAQ Generator] Generating FAQs for file: ${fileName} (${fileId})`);
+        console.log(`[FAQ Generator] Looking for file with userId: ${userId}`);
+
+        // Get file content - try both with and without userId filter for debugging
+        let file = await File.findOne({ _id: fileId, userId });
+        if (!file) {
+            console.log(`[FAQ Generator] File not found with userId filter, trying without userId...`);
+            file = await File.findOne({ _id: fileId });
+            if (file) {
+                console.log(`[FAQ Generator] File found without userId filter. File userId: ${file.userId}, Request userId: ${userId}`);
+            }
+        }
+
+        if (!file) {
+            console.log(`[FAQ Generator] File not found at all with ID: ${fileId}`);
+            return res.status(404).json({
+                success: false,
+                message: 'File not found'
+            });
+        }
+
+        // Extract text content from file
+        let documentContent = '';
+        if (file.extractedText) {
+            documentContent = file.extractedText;
+        } else if (file.content) {
+            documentContent = file.content;
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'No text content available for FAQ generation'
+            });
+        }
+
+        // Generate FAQs using AI
+        const faqs = await generateFAQsFromContent(documentContent, fileName);
+
+        res.json({
+            success: true,
+            message: 'FAQs generated successfully',
+            faqs: faqs,
+            fileName: fileName,
+            fileId: fileId
+        });
+
+    } catch (error) {
+        console.error('[FAQ Generator] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate FAQs',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Generate FAQs from document content using AI
+ */
+async function generateFAQsFromContent(content, fileName) {
+    try {
+        // Initialize AI service (prefer Gemini, fallback to others)
+        const GeminiAI = require('../services/geminiAI');
+        const GeminiService = require('../services/geminiService');
+
+        let aiService = null;
+
+        try {
+            const geminiService = new GeminiService();
+            await geminiService.initialize();
+            if (geminiService.genAI && geminiService.model) {
+                aiService = new GeminiAI(geminiService);
+            }
+        } catch (error) {
+            console.log('[FAQ Generator] Gemini not available, using fallback');
+        }
+
+        const prompt = `Generate comprehensive FAQs from the following document content. Create 8-12 frequently asked questions that cover the main topics, key concepts, and important details from the document.
+
+DOCUMENT: ${fileName}
+CONTENT:
+${content.substring(0, 4000)}...
+
+INSTRUCTIONS:
+- Generate 8-12 relevant questions that users would commonly ask about this content
+- Provide clear, concise answers based on the document content
+- Cover different aspects: main topics, key concepts, practical applications, benefits, challenges, etc.
+- Make questions natural and conversational
+- Ensure answers are informative but not too lengthy
+- Focus on the most important and useful information
+
+FORMAT: Return as JSON array with this structure:
+[
+  {
+    "question": "What is the main topic of this document?",
+    "answer": "Clear, informative answer based on the content..."
+  }
+]
+
+Generate FAQs now:`;
+
+        let faqs = [];
+
+        if (aiService) {
+            try {
+                const response = await aiService.generateText(prompt);
+
+                // Try to parse JSON response
+                const jsonMatch = response.match(/\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    faqs = JSON.parse(jsonMatch[0]);
+                } else {
+                    // Fallback: parse structured text response
+                    faqs = parseStructuredFAQResponse(response);
+                }
+            } catch (error) {
+                console.log('[FAQ Generator] AI generation failed, using fallback');
+                faqs = generateFallbackFAQs(content, fileName);
+            }
+        } else {
+            // Fallback FAQ generation
+            faqs = generateFallbackFAQs(content, fileName);
+        }
+
+        // Validate and clean FAQs
+        faqs = faqs.filter(faq => faq.question && faq.answer)
+                   .slice(0, 12) // Limit to 12 FAQs
+                   .map(faq => ({
+                       question: faq.question.trim(),
+                       answer: faq.answer.trim()
+                   }));
+
+        return faqs;
+
+    } catch (error) {
+        console.error('[FAQ Generator] Error generating FAQs:', error);
+        return generateFallbackFAQs(content, fileName);
+    }
+}
+
+/**
+ * Parse structured FAQ response when JSON parsing fails
+ */
+function parseStructuredFAQResponse(response) {
+    const faqs = [];
+    const lines = response.split('\n');
+    let currentFAQ = null;
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Look for question patterns
+        if (trimmedLine.match(/^(Q\d*:?|\d+\.|\*)\s*(.+\?)/i)) {
+            if (currentFAQ && currentFAQ.question && currentFAQ.answer) {
+                faqs.push(currentFAQ);
+            }
+            currentFAQ = {
+                question: trimmedLine.replace(/^(Q\d*:?|\d+\.|\*)\s*/i, '').trim(),
+                answer: ''
+            };
+        }
+        // Look for answer patterns
+        else if (currentFAQ && trimmedLine.match(/^(A\d*:?|\-|\*)/i)) {
+            currentFAQ.answer = trimmedLine.replace(/^(A\d*:?|\-|\*)\s*/i, '').trim();
+        }
+        // Continue answer on next lines
+        else if (currentFAQ && currentFAQ.answer && trimmedLine && !trimmedLine.match(/^(Q\d*|A\d*|\d+\.)/i)) {
+            currentFAQ.answer += ' ' + trimmedLine;
+        }
+    }
+
+    // Add the last FAQ
+    if (currentFAQ && currentFAQ.question && currentFAQ.answer) {
+        faqs.push(currentFAQ);
+    }
+
+    return faqs;
+}
+
+/**
+ * Generate fallback FAQs when AI is not available
+ */
+function generateFallbackFAQs(content, fileName) {
+    const words = content.split(' ');
+    const summary = words.slice(0, 100).join(' ');
+
+    return [
+        {
+            question: `What is the main topic of ${fileName}?`,
+            answer: `This document discusses ${summary}...`
+        },
+        {
+            question: "What are the key points covered in this document?",
+            answer: "The document covers several important topics and concepts that are explained in detail throughout the content."
+        },
+        {
+            question: "Who is the target audience for this document?",
+            answer: "This document appears to be designed for readers interested in the subject matter and related topics."
+        },
+        {
+            question: "What can I learn from this document?",
+            answer: "You can gain insights into the main concepts, understand key principles, and learn about practical applications of the topics discussed."
+        },
+        {
+            question: "How is the information in this document organized?",
+            answer: "The document is structured to present information in a logical flow, building from basic concepts to more detailed explanations."
+        }
+    ];
+}
+
 module.exports = router;

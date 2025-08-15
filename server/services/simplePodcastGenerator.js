@@ -10,6 +10,7 @@ class SimplePodcastGenerator {
         this.selectedModel = selectedModel;
         this.userId = userId;
         this.aiService = null;
+        this.isOllamaModel = selectedModel.startsWith('ollama-') || selectedModel === 'llama-model' || selectedModel.includes('llama');
     }
 
     /**
@@ -18,7 +19,7 @@ class SimplePodcastGenerator {
     async initialize() {
         if (!this.aiService) {
             try {
-                if (this.selectedModel.startsWith('ollama-') || this.selectedModel === 'llama-model') {
+                if (this.isOllamaModel) {
                     // Use Ollama service
                     console.log(`🎙️ SimplePodcastGenerator initializing with Ollama model: ${this.selectedModel}`);
                     if (this.userId) {
@@ -27,20 +28,39 @@ class SimplePodcastGenerator {
                         if (!this.aiService) {
                             throw new Error('Ollama service not available for user');
                         }
+                        console.log(`✅ Ollama service initialized for user: ${this.userId}`);
                     } else {
                         throw new Error('User ID required for Ollama service');
                     }
                 } else {
                     // Default to Gemini
                     console.log(`🎙️ SimplePodcastGenerator initializing with Gemini model: ${this.selectedModel}`);
+
+                    // Check if Gemini API key is available
+                    const API_KEY = process.env.GEMINI_API_KEY;
+                    if (!API_KEY) {
+                        console.warn('⚠️ GEMINI_API_KEY not found, using fallback mode');
+                        this.aiService = null;
+                        return;
+                    }
+
                     const geminiService = new GeminiService();
                     await geminiService.initialize();
-                    this.aiService = new GeminiAI(geminiService);
+
+                    // Check if Gemini service is properly initialized
+                    if (!geminiService.genAI || !geminiService.model) {
+                        console.warn('⚠️ Gemini service not properly initialized, using fallback mode');
+                        this.aiService = null; // Will trigger fallback
+                    } else {
+                        this.aiService = new GeminiAI(geminiService);
+                        console.log(`✅ Gemini service initialized successfully`);
+                    }
                 }
                 console.log(`🎙️ SimplePodcastGenerator initialized with ${this.selectedModel}`);
             } catch (error) {
                 console.error('Failed to initialize AI service for podcast generation:', error);
-                throw error;
+                console.log('🔄 Will use fallback podcast generation');
+                this.aiService = null; // Will trigger fallback
             }
         }
     }
@@ -53,6 +73,12 @@ class SimplePodcastGenerator {
 
         if (!documentContent || documentContent.trim().length < 100) {
             throw new Error('Document content is too short to generate a meaningful podcast');
+        }
+
+        // Check if AI service is available, if not use fallback
+        if (!this.aiService) {
+            console.log('🔄 AI service not available, using fallback podcast generation');
+            return this.generateFallbackPodcast(documentContent, filename);
         }
 
         const prompt = `Create an engaging podcast script based on the following document content. Make it sound like a natural conversation between a male and female voice.
@@ -84,7 +110,7 @@ Write ONLY the conversational dialogue with [Male Voice] and [Female Voice] labe
 
         try {
             console.log(`🎙️ Generating conversational podcast script for "${filename}"...`);
-            const response = await this.geminiAI.generateText(prompt);
+            const response = await this.aiService.generateText(prompt);
 
             // Clean up the response to ensure it's natural dialogue
             const cleanScript = response
@@ -175,7 +201,7 @@ Write ONLY the conversational dialogue, no formatting or JSON. Example:
 Return ONLY the natural conversation between [Male Voice] and [Female Voice]:`;
 
         try {
-            const script = await this.geminiAI.generateText(prompt);
+            const script = await this.aiService.generateText(prompt);
 
             // Clean up the script for better TTS and natural conversation
             const cleanScript = script
@@ -209,6 +235,24 @@ Return ONLY the natural conversation between [Male Voice] and [Female Voice]:`;
     async generateSingleHostPodcast(documentContent, filename = 'document') {
         await this.initialize();
 
+        // Check if AI service is available, if not use fallback
+        if (!this.aiService) {
+            console.log('🔄 AI service not available, using fallback podcast generation');
+            return this.generateFallbackPodcast(documentContent, filename);
+        }
+
+        // Use different generation methods based on model type
+        if (this.isOllamaModel) {
+            return this.generateOllamaPodcast(documentContent, filename);
+        } else {
+            return this.generateGeminiPodcast(documentContent, filename);
+        }
+    }
+
+    /**
+     * Generate podcast using Ollama models
+     */
+    async generateOllamaPodcast(documentContent, filename = 'document') {
         const prompt = `Create an engaging single-host podcast script based on the following document content.
 
 DOCUMENT CONTENT:
@@ -233,7 +277,10 @@ Hey there, welcome back! Today I want to share something absolutely fascinating 
 Write ONLY the natural monologue without any names, no JSON, no formatting, just natural single-host presentation.`;
 
         try {
-            const script = await this.geminiAI.generateText(prompt);
+            console.log(`🎙️ Generating Ollama podcast script for "${filename}"...`);
+            const modelName = this.selectedModel.replace('ollama-', '').replace('_', ':').replace('llama-model', 'llama3.2:latest');
+            const response = await this.aiService.generateChatResponse(prompt, modelName);
+            const script = typeof response === 'string' ? response : response.response;
 
             // Clean up the script
             const cleanScript = script
@@ -250,19 +297,79 @@ Write ONLY the natural monologue without any names, no JSON, no formatting, just
                 script: cleanScript,
                 word_count: cleanScript.split(' ').length,
                 estimated_duration: Math.ceil(cleanScript.split(' ').length / 150) + " minutes",
-                format: "single-host"
+                format: "single-host",
+                model: this.selectedModel
             };
 
         } catch (error) {
-            console.error('Error generating single-host script:', error);
+            console.error('Error generating Ollama podcast script:', error);
 
-            // If quota exceeded, provide a fallback podcast
+            // If Ollama fails, use fallback
+            console.log('🔄 Ollama generation failed, using fallback');
+            return this.generateFallbackPodcast(documentContent, filename);
+        }
+    }
+
+    /**
+     * Generate podcast using Gemini models
+     */
+    async generateGeminiPodcast(documentContent, filename = 'document') {
+        const prompt = `Create an engaging single-host podcast script based on the following document content.
+
+DOCUMENT CONTENT:
+${documentContent}
+
+INSTRUCTIONS:
+- Create a 2-3 minute podcast script (approximately 300-450 words)
+- Format as a single host presentation with no names mentioned
+- Use conversational, engaging tone as if talking directly to listeners
+- Include an introduction, main content, and conclusion
+- Make it sound natural and personal, like a friend explaining something interesting
+- Use natural speech patterns: "You know...", "Here's what's fascinating...", "Let me tell you about..."
+- Address the audience directly: "you", "imagine this", "think about it"
+- Focus on the key points and insights from the document
+- Make it accessible and engaging for listeners
+- DO NOT mention any host names or introduce yourself by name
+
+Write the script as natural monologue only. Start directly with the content. Example format:
+
+Hey there, welcome back! Today I want to share something absolutely fascinating with you...
+
+Write ONLY the natural monologue without any names, no JSON, no formatting, just natural single-host presentation.`;
+
+        try {
+            console.log(`🎙️ Generating Gemini podcast script for "${filename}"...`);
+            const script = await this.aiService.generateText(prompt);
+
+            // Clean up the script
+            const cleanScript = script
+                .replace(/```[\s\S]*?```/g, '') // Remove any code blocks
+                .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold formatting
+                .replace(/\*([^*]+)\*/g, '$1') // Remove italic formatting
+                .replace(/#{1,6}\s+/g, '') // Remove markdown headers
+                .replace(/\n{3,}/g, '\n\n') // Normalize line breaks
+                .trim();
+
+            return {
+                success: true,
+                title: `Podcast: ${filename}`,
+                script: cleanScript,
+                word_count: cleanScript.split(' ').length,
+                estimated_duration: Math.ceil(cleanScript.split(' ').length / 150) + " minutes",
+                format: "single-host",
+                model: this.selectedModel
+            };
+
+        } catch (error) {
+            console.error('Error generating Gemini podcast script:', error);
+
+            // If quota exceeded or other error, provide a fallback podcast
             if (error.message.includes('quota') || error.message.includes('429')) {
                 console.log('API quota exceeded, generating fallback podcast...');
-                return this.generateFallbackPodcast(documentContent, filename);
+            } else {
+                console.log('🔄 Gemini generation failed, using fallback');
             }
-
-            throw error;
+            return this.generateFallbackPodcast(documentContent, filename);
         }
     }
 
@@ -271,28 +378,32 @@ Write ONLY the natural monologue without any names, no JSON, no formatting, just
      */
     generateFallbackPodcast(documentContent, filename) {
         const words = documentContent.split(' ');
-        const summary = words.slice(0, 100).join(' ') + (words.length > 100 ? '...' : '');
+        const keyTopics = this.extractKeyTopics(documentContent);
+        const summary = words.slice(0, 150).join(' ') + (words.length > 150 ? '...' : '');
 
-        const script = `Welcome to our podcast! Today we're discussing the document "${filename}".
+        const script = `Hey there, welcome to today's podcast! I'm excited to share some insights from the document "${filename}" with you.
 
-        This document contains valuable information about ${this.extractKeyTopics(documentContent).join(', ')}.
+This document covers some really interesting topics, particularly focusing on ${keyTopics.slice(0, 3).join(', ')}.
 
-        Here's a brief overview: ${summary}
+Let me give you a quick overview of what we're looking at here. ${summary}
 
-        The document covers several important points that are worth exploring further.
+What I find particularly fascinating about this content is how it breaks down complex concepts into understandable pieces. The document provides valuable insights that can really help us understand the subject matter better.
 
-        Thank you for listening to this automated podcast summary. For the full content, please refer to the original document.`;
+The key takeaways from this material include several important points that are worth considering. Each section builds upon the previous one, creating a comprehensive understanding of the topic.
+
+I think you'll find this information quite useful, whether you're studying this subject or just curious to learn more about it.
+
+Thanks for joining me today! I hope you found this overview helpful and informative. Until next time, keep learning and stay curious!`;
 
         return {
             success: true,
             title: `Podcast: ${filename}`,
             script: script,
-            duration_estimate: "2-3 minutes",
-            key_points: this.extractKeyTopics(documentContent),
-            instructions: {
-                message: "This is a fallback podcast generated when AI services are temporarily unavailable",
-                usage: "Click the play button to hear this podcast using your device's text-to-speech"
-            }
+            word_count: script.split(' ').length,
+            estimated_duration: Math.ceil(script.split(' ').length / 150) + " minutes",
+            key_points: keyTopics,
+            format: "single-host",
+            note: "Generated using fallback method when AI services are unavailable"
         };
     }
 

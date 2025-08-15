@@ -1,36 +1,90 @@
 /**
- * MCP (Model Context Protocol) API Routes
- * 
- * Provides endpoints for:
+ * Unified MCP (Model Context Protocol) API Routes
+ *
+ * Provides a single, efficient MCP system with:
  * 1. Intelligent query processing through specialized agents
- * 2. Agent performance monitoring and analytics
- * 3. Multi-agent collaboration management
- * 4. Real-time MCP system status and metrics
+ * 2. Automatic agent selection and task routing
+ * 3. Multi-agent collaboration when needed
+ * 4. Real-time performance monitoring
+ * 5. Unified interface for all MCP functionality
  */
 
 const express = require('express');
 const router = express.Router();
 const MCPOrchestrator = require('../services/mcpOrchestrator');
+const AgenticMCPIntegration = require('../services/agenticMCPIntegration');
 
-// Initialize MCP Orchestrator (singleton)
+// Initialize Unified MCP System (singleton)
 let mcpOrchestrator = null;
+let agenticMCPIntegration = null;
 
 function getMCPOrchestrator() {
     if (!mcpOrchestrator) {
         mcpOrchestrator = new MCPOrchestrator();
-        console.log('[MCP Routes] MCP Orchestrator initialized');
+        console.log('[Unified MCP] MCP Orchestrator initialized');
     }
     return mcpOrchestrator;
 }
 
+function getAgenticMCPIntegration(serviceManager) {
+    if (!agenticMCPIntegration && serviceManager) {
+        agenticMCPIntegration = new AgenticMCPIntegration(serviceManager);
+        console.log('[Unified MCP] Agentic MCP Integration initialized');
+    }
+    return agenticMCPIntegration;
+}
+
+/**
+ * Analyze query complexity to determine which MCP system to use
+ */
+function analyzeQueryComplexity(query) {
+    const complexityIndicators = [
+        // Multi-step tasks
+        /create.*and.*upload/i,
+        /generate.*then.*analyze/i,
+        /research.*and.*summarize/i,
+        /compare.*and.*recommend/i,
+
+        // Document processing
+        /process.*document/i,
+        /analyze.*file/i,
+        /extract.*from.*document/i,
+
+        // Multi-service tasks
+        /search.*web.*and/i,
+        /upload.*and.*process/i,
+        /create.*report/i,
+        /comprehensive.*analysis/i,
+
+        // Workflow indicators
+        /step.*by.*step/i,
+        /workflow/i,
+        /pipeline/i,
+        /orchestrate/i
+    ];
+
+    // Check for complexity indicators
+    const hasComplexityIndicators = complexityIndicators.some(pattern => pattern.test(query));
+
+    // Check query length (longer queries tend to be more complex)
+    const isLongQuery = query.length > 200;
+
+    // Check for multiple questions or tasks
+    const hasMultipleTasks = (query.match(/\?/g) || []).length > 1 ||
+                            (query.match(/\band\b/gi) || []).length > 2;
+
+    return hasComplexityIndicators || isLongQuery || hasMultipleTasks;
+}
+
 /**
  * POST /api/mcp/process
- * Main endpoint for processing queries through MCP system
+ * Unified endpoint for intelligent MCP processing
+ * Automatically routes to the best agent system based on query complexity
  */
 router.post('/process', async (req, res) => {
     try {
-        const { query, context = {}, userId, sessionId } = req.body;
-        
+        const { query, context = {}, userId, sessionId, mode = 'auto' } = req.body;
+
         if (!query) {
             return res.status(400).json({
                 success: false,
@@ -38,10 +92,8 @@ router.post('/process', async (req, res) => {
             });
         }
 
-        console.log(`[MCP API] Processing query for user ${userId}: "${query.substring(0, 100)}..."`);
-        
-        const orchestrator = getMCPOrchestrator();
-        
+        console.log(`[Unified MCP] Processing query for user ${userId}: "${query.substring(0, 100)}..."`);
+
         // Enhance context with request metadata
         const enhancedContext = {
             ...context,
@@ -50,31 +102,63 @@ router.post('/process', async (req, res) => {
             timestamp: new Date().toISOString(),
             requestId: require('uuid').v4(),
             userAgent: req.headers['user-agent'],
-            ip: req.ip
+            ip: req.ip,
+            mode: mode
         };
 
-        const result = await orchestrator.processQuery(query, enhancedContext);
+        let result;
+
+        // Intelligent routing: Use Agentic MCP for complex tasks, regular MCP for simple ones
+        const isComplexQuery = analyzeQueryComplexity(query);
+
+        if (mode === 'agentic' || (mode === 'auto' && isComplexQuery)) {
+            // Use Agentic MCP for complex tasks
+            console.log(`[Unified MCP] Using Agentic MCP for complex query`);
+            const agenticMCP = getAgenticMCPIntegration(req.serviceManager);
+            if (agenticMCP) {
+                result = await agenticMCP.processAgenticTask(query, enhancedContext);
+                result.processingMode = 'agentic';
+            } else {
+                // Fallback to regular MCP
+                const orchestrator = getMCPOrchestrator();
+                result = await orchestrator.processQuery(query, enhancedContext);
+                result.processingMode = 'standard_fallback';
+            }
+        } else {
+            // Use regular MCP for simpler tasks
+            console.log(`[Unified MCP] Using standard MCP for query`);
+            const orchestrator = getMCPOrchestrator();
+            result = await orchestrator.processQuery(query, enhancedContext);
+            result.processingMode = 'standard';
+        }
         
         // Log successful processing
         if (result.success) {
-            console.log(`[MCP API] Query processed successfully in ${result.processingTime}ms by agents: ${result.agentsUsed?.join(', ')}`);
+            console.log(`[Unified MCP] Query processed successfully in ${result.processingTime || 'N/A'}ms using ${result.processingMode} mode`);
         }
+
+        // Ensure result is properly formatted as string
+        const responseText = typeof (result.result || result.response) === 'string'
+            ? (result.result || result.response)
+            : JSON.stringify(result.result || result.response || 'No response received');
 
         res.json({
             success: result.success,
             data: result.success ? {
-                result: result.result,
+                result: responseText,
                 analysis: result.analysis,
                 processingTime: result.processingTime,
                 agentsUsed: result.agentsUsed,
                 confidence: result.confidence,
-                requestId: enhancedContext.requestId
+                requestId: enhancedContext.requestId,
+                processingMode: result.processingMode
             } : null,
             error: result.success ? null : result.error,
             fallbackSuggestion: result.fallbackSuggestion,
             metadata: {
                 timestamp: enhancedContext.timestamp,
-                mcpVersion: '2.0.0',
+                mcpVersion: '3.0.0-unified',
+                processingMode: result.processingMode,
                 systemLoad: await getSystemLoad()
             }
         });

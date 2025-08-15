@@ -303,8 +303,168 @@ class CodingAgent extends MCPAgent {
     }
 
     async createCode(query, language, structure) {
-        // Simulate code generation based on query and language
-        return `// Generated ${language} code for: ${query}\n// Structure: ${structure.architecture}`;
+        try {
+            // Try to use AI service for code generation
+            const GeminiAI = require('./geminiAI');
+            const GeminiService = require('./geminiService');
+
+            let aiService = null;
+
+            try {
+                const geminiService = new GeminiService();
+                await geminiService.initialize();
+                if (geminiService.genAI && geminiService.model) {
+                    aiService = new GeminiAI(geminiService);
+                }
+            } catch (error) {
+                console.log('[Coding Agent] AI service not available, using template generation');
+            }
+
+            if (aiService) {
+                const codePrompt = `Generate ${language} code for the following request:
+
+REQUEST: ${query}
+
+REQUIREMENTS:
+- Language: ${language}
+- Architecture: ${structure.architecture}
+- Complexity: ${structure.complexity}
+- Include proper comments and documentation
+- Follow best practices for ${language}
+- Make the code production-ready
+- Include error handling where appropriate
+
+Please provide clean, well-structured ${language} code that fulfills the request. Format the response as a code block.`;
+
+                const response = await aiService.generateText(codePrompt);
+
+                // Extract code from response if it's wrapped in markdown
+                const codeMatch = response.match(/```[\w]*\n([\s\S]*?)\n```/);
+                if (codeMatch) {
+                    return codeMatch[1].trim();
+                }
+
+                return response.trim();
+            } else {
+                // Fallback code generation
+                return this.generateFallbackCode(query, language, structure);
+            }
+        } catch (error) {
+            console.error('[Coding Agent] Error generating code:', error);
+            return this.generateFallbackCode(query, language, structure);
+        }
+    }
+
+    generateFallbackCode(query, language, structure) {
+        const templates = {
+            javascript: `// ${query}
+function solution() {
+    // TODO: Implement the functionality for: ${query}
+    console.log('Implementing: ${query}');
+
+    try {
+        // Your implementation here
+        return 'Implementation completed';
+    } catch (error) {
+        console.error('Error:', error);
+        throw error;
+    }
+}
+
+// Export the function
+module.exports = solution;`,
+
+            python: `# ${query}
+def solution():
+    """
+    Implementation for: ${query}
+
+    Returns:
+        str: Result of the implementation
+    """
+    try:
+        # TODO: Implement the functionality for: ${query}
+        print(f"Implementing: ${query}")
+
+        # Your implementation here
+        return "Implementation completed"
+
+    except Exception as error:
+        print(f"Error: {error}")
+        raise
+
+if __name__ == "__main__":
+    result = solution()
+    print(result)`,
+
+            java: `// ${query}
+public class Solution {
+
+    /**
+     * Implementation for: ${query}
+     *
+     * @return String result of the implementation
+     */
+    public static String solution() {
+        try {
+            // TODO: Implement the functionality for: ${query}
+            System.out.println("Implementing: ${query}");
+
+            // Your implementation here
+            return "Implementation completed";
+
+        } catch (Exception error) {
+            System.err.println("Error: " + error.getMessage());
+            throw error;
+        }
+    }
+
+    public static void main(String[] args) {
+        String result = solution();
+        System.out.println(result);
+    }
+}`,
+
+            cpp: `// ${query}
+#include <iostream>
+#include <string>
+#include <stdexcept>
+
+class Solution {
+public:
+    /**
+     * Implementation for: ${query}
+     *
+     * @return std::string result of the implementation
+     */
+    static std::string solution() {
+        try {
+            // TODO: Implement the functionality for: ${query}
+            std::cout << "Implementing: ${query}" << std::endl;
+
+            // Your implementation here
+            return "Implementation completed";
+
+        } catch (const std::exception& error) {
+            std::cerr << "Error: " << error.what() << std::endl;
+            throw;
+        }
+    }
+};
+
+int main() {
+    try {
+        std::string result = Solution::solution();
+        std::cout << result << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Program failed: " << e.what() << std::endl;
+        return 1;
+    }
+    return 0;
+}`
+        };
+
+        return templates[language] || `// ${query}\n// TODO: Implement functionality for ${language}`;
     }
 
     async generateTests(code, language) {

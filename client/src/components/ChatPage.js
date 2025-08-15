@@ -17,9 +17,8 @@ import rehypeRaw from 'rehype-raw';
 import { v4 as uuidv4 } from 'uuid';
 import MediaRenderer from './MediaRenderer';
 import DownloadLink from './DownloadLink';
-import MCPToggle from './MCPToggle';
-import AgenticMCPToggle from './AgenticMCPToggle';
 import EnhancedVideoPlayer from './EnhancedVideoPlayer';
+// FAQ generation is now handled directly in chat
 import {
     FaMicrophone,
     FaStop,
@@ -84,14 +83,8 @@ const ChatPage = () => {
     // RAG and search state
     const [isRagEnabled, setIsRagEnabled] = useState(false);
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
-    const [isMcpEnabled, setIsMcpEnabled] = useState(() => {
-        const saved = localStorage.getItem('mcpEnabled');
-        return saved !== null ? JSON.parse(saved) : false;
-    });
-    const [isAgenticMCPEnabled, setIsAgenticMCPEnabled] = useState(() => {
-        const saved = localStorage.getItem('agenticMCPEnabled');
-        return saved !== null ? JSON.parse(saved) : false;
-    });
+    // MCP is now always enabled in the background for intelligent responses
+    const isMcpEnabled = true;
     const [selectedFiles, setSelectedFiles] = useState([]);
 
     // File management state
@@ -206,15 +199,7 @@ const ChatPage = () => {
         localStorage.setItem('isSidebarOpen', JSON.stringify(isSidebarOpen));
     }, [isSidebarOpen]);
 
-    // Save MCP state
-    useEffect(() => {
-        localStorage.setItem('mcpEnabled', JSON.stringify(isMcpEnabled));
-    }, [isMcpEnabled]);
-
-    // Save Agentic MCP state
-    useEffect(() => {
-        localStorage.setItem('agenticMCPEnabled', JSON.stringify(isAgenticMCPEnabled));
-    }, [isAgenticMCPEnabled]);
+    // MCP is always enabled in the background - no need to save state
 
     // Save selected model
     useEffect(() => {
@@ -298,75 +283,9 @@ const ChatPage = () => {
         };
     }, [showProfileDropdown]);
 
-    // MCP search handler
-    const handleAgenticMCPSearch = useCallback(async (query) => {
-        if (isProcessing) return;
+    // Unified MCP search handler - handles both standard and agentic processing
 
-        setIsProcessing(true);
-        setError('');
-
-        const newUserMessage = {
-            id: uuidv4(),
-            role: 'user',
-            parts: [{ text: query }],
-            timestamp: new Date()
-        };
-
-        setMessages(prev => [...prev, newUserMessage]);
-
-        try {
-            const response = await fetch('/api/chat/message', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'X-User-ID': userId
-                },
-                body: JSON.stringify({
-                    query: query.trim(),
-                    sessionId,
-                    history: [...messages, newUserMessage],
-                    systemPrompt: 'You are an intelligent agentic AI assistant with access to comprehensive application features.',
-                    ragEnabled: false,
-                    deepSearch: false,
-                    autoDetectWebSearch: false,
-                    multiLLM: false,
-                    mcpEnabled: false,
-                    agenticMCP: true,
-                    selectedModel: selectedModel
-                })
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Agentic MCP processing failed');
-
-            const assistantMessage = {
-                id: uuidv4(),
-                role: 'assistant',
-                parts: [{ text: data.response }],
-                timestamp: new Date(),
-                metadata: data.metadata || {},
-                // Add Agentic MCP-specific data
-                agenticData: data.agenticData || null,
-                agentsUsed: data.metadata?.agentsUsed || null,
-                confidence: data.metadata?.confidence || null,
-                processingTime: data.metadata?.processingTime || null,
-                workflowType: data.metadata?.workflowType || null,
-                downloadableFiles: data.agenticData?.downloadableFiles || []
-            };
-
-            setMessages(prev => [...prev, assistantMessage]);
-
-        } catch (error) {
-            console.error('Agentic MCP search failed:', error);
-            setError(error.message || 'Agentic MCP processing failed');
-            showError(error.message || 'Agentic MCP processing failed');
-        } finally {
-            setIsProcessing(false);
-        }
-    }, [isProcessing, sessionId, userId, selectedModel, messages, showError]);
-
-    const handleMcpSearch = useCallback(async (query) => {
+    const handleUnifiedMCPSearch = useCallback(async (query, mode = 'auto') => {
         if (!query.trim() || isProcessing) return;
 
         const newUserMessage = {
@@ -380,9 +299,10 @@ const ChatPage = () => {
         setIsProcessing(true);
 
         try {
-            console.log('🤖 MCP search enabled for query:', query);
+            console.log(`🤖 Unified MCP processing query with mode: ${mode}`);
 
-            const response = await fetch('/api/chat/message', {
+            // Use the unified MCP endpoint
+            const response = await fetch('/api/mcp/process', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -391,43 +311,57 @@ const ChatPage = () => {
                 },
                 body: JSON.stringify({
                     query: query.trim(),
-                    sessionId,
-                    history: [...messages, newUserMessage],
-                    systemPrompt: 'You are a helpful AI assistant with specialized agents.',
-                    ragEnabled: false,
-                    deepSearch: false,
-                    autoDetectWebSearch: false,
-                    multiLLM: false,
-                    mcpEnabled: true,
-                    selectedModel: selectedModel
+                    userId: userId,
+                    sessionId: sessionId,
+                    mode: mode, // 'auto', 'standard', or 'agentic'
+                    context: {
+                        selectedModel: selectedModel,
+                        chatHistory: messages.slice(-5), // Last 5 messages for context
+                        timestamp: new Date().toISOString()
+                    }
                 })
             });
 
             const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'MCP processing failed');
+            if (!response.ok) throw new Error(data.error || 'Unified MCP processing failed');
+
+            const responseText = typeof data.data?.result === 'string'
+                ? data.data.result
+                : (data.data?.response || 'No response received');
+            const processingMode = data.data?.processingMode || 'unknown';
 
             const assistantMessage = {
                 id: uuidv4(),
                 role: 'assistant',
-                parts: [{ text: data.response }],
+                parts: [{ text: responseText }],
                 timestamp: new Date(),
-                metadata: data.metadata || {},
-                // Add MCP-specific data
-                mcpData: data.mcpData || null,
-                agentsUsed: data.metadata?.agentsUsed || null,
-                confidence: data.metadata?.confidence || null,
-                processingTime: data.metadata?.processingTime || null
+                metadata: {
+                    searchType: 'unified-mcp',
+                    processingMode: processingMode,
+                    agentsUsed: data.data?.agentsUsed || [],
+                    confidence: data.data?.confidence || null,
+                    processingTime: data.data?.processingTime || null,
+                    mcpVersion: data.metadata?.mcpVersion || '3.0.0-unified'
+                }
             };
 
             setMessages(prev => [...prev, assistantMessage]);
+
+            // Show processing mode info
+            if (processingMode === 'agentic') {
+                console.log('✨ Used Agentic MCP for complex query processing');
+            } else if (processingMode === 'standard') {
+                console.log('⚡ Used Standard MCP for efficient processing');
+            }
+
         } catch (err) {
-            console.error('MCP search error:', err);
-            setError(err.message || 'MCP search failed');
+            console.error('Unified MCP search error:', err);
+            setError(err.message || 'Unified MCP search failed');
             setMessages(prev => prev.slice(0, -1)); // Remove user message on error
         } finally {
             setIsProcessing(false);
         }
-    }, [messages, sessionId, isProcessing, userId]);
+    }, [messages, sessionId, isProcessing, userId, selectedModel]);
 
     // Send message handler
     const handleSendMessage = useCallback(async () => {
@@ -456,16 +390,11 @@ const ChatPage = () => {
             return;
         }
 
-        // Check if Agentic MCP is enabled and handle Agentic MCP processing
-        if (isAgenticMCPEnabled) {
-            setInputText(''); // Clear input immediately for Agentic MCP
-            return handleAgenticMCPSearch(trimmedInput);
-        }
-
-        // Check if MCP is enabled and handle MCP search
+        // Check if MCP is enabled and handle Unified MCP processing
         if (isMcpEnabled) {
             setInputText(''); // Clear input immediately for MCP
-            return handleMcpSearch(trimmedInput);
+            // Use auto mode for intelligent routing
+            return handleUnifiedMCPSearch(trimmedInput, 'auto');
         }
 
         const newUserMessage = {
@@ -616,7 +545,7 @@ const ChatPage = () => {
         } finally {
             setIsProcessing(false);
         }
-    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, isMcpEnabled, selectedFiles, messages, handleMcpSearch, showWarning, showError, isOnline]);
+    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, isMcpEnabled, selectedFiles, messages, handleUnifiedMCPSearch, showWarning, showError, isOnline]);
 
     // Speech recognition handlers
     const handleStartMicButtonClick = useCallback(() => {
@@ -894,8 +823,90 @@ Thank you for using TutorAI!`;
         }
     }, [showSuccess, showError, showWarning]);
 
+    const handleGenerateFAQ = useCallback(async (fileId, fileName) => {
+        setIsProcessing(true);
+        setFileError('');
 
+        try {
+            // Add user action message to chat
+            const userMessage = {
+                id: uuidv4(),
+                role: 'user',
+                parts: [{ text: `❓ Generate FAQs for "${fileName}"` }],
+                timestamp: new Date()
+            };
+            setMessages(prev => [...prev, userMessage]);
 
+            console.log('Generating FAQs for file:', fileId, fileName);
+            console.log('User ID:', userId);
+
+            // Call the FAQ generation API
+            const requestBody = {
+                fileId: fileId,
+                fileName: fileName
+            };
+
+            console.log('FAQ API request:', requestBody);
+            console.log('FAQ API headers:', { 'X-User-ID': userId });
+
+            const response = await fetch('/api/files/generate-faq', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-ID': userId
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to generate FAQs');
+            }
+
+            // Format FAQs as a chat message
+            const faqText = data.faqs.map((faq, index) =>
+                `**Q${index + 1}: ${faq.question}**\n\n${faq.answer}\n\n---\n`
+            ).join('\n');
+
+            const faqMessage = {
+                id: uuidv4(),
+                role: 'assistant',
+                parts: [{
+                    text: `# 📋 FAQs for "${fileName}"\n\n${faqText}\n\n*Generated ${data.faqs.length} frequently asked questions from the document content.*`
+                }],
+                timestamp: new Date(),
+                metadata: {
+                    type: 'faq-generation',
+                    fileName: fileName,
+                    fileId: fileId,
+                    faqCount: data.faqs.length
+                }
+            };
+
+            setMessages(prev => [...prev, faqMessage]);
+            showSuccess(`Generated ${data.faqs.length} FAQs for "${fileName}"! FAQs displayed in chat.`);
+
+        } catch (error) {
+            console.error('FAQ generation error:', error);
+            const errorMessage = error.message || 'Unknown error occurred';
+
+            // Add error message to chat
+            const errorChatMessage = {
+                id: uuidv4(),
+                role: 'assistant',
+                parts: [{ text: `❌ **FAQ Generation Failed**\n\nSorry, I couldn't generate FAQs for "${fileName}". ${errorMessage}` }],
+                timestamp: new Date(),
+                metadata: { type: 'error', action: 'faq-generation' }
+            };
+            setMessages(prev => [...prev, errorChatMessage]);
+
+            setFileError(`FAQ Generation Error: ${errorMessage}`);
+            showError(`Failed to generate FAQs for "${fileName}": ${errorMessage}`);
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [userId, showSuccess, showError]);
 
     // History modal handlers
     const handleLoadSession = useCallback(async (sessionId) => {
@@ -1041,6 +1052,7 @@ Thank you for using TutorAI!`;
                                 onRenameFile={handleRenameFile}
                                 onGeneratePodcast={handleGeneratePodcast}
                                 onGenerateMindMap={handleGenerateMindMap}
+                                onGenerateFAQ={handleGenerateFAQ}
                                 isProcessing={isProcessing}
                                 onActionTaken={() => setIsSidebarOpen(false)}
                             />
@@ -1404,7 +1416,7 @@ Thank you for using TutorAI!`;
 
                 {/* Chat Input */}
                 <div className="chat-input-container">
-                    <div className={`input-wrapper ${isRagEnabled ? 'rag-mode' : isDeepSearchEnabled ? 'deep-search-mode' : isMcpEnabled ? 'mcp-mode' : ''}`}>
+                    <div className={`input-wrapper ${isRagEnabled ? 'rag-mode' : isDeepSearchEnabled ? 'deep-search-mode' : ''}`}>
 
                         {/* Mode Selection Buttons - Inside Chat Input Container */}
                         <div className="mode-buttons-inside-chat">
@@ -1414,7 +1426,7 @@ Thank you for using TutorAI!`;
                                     setIsRagEnabled(!isRagEnabled);
                                     if (!isRagEnabled) {
                                         setIsDeepSearchEnabled(false);
-                                        setIsMcpEnabled(false);
+                                        // MCP works automatically in the background
                                     }
                                 }}
                                 disabled={isProcessing}
@@ -1430,7 +1442,7 @@ Thank you for using TutorAI!`;
                                     setIsDeepSearchEnabled(!isDeepSearchEnabled);
                                     if (!isDeepSearchEnabled) {
                                         setIsRagEnabled(false);
-                                        setIsMcpEnabled(false);
+                                        // MCP works automatically in the background
                                     }
                                 }}
                                 disabled={isProcessing}
@@ -1440,39 +1452,7 @@ Thank you for using TutorAI!`;
                                 <span>Deep Search</span>
                             </button>
 
-                            <button
-                                className={`mode-btn-inside ${isMcpEnabled ? 'active' : ''}`}
-                                onClick={() => {
-                                    setIsMcpEnabled(!isMcpEnabled);
-                                    if (!isMcpEnabled) {
-                                        setIsRagEnabled(false);
-                                        setIsDeepSearchEnabled(false);
-                                        setIsAgenticMCPEnabled(false);
-                                    }
-                                }}
-                                disabled={isProcessing}
-                                title="MCP Agents - AI agents for specialized tasks"
-                            >
-                                <span className="btn-icon">🤖</span>
-                                <span>MCP Agents</span>
-                            </button>
-
-                            <button
-                                className={`mode-btn-inside ${isAgenticMCPEnabled ? 'active agentic-active' : ''}`}
-                                onClick={() => {
-                                    setIsAgenticMCPEnabled(!isAgenticMCPEnabled);
-                                    if (!isAgenticMCPEnabled) {
-                                        setIsRagEnabled(false);
-                                        setIsDeepSearchEnabled(false);
-                                        setIsMcpEnabled(false);
-                                    }
-                                }}
-                                disabled={isProcessing}
-                                title="Agentic MCP - Intelligent agents with full application access"
-                            >
-                                <span className="btn-icon">🤖</span>
-                                <span>Agentic MCP</span>
-                            </button>
+                            {/* MCP Agents now work automatically in the background */}
                         </div>
 
                         {/* File Selection for RAG Mode - Inside Chat Container */}
@@ -1514,7 +1494,7 @@ Thank you for using TutorAI!`;
                             </div>
                         )}
 
-                        {(isRagEnabled || isDeepSearchEnabled || isMcpEnabled || isAgenticMCPEnabled) && (
+                        {(isRagEnabled || isDeepSearchEnabled) && (
                             <div className="mode-indicator">
                                 {isRagEnabled && (
                                     <span className="mode-badge rag-badge">
@@ -1526,16 +1506,7 @@ Thank you for using TutorAI!`;
                                         <FaSearch /> Deep Search
                                     </span>
                                 )}
-                                {isMcpEnabled && (
-                                    <span className="mode-badge mcp-badge">
-                                        🤖 MCP Agents
-                                    </span>
-                                )}
-                                {isAgenticMCPEnabled && (
-                                    <span className="mode-badge agentic-mcp-badge">
-                                        🤖 Agentic MCP
-                                    </span>
-                                )}
+                                {/* MCP Agents work automatically in the background */}
                             </div>
                         )}
                         <div className="input-field-container">
@@ -1549,9 +1520,7 @@ Thank you for using TutorAI!`;
                                         ? "Ask questions about your documents..."
                                         : isDeepSearchEnabled
                                             ? "Ask anything - I'll search the web for comprehensive answers..."
-                                            : isMcpEnabled
-                                                ? "Ask anything - AI agents will help you..."
-                                                : "Ask TutorAi"
+                                            : "Ask TutorAi - AI agents work automatically in the background"
                                 }
                                 disabled={isProcessing}
                                 rows={1}
@@ -1601,6 +1570,8 @@ Thank you for using TutorAI!`;
 
                 {error && <p className="error-message">{error}</p>}
             </div>
+
+            {/* FAQ generation is now handled directly in chat */}
         </div>
     );
 };

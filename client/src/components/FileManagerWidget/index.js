@@ -1,6 +1,6 @@
 // client/src/components/FileManagerWidget/index.js
 import React, { useState } from 'react';
-import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots, FaFile } from 'react-icons/fa'; // Added FaFile for generic file icon
+import { FaTrash, FaEdit, FaFileAudio, FaProjectDiagram, FaEllipsisV, FaCommentDots, FaFile, FaQuestionCircle } from 'react-icons/fa'; // Added FaFile for generic file icon
 import { Box, Typography, List, ListItem, ListItemText, IconButton, CircularProgress, Paper, Menu, MenuItem, Tooltip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
@@ -16,6 +16,7 @@ function FileManagerWidget({
     onRenameFile,
     onGeneratePodcast,
     onGenerateMindMap,
+    onGenerateFAQ, // New prop for FAQ generation
     onChatWithFile, // This prop seems unused in the provided code, but kept
     isProcessing,
     onActionTaken // New prop to notify parent of an action
@@ -123,6 +124,9 @@ function FileManagerWidget({
                     >
                         {selectedFileForMenu && (
                             <>
+                                <MenuItem onClick={() => handleActionClick(onGenerateFAQ, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: '#ffd700', '&:hover': { bgcolor: 'rgba(255, 215, 0, 0.1)' } }}>
+                                    <FaQuestionCircle style={{ marginRight: '12px', color: '#ffd700' }} /> Generate FAQs
+                                </MenuItem>
                                 <MenuItem onClick={() => handleActionClick(onGeneratePodcast, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: 'text.primary', '&:hover': { bgcolor: 'grey.100' } }}>
                                     <FaFileAudio style={{ marginRight: '12px' }} /> Generate Podcast
                                 </MenuItem>

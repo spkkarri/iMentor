@@ -83,44 +83,27 @@ router.post('/generate', tempAuth, async (req, res) => {
         // Generate podcast script using selected model
         let podcastResult;
         try {
-            let script;
+            console.log(`[Podcast] Generating podcast using model: ${selectedModel}`);
 
-            if (selectedModel.startsWith('ollama-') || selectedModel === 'llama-model' || selectedModel.includes('llama')) {
-                // Use Ollama for Llama models
-                console.log(`[Podcast] Using Ollama for model: ${selectedModel}`);
-                const userSpecificAI = require('../services/userSpecificAI');
-                const userServices = await userSpecificAI.getUserAIServices(userId);
+            // Use SimplePodcastGenerator for both Gemini and Ollama models
+            const podcastGenerator = new SimplePodcastGenerator(selectedModel, userId);
+            await podcastGenerator.initialize();
+            const result = await podcastGenerator.generateSingleHostPodcast(documentContent, file.originalname);
 
-                if (userServices.ollama) {
-                    const prompt = `Create a natural, engaging podcast script based on this content: ${documentContent.substring(0, 2000)}...
-
-Write a single-host podcast script that introduces the topic, explains key concepts clearly, and ends with a conclusion. Write ONLY the natural monologue.`;
-
-                    const modelName = selectedModel.replace('ollama-', '').replace('_', ':').replace('llama-model', 'llama3.2:latest');
-                    const response = await userServices.ollama.generateChatResponse(prompt, modelName);
-                    script = typeof response === 'string' ? response : response.response;
-                } else {
-                    throw new Error('Ollama service not available');
-                }
-            } else {
-                // Use Gemini for other models
-                console.log(`[Podcast] Using Gemini for model: ${selectedModel}`);
-                const podcastGenerator = new SimplePodcastGenerator();
-                await podcastGenerator.initialize();
-                const result = await podcastGenerator.generateSingleHostPodcast(documentContent, file.originalname);
-                script = result.script || result.podcastScript || 'Podcast generated successfully!';
-            }
-
-            // Format the result to match expected structure
+            // Format the result
             podcastResult = {
                 success: true,
-                title: `Podcast: ${file.originalname}`,
-                script: script,
-                word_count: script.split(' ').length,
-                duration_estimate: Math.ceil(script.split(' ').length / 150) + " minutes",
-                key_points: ["Generated using " + selectedModel],
-                format: "single-host"
+                title: result.title || `Podcast: ${file.originalname}`,
+                script: result.script,
+                word_count: result.word_count || result.script.split(' ').length,
+                duration_estimate: result.estimated_duration || result.duration_estimate || Math.ceil(result.script.split(' ').length / 150) + " minutes",
+                key_points: result.key_points || ["Generated using " + selectedModel],
+                format: result.format || "single-host",
+                model: result.model || selectedModel,
+                note: result.note || null
             };
+
+
             console.log(`[Podcast][Debug] Podcast generation result:`, podcastResult);
         } catch (podcastError) {
             console.error(`[Podcast] Error during generation:`, podcastError);
@@ -219,6 +202,55 @@ router.post('/ask', async (req, res) => {
         transcript: podcastScript,
         audioUrl
     });
+});
+
+// @route   POST /api/podcast/test
+// @desc    Test podcast generation with sample content
+// @access  Public
+router.post('/test', async (req, res) => {
+    try {
+        console.log('[Podcast Test] Testing podcast generation...');
+
+        const testContent = `
+        Artificial Intelligence is transforming our world in remarkable ways.
+        From healthcare to transportation, AI systems are helping us solve complex problems
+        and make better decisions. Machine learning algorithms can analyze vast amounts of data
+        to identify patterns and predict outcomes. This technology is enabling breakthroughs
+        in medical diagnosis, autonomous vehicles, and personalized education.
+        `;
+
+        const selectedModel = req.body.selectedModel || 'gemini-flash';
+        const userId = req.body.userId || null;
+
+        const podcastGenerator = new SimplePodcastGenerator(selectedModel, userId);
+        await podcastGenerator.initialize();
+        const result = await podcastGenerator.generateSingleHostPodcast(testContent, 'AI_Test');
+
+        // Generate audio
+        const audioFilename = `test_podcast_${Date.now()}`;
+        const audioPath = await ttsService.generateAudio(result.script, audioFilename);
+        const audioUrl = ttsService.getAudioUrl(audioFilename);
+        const fileSize = ttsService.getFileSize(audioFilename);
+
+        res.json({
+            success: true,
+            message: 'Test podcast generated successfully!',
+            title: result.title,
+            script: result.script,
+            audioUrl: audioUrl,
+            fileSize: `${fileSize}MB`,
+            duration_estimate: result.estimated_duration || result.duration_estimate,
+            test: true
+        });
+
+    } catch (error) {
+        console.error('[Podcast Test] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Test podcast generation failed',
+            error: error.message
+        });
+    }
 });
 
 module.exports = router;

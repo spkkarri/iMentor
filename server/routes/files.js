@@ -415,17 +415,36 @@ router.post('/generate-faq', tempAuth, async (req, res) => {
         let documentContent = '';
         if (file.extractedText) {
             documentContent = file.extractedText;
+            console.log(`[FAQ Generator] Using extractedText, length: ${documentContent.length}`);
         } else if (file.content) {
             documentContent = file.content;
+            console.log(`[FAQ Generator] Using content, length: ${documentContent.length}`);
         } else {
+            console.log(`[FAQ Generator] No text content available in file:`, {
+                hasExtractedText: !!file.extractedText,
+                hasContent: !!file.content,
+                fileType: file.mimetype,
+                fileSize: file.size
+            });
             return res.status(400).json({
                 success: false,
-                message: 'No text content available for FAQ generation'
+                message: 'No text content available for FAQ generation. Please ensure the document has been processed and text has been extracted.'
             });
         }
 
+        // Check if content is too short for meaningful FAQs
+        if (documentContent.length < 50) {
+            console.log(`[FAQ Generator] Content too short (${documentContent.length} chars), using minimal fallback`);
+            documentContent = documentContent || 'Document content';
+        }
+
         // Generate FAQs using AI
+        console.log(`[FAQ Generator] Document content length: ${documentContent.length} characters`);
+        console.log(`[FAQ Generator] Starting FAQ generation for: ${fileName}`);
+        
         const faqs = await generateFAQsFromContent(documentContent, fileName);
+        
+        console.log(`[FAQ Generator] Generated ${faqs.length} FAQs successfully`);
 
         res.json({
             success: true,
@@ -494,21 +513,27 @@ Generate FAQs now:`;
 
         if (aiService) {
             try {
+                console.log('[FAQ Generator] Using AI service for FAQ generation');
                 const response = await aiService.generateText(prompt);
+                console.log('[FAQ Generator] AI response received, length:', response?.length || 0);
 
                 // Try to parse JSON response
                 const jsonMatch = response.match(/\[[\s\S]*\]/);
                 if (jsonMatch) {
+                    console.log('[FAQ Generator] Parsing JSON response');
                     faqs = JSON.parse(jsonMatch[0]);
                 } else {
                     // Fallback: parse structured text response
+                    console.log('[FAQ Generator] Using structured text parsing');
                     faqs = parseStructuredFAQResponse(response);
                 }
             } catch (error) {
-                console.log('[FAQ Generator] AI generation failed, using fallback');
+                console.error('[FAQ Generator] AI generation failed:', error.message);
+                console.log('[FAQ Generator] Using fallback FAQ generation');
                 faqs = generateFallbackFAQs(content, fileName);
             }
         } else {
+            console.log('[FAQ Generator] No AI service available, using fallback');
             // Fallback FAQ generation
             faqs = generateFallbackFAQs(content, fileName);
         }
@@ -572,31 +597,50 @@ function parseStructuredFAQResponse(response) {
  * Generate fallback FAQs when AI is not available
  */
 function generateFallbackFAQs(content, fileName) {
-    const words = content.split(' ');
-    const summary = words.slice(0, 100).join(' ');
-
-    return [
+    console.log('[FAQ Generator] Generating fallback FAQs');
+    
+    // Extract meaningful content for summary
+    const words = content.split(' ').filter(word => word.length > 2); // Filter out very short words
+    const summary = words.slice(0, 50).join(' '); // Take first 50 meaningful words
+    
+    // Create more comprehensive fallback FAQs
+    const fallbackFAQs = [
         {
-            question: `What is the main topic of ${fileName}?`,
-            answer: `This document discusses ${summary}...`
+            question: `What is the main topic of "${fileName}"?`,
+            answer: `This document discusses ${summary}... The content covers various aspects of the subject matter in detail.`
         },
         {
             question: "What are the key points covered in this document?",
-            answer: "The document covers several important topics and concepts that are explained in detail throughout the content."
+            answer: "The document covers several important topics including main concepts, practical applications, and detailed explanations of the subject matter."
         },
         {
             question: "Who is the target audience for this document?",
-            answer: "This document appears to be designed for readers interested in the subject matter and related topics."
+            answer: "This document is designed for readers who want to learn about the topic, whether they are beginners or have some prior knowledge."
         },
         {
             question: "What can I learn from this document?",
-            answer: "You can gain insights into the main concepts, understand key principles, and learn about practical applications of the topics discussed."
+            answer: "You can gain comprehensive insights into the main concepts, understand key principles, and learn about practical applications and real-world examples."
         },
         {
             question: "How is the information in this document organized?",
-            answer: "The document is structured to present information in a logical flow, building from basic concepts to more detailed explanations."
+            answer: "The document is structured to present information in a logical flow, building from basic concepts to more detailed explanations and practical applications."
+        },
+        {
+            question: "What makes this document valuable?",
+            answer: "This document provides detailed information, practical insights, and comprehensive coverage of the topic, making it a valuable resource for learning."
+        },
+        {
+            question: "How can I apply the information from this document?",
+            answer: "The practical examples and detailed explanations in this document can help you apply the concepts in real-world situations and projects."
+        },
+        {
+            question: "What are the main takeaways from this document?",
+            answer: "The main takeaways include understanding the core concepts, recognizing practical applications, and gaining knowledge that can be applied in various contexts."
         }
     ];
+    
+    console.log(`[FAQ Generator] Generated ${fallbackFAQs.length} fallback FAQs`);
+    return fallbackFAQs;
 }
 
 module.exports = router;

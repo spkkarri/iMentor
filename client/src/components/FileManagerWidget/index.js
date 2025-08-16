@@ -124,9 +124,31 @@ function FileManagerWidget({
                     >
                         {selectedFileForMenu && (
                             <>
-                                <MenuItem onClick={() => handleActionClick(onGenerateFAQ, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: '#ffd700', '&:hover': { bgcolor: 'rgba(255, 215, 0, 0.1)' } }}>
-                                    <FaQuestionCircle style={{ marginRight: '12px', color: '#ffd700' }} /> Generate FAQs
-                                </MenuItem>
+                                <Tooltip 
+                                    title={(!selectedFileForMenu.extractedText && !selectedFileForMenu.content) 
+                                        ? "Document is still being processed. Please wait for text extraction to complete." 
+                                        : "Generate frequently asked questions from this document"
+                                    }
+                                    placement="left"
+                                >
+                                    <MenuItem 
+                                        onClick={() => handleActionClick(onGenerateFAQ, selectedFileForMenu._id, selectedFileForMenu.originalname)} 
+                                        disabled={isProcessing || (!selectedFileForMenu.extractedText && !selectedFileForMenu.content)}
+                                        sx={{ 
+                                            color: (!selectedFileForMenu.extractedText && !selectedFileForMenu.content) ? 'text.disabled' : '#ffd700', 
+                                            '&:hover': { bgcolor: 'rgba(255, 215, 0, 0.1)' },
+                                            '&.Mui-disabled': { color: 'text.disabled' }
+                                        }}
+                                    >
+                                        <FaQuestionCircle style={{ marginRight: '12px', color: (!selectedFileForMenu.extractedText && !selectedFileForMenu.content) ? 'text.disabled' : '#ffd700' }} /> 
+                                        Generate FAQs
+                                        {(!selectedFileForMenu.extractedText && !selectedFileForMenu.content) && (
+                                            <Typography variant="caption" sx={{ ml: 1, color: 'text.disabled', fontStyle: 'italic' }}>
+                                                (Processing...)
+                                            </Typography>
+                                        )}
+                                    </MenuItem>
+                                </Tooltip>
                                 <MenuItem onClick={() => handleActionClick(onGeneratePodcast, selectedFileForMenu._id, selectedFileForMenu.originalname)} disabled={isProcessing} sx={{ color: 'text.primary', '&:hover': { bgcolor: 'grey.100' } }}>
                                     <FaFileAudio style={{ marginRight: '12px' }} /> Generate Podcast
                                 </MenuItem>

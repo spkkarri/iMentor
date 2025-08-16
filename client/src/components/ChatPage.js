@@ -767,6 +767,16 @@ Thank you for using TutorAI!`;
             console.log('Generating FAQs for file:', fileId, fileName);
             console.log('User ID:', userId);
 
+            // Check if file has been processed (has extracted text)
+            const currentFile = userFiles.find(f => f._id === fileId);
+            if (!currentFile) {
+                throw new Error('File not found in current file list');
+            }
+            
+            if (!currentFile.extractedText && !currentFile.content) {
+                throw new Error('Document has not been processed yet. Please wait for text extraction to complete or try again later.');
+            }
+
             // Call the FAQ generation API
             const requestBody = {
                 fileId: fileId,
@@ -775,6 +785,12 @@ Thank you for using TutorAI!`;
 
             console.log('FAQ API request:', requestBody);
             console.log('FAQ API headers:', { 'X-User-ID': userId });
+            console.log('File processing status:', {
+                hasExtractedText: !!currentFile.extractedText,
+                hasContent: !!currentFile.content,
+                fileSize: currentFile.size,
+                fileType: currentFile.mimetype
+            });
 
             const response = await fetch('/api/files/generate-faq', {
                 method: 'POST',
@@ -816,13 +832,26 @@ Thank you for using TutorAI!`;
 
         } catch (error) {
             console.error('FAQ generation error:', error);
-            const errorMessage = error.message || 'Unknown error occurred';
+            let errorMessage = error.message || 'Unknown error occurred';
+            
+            // Try to extract more specific error information
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.response?.status === 404) {
+                errorMessage = 'File not found. Please try refreshing the file list.';
+            } else if (error.response?.status === 400) {
+                errorMessage = 'Document content not available. Please ensure the document has been processed.';
+            } else if (error.response?.status === 401) {
+                errorMessage = 'Authentication error. Please try logging in again.';
+            } else if (error.response?.status === 500) {
+                errorMessage = 'Server error during FAQ generation. Please try again later.';
+            }
 
             // Add error message to chat
             const errorChatMessage = {
                 id: uuidv4(),
                 role: 'assistant',
-                parts: [{ text: `❌ **FAQ Generation Failed**\n\nSorry, I couldn't generate FAQs for "${fileName}". ${errorMessage}` }],
+                parts: [{ text: `❌ **FAQ Generation Failed**\n\nSorry, I couldn't generate FAQs for "${fileName}".\n\n**Error:** ${errorMessage}\n\n**Troubleshooting:**\n• Ensure the document has been fully processed\n• Check if the document contains readable text\n• Try refreshing the page and try again` }],
                 timestamp: new Date(),
                 metadata: { type: 'error', action: 'faq-generation' }
             };

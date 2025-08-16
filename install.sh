@@ -304,7 +304,24 @@ clone_repo() {
 # Function to install dependencies
 install_deps() {
     echo -e "${YELLOW}📦 Installing application dependencies...${NC}"
+    
+    # Install root dependencies first
+    echo -e "${BLUE}Installing root dependencies...${NC}"
     npm install
+    
+    # Install server dependencies
+    echo -e "${BLUE}Installing server dependencies...${NC}"
+    cd server
+    npm install
+    cd ..
+    
+    # Install client dependencies
+    echo -e "${BLUE}Installing client dependencies...${NC}"
+    cd client
+    npm install
+    cd ..
+    
+    echo -e "${GREEN}✅ All dependencies installed successfully${NC}"
 }
 
 # Function to setup environment

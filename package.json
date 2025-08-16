@@ -4,8 +4,9 @@
     "description": "TutorAI - Advanced Multi-Model Chatbot with RAG, Deep Search, and MCP Agents",
     "main": "server/server.js",
     "scripts": {
-        "install-all": "npm install && npm install --prefix server && npm install --prefix client",
-        "postinstall": "npm install --prefix server && npm install --prefix client",
+        "install-all": "npm install && npm run install-server && npm run install-client",
+        "install-server": "cd server && npm install",
+        "install-client": "cd client && npm install",
         "start": "concurrently \"npm run server\" \"npm run client\"",
         "server": "cd server && npm start",
         "client": "cd client && cross-env PORT=4004 npm start",

@@ -35,6 +35,139 @@ function getAgenticMCPIntegration(serviceManager) {
 }
 
 /**
+ * Format Agentic MCP response for user display
+ * @param {Object} agenticResult - Result from Agentic MCP orchestrator
+ * @param {string} originalQuery - Original user query
+ * @returns {string} Formatted response text
+ */
+function formatAgenticResponse(agenticResult, originalQuery) {
+    const { result, analysis, agentsUsed, confidence, processingTime, workflowType } = agenticResult;
+
+    // Create agent badges with specialized icons
+    const agentBadges = agentsUsed?.map(agent => {
+        const agentEmojis = {
+            'Research Analyst Agent': '🔬',
+            'Content Creator Agent': '📝',
+            'Document Processor Agent': '📄',
+            'Learning Assistant Agent': '🎓',
+            'Workflow Coordinator Agent': '⚙️'
+        };
+        return `${agentEmojis[agent] || '🤖'} ${agent}`;
+    }).join(' • ') || '🤖 Agentic AI System';
+
+    // Format confidence level
+    const confidenceLevel = confidence >= 0.9 ? 'Excellent' :
+                           confidence >= 0.8 ? 'High' :
+                           confidence >= 0.7 ? 'Good' : 'Moderate';
+
+    const confidenceEmoji = confidence >= 0.9 ? '🎯' :
+                           confidence >= 0.8 ? '✅' :
+                           confidence >= 0.7 ? '👍' : '⚡';
+
+    // Create response header
+    let responseText = `${confidenceEmoji} **Agentic AI Response** (${confidenceLevel} Confidence)\n\n`;
+    responseText += `**🤖 Agents Used:** ${agentBadges}\n`;
+    responseText += `**🔍 Task Analysis:** ${analysis?.intents?.join(', ') || 'Comprehensive assistance'}\n`;
+    responseText += `**⚡ Processing Time:** ${processingTime}ms\n`;
+    responseText += `**🔄 Workflow Type:** ${workflowType === 'multi_agent' ? 'Multi-Agent Collaboration' : 'Single Agent Execution'}\n\n`;
+    responseText += `---\n\n`;
+
+    // Add the main result content
+    if (result && typeof result === 'object') {
+        if (result.type === 'research_report') {
+            responseText += `## 🔬 Research Report\n\n`;
+            responseText += `**Topic:** ${result.query || originalQuery}\n\n`;
+            if (result.analysis?.summary) {
+                responseText += `**Analysis:** ${result.analysis.summary}\n\n`;
+            }
+            if (result.analysis?.keyFindings) {
+                responseText += `**Key Findings:**\n`;
+                result.analysis.keyFindings.forEach((finding, index) => {
+                    responseText += `${index + 1}. ${finding}\n`;
+                });
+                responseText += '\n';
+            }
+            if (result.recommendations) {
+                responseText += `**Recommendations:**\n`;
+                result.recommendations.forEach((rec, index) => {
+                    responseText += `• ${rec}\n`;
+                });
+                responseText += '\n';
+            }
+        } else if (result.type === 'code_generation') {
+            responseText += `## 💻 Code Generation\n\n`;
+            responseText += `**Language:** ${result.language}\n\n`;
+            responseText += `**Generated Code:**\n\`\`\`${result.language}\n${result.code}\n\`\`\`\n\n`;
+            if (result.tests) {
+                responseText += `**Tests:**\n\`\`\`${result.language}\n${result.tests}\n\`\`\`\n\n`;
+            }
+            if (result.bestPractices) {
+                responseText += `**Best Practices:**\n`;
+                result.bestPractices.forEach(practice => {
+                    responseText += `• ${practice}\n`;
+                });
+                responseText += '\n';
+            }
+        } else if (result.type === 'concept_explanation') {
+            responseText += `## 🎓 Concept Explanation\n\n`;
+            responseText += `**Concept:** ${result.concept}\n\n`;
+            responseText += `**Explanation:**\n${result.explanation?.detailed || result.explanation}\n\n`;
+            if (result.examples) {
+                responseText += `**Examples:**\n`;
+                result.examples.forEach((example, index) => {
+                    responseText += `${index + 1}. **${example.type}:** ${example.example}\n`;
+                });
+                responseText += '\n';
+            }
+            if (result.nextSteps) {
+                responseText += `**Next Steps:**\n`;
+                result.nextSteps.forEach(step => {
+                    responseText += `• ${step}\n`;
+                });
+                responseText += '\n';
+            }
+        } else if (result.type === 'creative_content') {
+            responseText += `## 🎨 Creative Content\n\n`;
+            if (result.content?.title) {
+                responseText += `**${result.content.title}**\n\n`;
+            }
+            if (result.content?.introduction) {
+                responseText += `${result.content.introduction}\n\n`;
+            }
+            if (result.content?.body) {
+                responseText += `${result.content.body}\n\n`;
+            }
+            if (result.content?.conclusion) {
+                responseText += `**Conclusion:** ${result.content.conclusion}\n\n`;
+            }
+            if (result.content?.callToAction) {
+                responseText += `**Call to Action:** ${result.content.callToAction}\n\n`;
+            }
+            if (result.recommendations) {
+                responseText += `**Creative Recommendations:**\n`;
+                result.recommendations.forEach(rec => {
+                    responseText += `• ${rec}\n`;
+                });
+                responseText += '\n';
+            }
+        } else {
+            // Generic response format for other result types
+            responseText += result.message || result.content || result.text || 'Response generated successfully.';
+        }
+    } else {
+        // If result is a string or simple value
+        responseText += result || 'Response generated successfully.';
+    }
+
+    // Add footer with agentic info
+    responseText += `\n\n---\n\n`;
+    responseText += `💡 **Powered by Agentic MCP System**\n`;
+    responseText += `This response was intelligently processed by specialized AI agents for optimal accuracy and comprehensive assistance.`;
+
+    return responseText;
+}
+
+/**
  * Analyze query complexity to determine which MCP system to use
  */
 function analyzeQueryComplexity(query) {
@@ -135,12 +268,28 @@ router.post('/process', async (req, res) => {
         // Log successful processing
         if (result.success) {
             console.log(`[Unified MCP] Query processed successfully in ${result.processingTime || 'N/A'}ms using ${result.processingMode} mode`);
+            console.log(`[Unified MCP] Result structure:`, {
+                hasResult: !!result.result,
+                hasResponse: !!result.response,
+                resultType: typeof result.result,
+                responseType: typeof result.response,
+                processingMode: result.processingMode
+            });
         }
 
-        // Ensure result is properly formatted as string
-        const responseText = typeof (result.result || result.response) === 'string'
-            ? (result.result || result.response)
-            : JSON.stringify(result.result || result.response || 'No response received');
+        // Format the response properly
+        let responseText;
+        if (result.processingMode === 'agentic' && result.success) {
+            // For agentic responses, format them properly
+            responseText = formatAgenticResponse(result, query);
+            console.log('🔍 [MCP] Formatted Agentic Response:', responseText.substring(0, 200) + '...');
+        } else {
+            // For standard responses, ensure they're strings
+            responseText = typeof (result.result || result.response) === 'string'
+                ? (result.result || result.response)
+                : (result.result || result.response || 'No response received');
+            console.log('🔍 [MCP] Standard Response:', responseText.substring(0, 200) + '...');
+        }
 
         res.json({
             success: result.success,

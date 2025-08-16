@@ -51,35 +51,22 @@ cd iMentor
 
 **Windows (PowerShell/Command Prompt):**
 ```powershell
-# Install root dependencies
+# Install ALL dependencies from root (workspace setup handles server/client automatically)
 npm install
-
-# Install server dependencies
-cd server
-npm install
-cd ..
-
-# Install client dependencies
-cd client
-npm install
-cd ..
 ```
 
 **Ubuntu (Terminal):**
 ```bash
-# Install root dependencies
+# Install ALL dependencies from root (workspace setup handles server/client automatically)
 npm install
-
-# Install server dependencies
-cd server
-npm install
-cd ..
-
-# Install client dependencies
-cd client
-npm install
-cd ..
 ```
+
+**💡 Workspace Setup**: This project uses npm workspaces, so running `npm install` in the root directory automatically installs dependencies for:
+- ✅ Root application dependencies
+- ✅ Server backend dependencies  
+- ✅ Client frontend dependencies
+
+**⚠️ Important**: Don't run `npm install` separately in server/ or client/ directories. The workspace setup handles this automatically.
 
 #### Step 3: Environment Setup
 ```bash
@@ -111,7 +98,44 @@ npm run client
 **Problem**: Circular dependency or postinstall script issues
 **Solution**: Use the automated installation scripts or manual step-by-step installation
 
-#### 2. Permission Errors (Ubuntu)
+#### 2. Module Not Found Errors
+**Problem**: Errors like `Cannot find module 'finalhandler'` or similar
+**Solution**: Ensure you're installing from the root directory
+```bash
+cd iMentor  # Make sure you're in the root directory
+npm install  # This installs ALL dependencies for root, server, and client
+```
+
+**Don't do this**:
+```bash
+# ❌ Don't install separately in subdirectories
+cd server && npm install
+cd client && npm install
+```
+
+**Do this instead**:
+```bash
+# ✅ Install from root (handles everything automatically)
+npm install
+```
+
+#### 3. Workspace Installation Issues
+**Problem**: Dependencies not found in server/client
+**Solution**: Delete all `node_modules` folders and reinstall from root
+```bash
+# Clean up corrupted installations
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force server/node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force client/node_modules -ErrorAction SilentlyContinue
+
+# Clear npm cache
+npm cache clean --force
+
+# Reinstall from root
+npm install
+```
+
+#### 4. Permission Errors (Ubuntu)
 **Problem**: npm permission denied
 **Solution**: 
 ```bash
@@ -119,7 +143,7 @@ sudo chown -R $USER:$USER ~/.npm
 sudo chown -R $USER:$USER ~/.config
 ```
 
-#### 3. Node.js Version Issues
+#### 5. Node.js Version Issues
 **Problem**: Incompatible Node.js version
 **Solution**: Use Node Version Manager (nvm)
 ```bash
@@ -132,7 +156,7 @@ nvm use 18
 # Download from https://nodejs.org/
 ```
 
-#### 4. Port Already in Use
+#### 6. Port Already in Use
 **Problem**: Port 4004 or 4007 already occupied
 **Solution**: 
 ```bash

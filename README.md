@@ -42,6 +42,12 @@ An intelligent AI-powered educational platform featuring **Agentic MCP**, multi-
 - **Node.js** 16+ and npm
 - **MongoDB** (local or cloud)
 
+### ⚡ One-Command Installation
+**Root installation is sufficient for all packages!** This project uses npm workspaces, so running `npm install` in the root directory automatically installs dependencies for:
+- ✅ Root application dependencies
+- ✅ Server backend dependencies  
+- ✅ Client frontend dependencies
+
 ### One-Command Setup
 ```bash
 # Clone and install everything automatically
@@ -53,6 +59,9 @@ curl -fsSL https://raw.githubusercontent.com/spkkarri/iMentor/main/install.sh | 
 # Clone repository
 git clone https://github.com/spkkarri/iMentor.git
 cd iMentor
+
+# Install all dependencies (root installation handles server/client automatically)
+npm install
 
 # Run installation script (uses conda and sudo docker)
 chmod +x install.sh
@@ -249,6 +258,8 @@ iMentor/
 └── 🚀 install.sh          # Installation script
 ```
 
+**💡 Workspace Setup**: This project uses npm workspaces, so dependencies are managed from the root directory. Running `npm install` in the root automatically installs all server and client dependencies.
+
 ## 🌐 Access URLs
 
 - **Frontend**: http://localhost:4004
@@ -283,6 +294,7 @@ npm start
 | MongoDB connection failed | Ensure MongoDB is running: `sudo systemctl start mongod` |
 | API key errors | Verify keys in `.env` file |
 | Build failures | Run `npm install` and check Node.js version (18+) |
+| Module not found errors | Ensure you're installing from root: `cd iMentor && npm install` |
 | Conda not found | Install Miniconda and add to PATH |
 | Docker permission denied | Use `sudo docker` commands or add user to docker group |
 
@@ -296,6 +308,16 @@ source ~/.bashrc
 conda env remove -n imentor
 conda create -n imentor python=3.9 -y
 conda activate imentor
+```
+
+### NPM Workspace Issues
+```bash
+# If you get module not found errors, ensure you're installing from root
+cd iMentor  # Make sure you're in the root directory
+npm install  # This installs ALL dependencies for root, server, and client
+
+# Don't run npm install separately in server/ or client/ directories
+# The workspace setup handles this automatically
 ```
 
 ### Docker Permission Issues
@@ -331,6 +353,8 @@ sudo usermod -aG docker $USER
 - **Conda** for Python environment management
 - **All contributors and testers** who made this project possible
 
-#   a s w a n t h  
- #   a s w a n t h  
+#   a s w a n t h 
+ 
+ #   a s w a n t h 
+ 
  

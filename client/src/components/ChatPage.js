@@ -83,8 +83,8 @@ const ChatPage = () => {
     // RAG and search state
     const [isRagEnabled, setIsRagEnabled] = useState(false);
     const [isDeepSearchEnabled, setIsDeepSearchEnabled] = useState(false);
-    // MCP is now always enabled in the background for intelligent responses
-    const isMcpEnabled = true;
+    // MCP is disabled - using standard chat processing
+    const isMcpEnabled = false;
     const [selectedFiles, setSelectedFiles] = useState([]);
 
     // File management state
@@ -283,85 +283,12 @@ const ChatPage = () => {
         };
     }, [showProfileDropdown]);
 
-    // Unified MCP search handler - handles both standard and agentic processing
-
+    // MCP is disabled - Unified MCP search handler commented out
+    /*
     const handleUnifiedMCPSearch = useCallback(async (query, mode = 'auto') => {
-        if (!query.trim() || isProcessing) return;
-
-        const newUserMessage = {
-            id: uuidv4(),
-            role: 'user',
-            parts: [{ text: query.trim() }],
-            timestamp: new Date()
-        };
-        setMessages(prev => [...prev, newUserMessage]);
-        setError('');
-        setIsProcessing(true);
-
-        try {
-            console.log(`🤖 Unified MCP processing query with mode: ${mode}`);
-
-            // Use the unified MCP endpoint
-            const response = await fetch('/api/mcp/process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'X-User-ID': userId
-                },
-                body: JSON.stringify({
-                    query: query.trim(),
-                    userId: userId,
-                    sessionId: sessionId,
-                    mode: mode, // 'auto', 'standard', or 'agentic'
-                    context: {
-                        selectedModel: selectedModel,
-                        chatHistory: messages.slice(-5), // Last 5 messages for context
-                        timestamp: new Date().toISOString()
-                    }
-                })
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Unified MCP processing failed');
-
-            const responseText = typeof data.data?.result === 'string'
-                ? data.data.result
-                : (data.data?.response || 'No response received');
-            const processingMode = data.data?.processingMode || 'unknown';
-
-            const assistantMessage = {
-                id: uuidv4(),
-                role: 'assistant',
-                parts: [{ text: responseText }],
-                timestamp: new Date(),
-                metadata: {
-                    searchType: 'unified-mcp',
-                    processingMode: processingMode,
-                    agentsUsed: data.data?.agentsUsed || [],
-                    confidence: data.data?.confidence || null,
-                    processingTime: data.data?.processingTime || null,
-                    mcpVersion: data.metadata?.mcpVersion || '3.0.0-unified'
-                }
-            };
-
-            setMessages(prev => [...prev, assistantMessage]);
-
-            // Show processing mode info
-            if (processingMode === 'agentic') {
-                console.log('✨ Used Agentic MCP for complex query processing');
-            } else if (processingMode === 'standard') {
-                console.log('⚡ Used Standard MCP for efficient processing');
-            }
-
-        } catch (err) {
-            console.error('Unified MCP search error:', err);
-            setError(err.message || 'Unified MCP search failed');
-            setMessages(prev => prev.slice(0, -1)); // Remove user message on error
-        } finally {
-            setIsProcessing(false);
-        }
+        // MCP functionality disabled
     }, [messages, sessionId, isProcessing, userId, selectedModel]);
+    */
 
     // Send message handler
     const handleSendMessage = useCallback(async () => {
@@ -390,12 +317,12 @@ const ChatPage = () => {
             return;
         }
 
-        // Check if MCP is enabled and handle Unified MCP processing
-        if (isMcpEnabled) {
-            setInputText(''); // Clear input immediately for MCP
-            // Use auto mode for intelligent routing
-            return handleUnifiedMCPSearch(trimmedInput, 'auto');
-        }
+        // MCP is disabled - using standard chat processing
+        // if (isMcpEnabled) {
+        //     setInputText(''); // Clear input immediately for MCP
+        //     // Use auto mode for intelligent routing
+        //     return handleUnifiedMCPSearch(trimmedInput, 'auto');
+        // }
 
         const newUserMessage = {
             id: uuidv4(),
@@ -545,7 +472,7 @@ const ChatPage = () => {
         } finally {
             setIsProcessing(false);
         }
-    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, isMcpEnabled, selectedFiles, messages, handleUnifiedMCPSearch, showWarning, showError, isOnline]);
+    }, [inputText, isProcessing, sessionId, userId, selectedModel, isRagEnabled, isDeepSearchEnabled, isMcpEnabled, selectedFiles, messages, showWarning, showError, isOnline]);
 
     // Speech recognition handlers
     const handleStartMicButtonClick = useCallback(() => {
@@ -1323,64 +1250,7 @@ Thank you for using TutorAI!`;
                                             </div>
                                         )}
 
-                                        {/* MCP Action Verification */}
-                                        {msg.role === 'assistant' && msg.verification && (
-                                            <div className="verification-indicator">
-                                                {msg.verification.real_action ? (
-                                                    <span className="real-action-badge">
-                                                        ✅ REAL ACTION PERFORMED
-                                                    </span>
-                                                ) : (
-                                                    <span className="simulated-action-badge">
-                                                        ⚠️ SIMULATED ACTION
-                                                    </span>
-                                                )}
-
-                                                {/* Show verification details */}
-                                                {!msg.verification.real_action && msg.verification.simulation_reason && (
-                                                    <div className="simulation-reason">
-                                                        <small>Reason: {msg.verification.simulation_reason}</small>
-                                                    </div>
-                                                )}
-
-                                                {msg.verification.real_action && msg.verification.github_url && (
-                                                    <div className="real-action-link">
-                                                        <a href={msg.verification.github_url} target="_blank" rel="noopener noreferrer">
-                                                            🔗 View on GitHub
-                                                        </a>
-                                                    </div>
-                                                )}
-
-                                                {msg.verification.real_action && msg.verification.calendar_link && (
-                                                    <div className="real-action-link">
-                                                        <a href={msg.verification.calendar_link} target="_blank" rel="noopener noreferrer">
-                                                            📅 View in Calendar
-                                                        </a>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* MCP Agent Suggestions */}
-                                        {msg.role === 'assistant' && metadata.suggestions && metadata.suggestions.length > 0 && (
-                                            <div className="mcp-suggestions">
-                                                <div className="suggestions-header">
-                                                    <small>💡 Try asking:</small>
-                                                </div>
-                                                <div className="suggestion-chips">
-                                                    {metadata.suggestions.map((suggestion, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            className="suggestion-chip"
-                                                            onClick={() => setInputText(suggestion)}
-                                                            disabled={isProcessing}
-                                                        >
-                                                            {suggestion}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                                                                 {/* MCP functionality is disabled */}
                                         {/* Rich Media Content for Enhanced Deep Search V2 */}
                                         {msg.role === 'assistant' && metadata.searchType === 'enhanced-deep-search-v2' && (
                                             <div className="enhanced-media-content">
@@ -1424,10 +1294,10 @@ Thank you for using TutorAI!`;
                                 className={`mode-btn-inside ${isRagEnabled ? 'active' : ''}`}
                                 onClick={() => {
                                     setIsRagEnabled(!isRagEnabled);
-                                    if (!isRagEnabled) {
-                                        setIsDeepSearchEnabled(false);
-                                        // MCP works automatically in the background
-                                    }
+                                                                         if (!isRagEnabled) {
+                                         setIsDeepSearchEnabled(false);
+                                         // MCP is disabled
+                                     }
                                 }}
                                 disabled={isProcessing}
                                 title="RAG Mode - Search your uploaded documents"
@@ -1440,10 +1310,10 @@ Thank you for using TutorAI!`;
                                 className={`mode-btn-inside ${isDeepSearchEnabled ? 'active' : ''}`}
                                 onClick={() => {
                                     setIsDeepSearchEnabled(!isDeepSearchEnabled);
-                                    if (!isDeepSearchEnabled) {
-                                        setIsRagEnabled(false);
-                                        // MCP works automatically in the background
-                                    }
+                                                                         if (!isDeepSearchEnabled) {
+                                         setIsRagEnabled(false);
+                                         // MCP is disabled
+                                     }
                                 }}
                                 disabled={isProcessing}
                                 title="Deep Search - Web search + document analysis"
@@ -1452,7 +1322,7 @@ Thank you for using TutorAI!`;
                                 <span>Deep Search</span>
                             </button>
 
-                            {/* MCP Agents now work automatically in the background */}
+                                                         {/* MCP Agents are disabled */}
                         </div>
 
                         {/* File Selection for RAG Mode - Inside Chat Container */}
@@ -1506,7 +1376,7 @@ Thank you for using TutorAI!`;
                                         <FaSearch /> Deep Search
                                     </span>
                                 )}
-                                {/* MCP Agents work automatically in the background */}
+                                                                 {/* MCP Agents are disabled */}
                             </div>
                         )}
                         <div className="input-field-container">
@@ -1520,7 +1390,7 @@ Thank you for using TutorAI!`;
                                         ? "Ask questions about your documents..."
                                         : isDeepSearchEnabled
                                             ? "Ask anything - I'll search the web for comprehensive answers..."
-                                            : "Ask TutorAi - AI agents work automatically in the background"
+                                            : "Ask TutorAI - Standard chat mode"
                                 }
                                 disabled={isProcessing}
                                 rows={1}

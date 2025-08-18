@@ -1,8 +1,44 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import mermaid from 'mermaid';
 import './MindMap.css';
 
 const mermaidId = "mermaid-graph-" + Math.random().toString(36).substring(2, 9);
+
+// Sanitizers to make free-form text safer for Mermaid mindmap parser
+const softSanitize = (input) => {
+    const lines = input.split('\n');
+    const sanitized = lines.map((line, idx) => {
+        const isFirst = idx === 0 && line.trim().startsWith('mindmap');
+        if (isFirst) return 'mindmap';
+        if (line.trim().startsWith('click ')) return '';
+        const match = line.match(/^(\s*)(.*)$/);
+        const indent = match ? match[1] : '';
+        let content = match ? match[2] : line;
+        content = content.replace(/^([\-\*\u2022]|\d+\.|\d+\))\s+/, '');
+        content = content.replace(/[\[\]\(\)\{\}<>]/g, '');
+        content = content.replace(/[|:]/g, ' - ');
+        content = content.replace(/\s{2,}/g, ' ').trimEnd();
+        return indent + content;
+    }).filter(Boolean);
+    return sanitized.join('\n').trim();
+};
+
+const hardSanitize = (input) => {
+    const lines = input.split('\n');
+    const sanitized = lines.map((line, idx) => {
+        const isFirst = idx === 0 && line.trim().startsWith('mindmap');
+        if (isFirst) return 'mindmap';
+        if (line.trim().startsWith('click ')) return '';
+        const match = line.match(/^(\s*)(.*)$/);
+        const indent = match ? match[1] : '';
+        let content = match ? match[2] : line;
+        content = content.replace(/^([\-\*\u2022]|\d+\.|\d+\))\s+/, '');
+        content = content.replace(/[^\p{L}\p{N} ,\-.]/gu, '');
+        content = content.replace(/\s{2,}/g, ' ').trimEnd();
+        return indent + content;
+    }).filter(Boolean);
+    return sanitized.join('\n').trim();
+};
 
 const MindMap = ({ mermaidData, fileContent }) => {
     const [selectedNode, setSelectedNode] = useState(null);
@@ -11,6 +47,12 @@ const MindMap = ({ mermaidData, fileContent }) => {
     const [hoveredNode, setHoveredNode] = useState(null);
     const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
+    const containerRef = useRef(null);
+    const svgElementRef = useRef(null);
 
     console.log('MindMap component received mermaidData:', mermaidData);
     console.log('MindMap component received fileContent length:', fileContent ? fileContent.length : 0);
@@ -100,9 +142,110 @@ const MindMap = ({ mermaidData, fileContent }) => {
         };
     }, [handleNodeClick, handleNodeHover, handleNodeLeave]);
 
+    // Locate rendered SVG element whenever svgCode updates
+    useEffect(() => {
+        const host = document.getElementById(mermaidId);
+        if (!host) return;
+        const svg = host.querySelector('svg');
+        if (svg) {
+            svgElementRef.current = svg;
+            // Ensure transforms originate from top-left corner for intuitive panning
+            svg.style.transformOrigin = '0 0';
+        }
+    }, [svgCode]);
+
+    // Apply zoom and pan transforms to the SVG element
+    useEffect(() => {
+        if (!svgElementRef.current) return;
+        svgElementRef.current.style.transform = `translate(${panPosition.x}px, ${panPosition.y}px) scale(${zoomLevel})`;
+    }, [zoomLevel, panPosition]);
+
     const toggleFullscreen = useCallback(() => {
-        setIsFullscreen(!isFullscreen);
+        const element = containerRef.current;
+        if (!element) return;
+        try {
+            if (!document.fullscreenElement) {
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else {
+                    // Fallback to CSS-only fullscreen if API not supported
+                    setIsFullscreen(true);
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else {
+                    setIsFullscreen(false);
+                }
+            }
+        } catch (_) {
+            // If Fullscreen API throws, fall back to CSS-based toggle
+            setIsFullscreen(prev => !prev);
+        }
+    }, []);
+
+    // Reset zoom/pan when exiting fullscreen
+    useEffect(() => {
+        if (!isFullscreen) {
+            setZoomLevel(1);
+            setPanPosition({ x: 0, y: 0 });
+        }
     }, [isFullscreen]);
+
+    // Zoom helpers
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const zoomIn = useCallback(() => {
+        setZoomLevel(prev => clamp(parseFloat((prev * 1.15).toFixed(3)), 0.2, 5));
+    }, []);
+    const zoomOut = useCallback(() => {
+        setZoomLevel(prev => clamp(parseFloat((prev / 1.15).toFixed(3)), 0.2, 5));
+    }, []);
+    const resetView = useCallback(() => {
+        setZoomLevel(1);
+        setPanPosition({ x: 0, y: 0 });
+    }, []);
+
+    // Wheel to zoom when in fullscreen
+    const handleWheel = useCallback((event) => {
+        if (!isFullscreen) return;
+        event.preventDefault();
+        const delta = event.deltaY;
+        if (delta < 0) {
+            setZoomLevel(prev => clamp(parseFloat((prev * 1.08).toFixed(3)), 0.2, 5));
+        } else if (delta > 0) {
+            setZoomLevel(prev => clamp(parseFloat((prev / 1.08).toFixed(3)), 0.2, 5));
+        }
+    }, [isFullscreen]);
+
+    // Mouse drag to pan when in fullscreen
+    const handleMouseDown = useCallback((event) => {
+        if (!isFullscreen) return;
+        setIsPanning(true);
+        setLastMousePosition({ x: event.clientX, y: event.clientY });
+    }, [isFullscreen]);
+
+    const handleMouseMove = useCallback((event) => {
+        if (!isFullscreen || !isPanning) return;
+        const dx = event.clientX - lastMousePosition.x;
+        const dy = event.clientY - lastMousePosition.y;
+        setPanPosition(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+        setLastMousePosition({ x: event.clientX, y: event.clientY });
+    }, [isFullscreen, isPanning, lastMousePosition]);
+
+    const endPan = useCallback(() => {
+        if (!isPanning) return;
+        setIsPanning(false);
+    }, [isPanning]);
+
+    // Sync component state with browser fullscreen changes
+    useEffect(() => {
+        const handleFsChange = () => {
+            const active = !!document.fullscreenElement;
+            setIsFullscreen(active);
+        };
+        document.addEventListener('fullscreenchange', handleFsChange);
+        return () => document.removeEventListener('fullscreenchange', handleFsChange);
+    }, []);
 
     const renderMermaid = useCallback(async () => {
         console.log('renderMermaid called with data:', mermaidData);
@@ -112,11 +255,7 @@ const MindMap = ({ mermaidData, fileContent }) => {
             try {
                 console.log('Attempting to render Mermaid with ID:', mermaidId);
 
-                let cleanedData = mermaidData
-                    .split('\n')
-                    .filter(line => !line.trim().startsWith('click '))
-                    .join('\n')
-                    .trim();
+                let cleanedData = softSanitize(mermaidData);
 
                 console.log('Cleaned Mermaid data:', cleanedData);
 
@@ -175,9 +314,67 @@ const MindMap = ({ mermaidData, fileContent }) => {
 
                 setSvgCode(enhancedSvg);
             } catch (e) {
-                console.error("Error rendering Mermaid SVG:", e);
-                setError("Error rendering mind map: " + e.message);
-                setSvgCode('');
+                console.error("Error rendering Mermaid SVG (first pass):", e);
+                // Try a second, more aggressive sanitize and render once
+                try {
+                    const retryData = (() => {
+                        // Ensure it starts with 'mindmap' if not already
+                        const trimmed = mermaidData.trimStart();
+                        const hasHeader = trimmed.startsWith('mindmap');
+                        const prefixed = hasHeader ? mermaidData : `mindmap\n  ${mermaidData}`;
+                        return hardSanitize(prefixed);
+                    })();
+                    console.log('Retrying Mermaid render with hard-sanitized data');
+                    const { svg } = await mermaid.render(mermaidId, retryData);
+                    let enhancedSvg = svg.replace(
+                        '<svg',
+                        '<svg><defs>' +
+                        '<linearGradient id="rainbow-gradient" x1="0%" y1="0%" x2="100%" y2="0%">' +
+                        '<stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />' +
+                        '<stop offset="25%" style="stop-color:#764ba2;stop-opacity:1" />' +
+                        '<stop offset="50%" style="stop-color:#f093fb;stop-opacity:1" />' +
+                        '<stop offset="75%" style="stop-color:#f5576c;stop-opacity:1" />' +
+                        '<stop offset="100%" style="stop-color:#4facfe;stop-opacity:1" />' +
+                        '</linearGradient>' +
+                        '<linearGradient id="node-gradient-1" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                        '<stop offset="0%" style="stop-color:#ff6b6b;stop-opacity:1" />' +
+                        '<stop offset="100%" style="stop-color:#ff8e8e;stop-opacity:1" />' +
+                        '</linearGradient>' +
+                        '<linearGradient id="node-gradient-2" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                        '<stop offset="0%" style="stop-color:#4ecdc4;stop-opacity:1" />' +
+                        '<stop offset="100%" style="stop-color:#6ee5dd;stop-opacity:1" />' +
+                        '</linearGradient>' +
+                        '<linearGradient id="node-gradient-3" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                        '<stop offset="0%" style="stop-color:#45b7d1;stop-opacity:1" />' +
+                        '<stop offset="100%" style="stop-color:#67c5e0;stop-opacity:1" />' +
+                        '</linearGradient>' +
+                        '<linearGradient id="node-gradient-default" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                        '<stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />' +
+                        '<stop offset="100%" style="stop-color:#8a9bff;stop-opacity:1" />' +
+                        '</linearGradient>' +
+                        '</defs><svg'
+                    );
+                    enhancedSvg = enhancedSvg.replace(
+                        /<g[^>]*class="[^"]*node[^"]*"[^>]*>/g,
+                        (match) => {
+                            const idMatch = match.match(/id="([^"]+)"/);
+                            const nodeId = idMatch ? idMatch[1] : 'unknown';
+                            return match.replace('>', ` onmouseenter="window.handleMermaidNodeHover('${nodeId}', event)" onmouseleave="window.handleMermaidNodeLeave()" onclick="window.handleMermaidNodeClick('${nodeId}', event)">`)
+                        }
+                    );
+                    enhancedSvg = enhancedSvg.replace(
+                        /<text[^>]*>/g,
+                        (match) => {
+                            return match.replace('>', ' style="pointer-events: none;">')
+                        }
+                    );
+                    setSvgCode(enhancedSvg);
+                    setError('');
+                } catch (e2) {
+                    console.error('Error rendering Mermaid SVG (second pass):', e2);
+                    setError('Error rendering mind map: ' + e2.message);
+                    setSvgCode('');
+                }
             }
         } else {
             console.warn('No mermaid data provided or data is empty');
@@ -243,17 +440,38 @@ const MindMap = ({ mermaidData, fileContent }) => {
     }
 
     return (
-        <div className={`mindmap-container ${isFullscreen ? 'fullscreen' : ''}`}>
+        <div
+            ref={containerRef}
+            className={`mindmap-container ${isFullscreen ? 'fullscreen' : ''}`}
+            onMouseMove={handleMouseMove}
+            onMouseUp={endPan}
+            onMouseLeave={endPan}
+        >
             {/* Fullscreen Toggle Button */}
             <button
                 className="fullscreen-toggle"
                 onClick={toggleFullscreen}
                 title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
             >
-                {isFullscreen ? '⛶' : '⛶'}
+                {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             </button>
 
-            <div id={mermaidId} className="react-flow-mindmap" dangerouslySetInnerHTML={{ __html: svgCode }}></div>
+            {/* Zoom Controls (shown in fullscreen) */}
+            {isFullscreen && (
+                <div className="zoom-controls" role="group" aria-label="Zoom controls">
+                    <button className="zoom-button" onClick={zoomOut} title="Zoom out">−</button>
+                    <button className="zoom-button" onClick={resetView} title="Reset view">Reset</button>
+                    <button className="zoom-button" onClick={zoomIn} title="Zoom in">＋</button>
+                </div>
+            )}
+
+            <div
+                id={mermaidId}
+                className={`react-flow-mindmap ${isFullscreen ? (isPanning ? 'panning' : 'pan-ready') : ''}`}
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                dangerouslySetInnerHTML={{ __html: svgCode }}
+            ></div>
 
             {/* Hover Tooltip */}
             {hoveredNode && (

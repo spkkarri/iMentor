@@ -212,3 +212,6 @@ export const denyAdminAccess = (userId, data) => api.post(`/admin/users/${userId
 export const revokeAdminAccess = (userId, data) => api.post(`/admin/users/${userId}/revoke`, data);
 export const updateUserConfig = (userId, data) => api.put(`/admin/users/${userId}`, data);
 export const getSystemStats = () => api.get('/admin/stats');
+export const getActivityLogs = (params) => api.get('/admin/activity/logs', { params });
+export const getActivitySummary = (params) => api.get('/admin/activity/summary', { params });
+export const deleteUser = (userId) => api.delete(`/admin/users/${userId}`);

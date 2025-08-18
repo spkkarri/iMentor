@@ -31,6 +31,9 @@ const AuthPage = ({ setIsAuthenticated }) => {
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('userId', String(userId));
             localStorage.setItem('username', response.data.user.username);
+            if (response.data.user.email) {
+                localStorage.setItem('email', response.data.user.email);
+            }
             setIsAuthenticated(true);
 
             // Check for admin login
@@ -44,6 +47,9 @@ const AuthPage = ({ setIsAuthenticated }) => {
                                response.data.user.email === 'admin@gmail.com';
 
             console.log('AuthPage: Final admin check:', isAdminUser);
+
+            // Persist admin flag for routing decisions at App level
+            localStorage.setItem('isAdmin', String(!!isAdminUser));
 
             if (isAdminUser) {
                 console.log('AuthPage: Admin detected, redirecting to /admin');

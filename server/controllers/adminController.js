@@ -6,7 +6,8 @@ const User = require('../models/User');
 
 // Admin authentication middleware
 const requireAdmin = (req, res, next) => {
-    if (!req.user || req.user.email !== 'admin@gmail.com') {
+    const isAdmin = req?.user?.isAdmin || req?.user?.email === 'admin@gmail.com' || req?.user?.username === 'admin@gmail.com';
+    if (!isAdmin) {
         return res.status(403).json({ message: 'Admin access required' });
     }
     next();
@@ -343,6 +344,22 @@ const getSystemStats = async (req, res) => {
     }
 };
 
+// Delete a user entirely (admin only)
+const deleteUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await User.findByIdAndDelete(userId);
+        const ua = await UserApiKeys.findOneAndDelete({ userId });
+        if (!user && !ua) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ message: 'Failed to delete user' });
+    }
+};
+
 module.exports = {
     requireAdmin,
     getAdminDashboard,
@@ -352,5 +369,6 @@ module.exports = {
     revokeAdminAccess,
     getUserDetails,
     updateUserConfig,
-    getSystemStats
+    getSystemStats,
+    deleteUser
 };

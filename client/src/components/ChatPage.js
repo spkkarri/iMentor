@@ -48,7 +48,7 @@ import useNetworkStatus from '../hooks/useNetworkStatus';
 
 import './ChatPage.css';
 
-const ChatPage = () => {
+const ChatPage = ({ setIsAuthenticated }) => {
     const navigate = useNavigate();
     const messagesEndRef = useRef(null);
     const { toasts, removeToast, showSuccess, showError, showWarning } = useToast();
@@ -221,12 +221,29 @@ const ChatPage = () => {
     // Logout handler
     const handleLogout = useCallback((clearHistory = true) => {
         if (clearHistory) {
+            try {
+                localStorage.clear();
+            } catch (_) {
+                // Fallback: remove critical auth keys
+                localStorage.removeItem('token');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('username');
+                localStorage.removeItem('email');
+                localStorage.removeItem('isAdmin');
+                localStorage.removeItem('sessionId');
+            }
+        } else {
+            localStorage.removeItem('token');
             localStorage.removeItem('userId');
             localStorage.removeItem('username');
-            localStorage.removeItem('sessionId');
+            localStorage.removeItem('email');
+            localStorage.removeItem('isAdmin');
+        }
+        if (typeof setIsAuthenticated === 'function') {
+            setIsAuthenticated(false);
         }
         navigate('/login');
-    }, [navigate]);
+    }, [navigate, setIsAuthenticated]);
 
     // New chat handler
     const handleNewChat = useCallback(() => {
@@ -1205,7 +1222,7 @@ Thank you for using TutorAI!`;
                                                     {`## 🧠 Mind Map: ${msg.fileName}`}
                                                 </ReactMarkdown>
 
-                                                <div className="mindmap-container">
+                                                <div>
                                                     <MindMap
                                                         mermaidData={msg.mermaidData}
                                                         fileContent={msg.fileContent || ''}

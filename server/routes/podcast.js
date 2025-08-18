@@ -4,10 +4,8 @@ const express = require('express');
 const router = express.Router();
 const { tempAuth } = require('../middleware/authMiddleware');
 const File = require('../models/File');
-const { documentProcessor } = require('../services/serviceManager');
 const SimplePodcastGenerator = require('../services/simplePodcastGenerator');
 const TextToSpeechService = require('../services/textToSpeech');
-const universalAI = require('../services/universalAIService');
 const path = require('path');
 const fs = require('fs');
 
@@ -47,7 +45,8 @@ router.post('/generate', tempAuth, async (req, res) => {
         }
 
         // 3. Process the document to get its text content
-        // We use the documentProcessor's parsing capabilities
+        // Retrieve services from the request-bound service manager
+        const { documentProcessor } = req.serviceManager.getServices();
         const doc = await documentProcessor.parseFile(file.path, file.mimetype);
         // Support both string and object returns from parseFile
         let documentContent = '';
@@ -195,13 +194,22 @@ router.post('/ask', async (req, res) => {
     });
     podcastScript.push(answerSegment);
 
-    // Regenerate podcast audio
-    const audioUrl = await generatePodcastAudio(podcastScript, 'interactive_podcast');
+    try {
+        // Generate combined script text
+        const combinedText = podcastScript.map(seg => `${seg.speaker}: ${seg.text}`).join(' ');
+        const audioFilename = `interactive_podcast_${Date.now()}`;
+        const audioPath = await ttsService.generateAudio(combinedText, audioFilename);
+        const audioUrl = ttsService.getAudioUrl(audioFilename);
 
-    res.json({
-        transcript: podcastScript,
-        audioUrl
-    });
+        res.json({
+            transcript: podcastScript,
+            audioUrl,
+            audioPath
+        });
+    } catch (err) {
+        console.error('[Podcast Ask] Audio generation failed:', err);
+        res.status(500).json({ error: 'Failed to generate audio for the answer', details: err.message });
+    }
 });
 
 // @route   POST /api/podcast/test

@@ -33,6 +33,13 @@ if (!GEMINI_API_KEY) {
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Activity logging should run early, but after JSON parsing
+try {
+    const { activityLogger } = require('./middleware/activityLogger');
+    app.use(activityLogger({ skipPaths: ['/podcasts', '/audio', '/api/admin', '/api/auth'] }));
+} catch (e) {
+    console.warn('Activity logger not initialized:', e?.message);
+}
 
 // Apply user API key middleware to all routes
 app.use('/api', injectUserApiKeys);
@@ -93,7 +100,7 @@ const startServer = async () => {
         app.use('/api/training', require('./routes/training')); // LLM Training routes
         app.use('/api/subjects', require('./routes/subjects')); // Custom subjects and model management
         app.use('/api/user-api-keys', require('./routes/userApiKeys')); // User API key management
-        app.use('/api/admin', require('./routes/admin')); // Admin dashboard and user management
+        app.use('/api/admin', require('./routes/admin')); // Admin dashboard, user management, activity logs
         app.use('/api/research', require('./routes/testResearch')); // Advanced Deep Research testing
         app.use('/api/agents', require('./routes/agents')); // MCP Agent system
         app.use('/api/agent-monitoring', require('./routes/agentMonitoring')); // Agent monitoring and analytics

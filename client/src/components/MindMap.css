@@ -119,6 +119,14 @@
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
 }
 
+/* Enable intuitive pan cursors only in fullscreen */
+.mindmap-container.fullscreen .react-flow-mindmap.pan-ready {
+  cursor: grab;
+}
+.mindmap-container.fullscreen .react-flow-mindmap.panning {
+  cursor: grabbing;
+}
+
 /* Colorful animated connection lines */
 .react-flow-mindmap svg path {
   stroke: url(#rainbow-gradient) !important;
@@ -232,7 +240,7 @@
 .react-flow-mindmap svg text {
   fill: #ffffff !important;
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
-  font-size: 14px !important;
+  font-size: 16px !important;
   font-weight: 600 !important;
   text-anchor: middle !important;
   dominant-baseline: middle !important;
@@ -242,6 +250,11 @@
     0 0 20px rgba(102, 126, 234, 0.2) !important;
   transition: all 0.4s ease;
   pointer-events: none;
+}
+
+/* Larger text when in fullscreen mode for readability */
+.mindmap-container.fullscreen .react-flow-mindmap svg text {
+  font-size: 24px !important;
 }
 
 .react-flow-mindmap svg g[id*="node"]:hover text {
@@ -523,6 +536,38 @@
 
 .mindmap-modal-content button:hover::before {
   left: 100%;
+}
+
+/* Zoom controls shown in fullscreen */
+.zoom-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.zoom-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow:
+    0 8px 20px rgba(102, 126, 234, 0.3),
+    0 4px 10px rgba(118, 75, 162, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.zoom-button:hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow:
+    0 12px 30px rgba(102, 126, 234, 0.4),
+    0 6px 15px rgba(118, 75, 162, 0.3);
 }
 
 /* Responsive design */

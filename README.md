@@ -130,13 +130,13 @@ Follow the exact process to deploy this application in the Local Area Network
 1. Clone the Repository
 
 ```bash
-git clone -b Team-2 https://github.com/tej-a192/chatbot-Team-2.git
+git clone -b Team-2 https://github.com/spkkarri/iMentor.git
 ```
 
 2. Move to chatbot-Team-2 folder
 
 ```bash
-cd chatbot-Team-2
+cd iMentor
 ```
 
 3. Run install.sh script file

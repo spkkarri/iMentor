@@ -27,7 +27,7 @@ CHUNK_SIZE = int(os.getenv('CHUNK_SIZE', 512))
 CHUNK_OVERLAP = int(os.getenv('CHUNK_OVERLAP', 100))
 
 # --- API Configuration ---
-AI_CORE_SERVICE_PORT = int(os.getenv('AI_CORE_SERVICE_PORT', 9000))
+AI_CORE_SERVICE_PORT = int(os.getenv('AI_CORE_SERVICE_PORT', 6003))
 # Kept RAG_SERVICE_PORT for backward compatibility if anything still uses it, but prefer AI_CORE_SERVICE_PORT
 RAG_SERVICE_PORT = AI_CORE_SERVICE_PORT # Alias for consistency
 

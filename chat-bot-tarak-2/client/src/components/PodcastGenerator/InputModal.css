@@ -1,0 +1,208 @@
+/* client/src/components/PodcastGenerator/InputModal.css */
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: color-mix(in srgb, var(--background-color-primary, #121212) 70%, transparent);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-container {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-primary);
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+.modal-close-btn:hover { color: var(--text-primary); }
+
+.modal-container h2 {
+    font-size: 1.5rem;
+    text-align: center;
+    margin: 2rem 0 0.5rem 0;
+    color: var(--text-primary);
+}
+
+.modal-subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-top: 0;
+    margin-bottom: 2rem;
+}
+
+.modal-body {
+    padding: 1rem 2rem;
+    min-height: 350px; /* Make the body taller */
+    display: flex;
+    flex-direction: column; /* Allow content to stretch vertically */
+    align-items: stretch; /* Stretch children to fill width */
+    justify-content: center;
+}
+
+.tab-content {
+    width: 100%;
+    height: 100%;
+    border: 2px dashed var(--border-primary);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    text-align: center;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    flex-grow: 1; /* Allow tab content to grow */
+}
+
+.tab-content.upload-tab {
+    cursor: pointer;
+}
+.tab-content.upload-tab:hover {
+    border-color: var(--accent-active);
+    background-color: var(--accent-active-faded, rgba(0, 123, 255, 0.05));
+}
+
+.tab-icon {
+    font-size: 60px !important;
+    color: var(--text-secondary);
+}
+
+.tab-content p {
+    color: var(--text-secondary);
+}
+
+.file-types {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    margin-top: 0.5rem;
+}
+
+/* --- THE CRITICAL FIX FOR THE TEXT AREA --- */
+.text-tab {
+    padding: 0;
+    display: flex; /* Make the wrapper a flex container */
+}
+
+.text-input-area {
+    width: 100%;
+    flex-grow: 1; /* Make the textarea itself grow to fill its parent */
+    background-color: transparent;
+    border: none;
+    outline: none;
+    padding: 15px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    resize: none; /* Disable manual resizing */
+    box-sizing: border-box;
+}
+/* --- END OF CRITICAL FIX --- */
+
+.modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    border-top: 1px solid var(--border-primary);
+}
+
+.title-input-wrapper {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 0 10px;
+    transition: border-color 0.2s ease;
+}
+.title-input-wrapper:focus-within {
+    border-color: var(--accent-active);
+}
+
+.title-icon {
+    color: var(--text-secondary);
+}
+
+.title-input {
+    flex-grow: 1;
+    background: none;
+    border: none;
+    outline: none;
+    padding: 10px 5px;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.generate-btn {
+    background-color: var(--accent-active);
+    color: var(--text-on-accent);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 1rem;
+    transition: background-color 0.2s ease;
+}
+.generate-btn:hover:not(:disabled) { background-color: var(--accent-hover); }
+.generate-btn:disabled {
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.modal-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-primary);
+}
+
+.tab-button {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    color: var(--text-secondary);
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.tab-button:hover:not(.active) {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}
+.tab-button.active {
+    background-color: var(--accent-active);
+    color: var(--text-on-accent);
+    border-color: var(--accent-active);
+}

@@ -1,0 +1,257 @@
+/* client/src/components/PodcastGenerator/PodcastGeneratorPage.css */
+.podcast-generator-page {
+    padding: 2rem 3rem;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+    overflow-y: auto;
+}
+
+main {
+    background-color: var(--bg-primary);
+}
+
+.podcast-history {
+    background-color: var(--bg-secondary);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.p-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid #333;
+    padding-bottom: 1.5rem;
+}
+
+.p-header h1 {
+    font-size: 2rem;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.add-source-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--accent-active);
+    color: var(--text-on-accent);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+.add-source-btn:hover {
+    background-color: var(--accent-hover);
+}
+
+.p-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    background-color: var(--bg-primary);
+}
+
+.p-loading-spinner {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 1rem; 
+    padding: 3rem;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.spinner {
+    border: 4px solid #444; 
+    border-top: 4px solid #007aff;
+    border-radius: 50%; 
+    width: 40px; 
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 
+    0% { transform: rotate(0deg); } 
+    100% { transform: rotate(360deg); } 
+}
+
+.p-error-message {
+    border: 1px solid #ff4d4f; 
+    background-color: rgba(255, 77, 79, 0.1);
+    color: var(--error-color, #ff7875); 
+    padding: 1rem; 
+    border-radius: 8px; 
+    text-align: center;
+    font-weight: 500;
+}
+
+.p-results-section {
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.media-player-widget h3 { 
+    margin-top: 0; 
+    color: var(--text-primary);
+}
+
+.media-player-widget audio { 
+    width: 100%;
+    margin-top: 1rem;
+    /* Custom styles for dark mode audio player */
+    filter: invert(1) hue-rotate(180deg) contrast(0.8);
+}
+
+.qna-widget { 
+    border-top: 1px solid #444; 
+    padding-top: 1.5rem; 
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.qna-widget h4 { 
+    margin-top: 0; 
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.qna-input-area { 
+    display: flex; 
+    gap: 10px; 
+}
+
+.qna-input-area textarea {
+    flex-grow: 1; 
+    background-color: var(--bg-tertiary); 
+    border: 1px solid #555;
+    border-radius: 6px; 
+    padding: 10px; 
+    color: var(--text-primary); 
+    resize: none; 
+    height: 50px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.qna-input-area textarea:focus {
+    outline: none;
+    border-color: var(--accent-active);
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.3);
+}
+
+.qna-input-area button {
+    background-color: var(--accent-active); 
+    color: var(--text-on-accent); 
+    border: none; 
+    padding: 0 20px;
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+.qna-input-area button:hover:not(:disabled) {
+    background-color: var(--accent-hover);
+}
+
+.qna-input-area button:disabled { 
+    background-color: var(--bg-tertiary); 
+    cursor: not-allowed; 
+}
+
+.qna-answer-area {
+    margin-top: 1rem; 
+    background-color: var(--bg-tertiary); 
+    padding: 1rem; 
+    border-radius: 6px;
+    border: 1px solid #4a4a4a;
+}
+
+.qna-answer-area p { 
+    margin: 0; 
+    white-space: pre-wrap; 
+    line-height: 1.6;
+}
+
+/* =========================================== */
+/*  MODIFICATION: Responsive Design Adjustments  */
+/* =========================================== */
+
+/* For tablets and smaller devices */
+@media (max-width: 768px) {
+    .podcast-generator-page {
+        /* Reduce horizontal padding for better use of space */
+        padding: 2rem 1.5rem; 
+    }
+
+    .p-header {
+        /* Stack header items vertically for a better mobile layout */
+        flex-direction: column;
+        align-items: flex-start;
+        /* Add space between the stacked title and button */
+        gap: 1.5rem; 
+    }
+
+    .p-header h1 {
+        /* Make the main title slightly smaller on tablets */
+        font-size: 1.75rem;
+    }
+}
+
+/* For mobile phones */
+@media (max-width: 480px) {
+    .podcast-generator-page {
+        /* Further reduce padding for very small screens */
+        padding: 1.5rem 1rem;
+    }
+
+    .p-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+    }
+
+    .p-header h1 {
+        /* Smaller title for mobile phones */
+        font-size: 1.5rem; 
+    }
+
+    /* Reduce padding inside content boxes on small screens */
+    .p-results-section,
+    .podcast-history {
+        padding: 1rem;
+    }
+
+    .qna-input-area {
+        /* Ensure the input and button don't get too cramped */
+        flex-wrap: wrap; 
+        gap: 8px;
+    }
+
+    .qna-input-area textarea {
+        min-height: 44px;
+    }
+    
+    .qna-input-area button {
+        /* Adjust button padding for a better fit */
+        padding: 10px 15px;
+    }
+}

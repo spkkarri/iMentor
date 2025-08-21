@@ -1,0 +1,110 @@
+/* client/src/components/SettingsPage.css */
+
+/* This is the main container that will center the content */
+.settings-page-container {
+    display: flex;
+    justify-content: center;
+    align-items: center; /* Vertically center the box */
+    min-height: calc(100vh - 60px); /* Adjust 60px to your header's height if you have one */
+    background-color: var(--bg-secondary);
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+/* This is the main "card" or "box" for the form */
+.settings-form-box {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 2rem 2.5rem; /* Increased padding */
+    border-radius: 12px;
+    border: 1px solid var(--border-primary);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 650px; /* Slightly wider for comfort */
+}
+
+.settings-form-box h2 {
+    text-align: left;
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+.settings-form-box .form-sub-header {
+    text-align: left;
+    margin-top: 0;
+    margin-bottom: 2rem; /* More space below the header */
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* Styling for each label-input pair */
+.settings-form-box .input-group {
+    margin-bottom: 1.5rem; /* Increased spacing between fields */
+    text-align: left;
+}
+
+.settings-form-box .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.settings-form-box .input-group input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-primary);
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.settings-form-box .input-group input:focus {
+    outline: none;
+    border-color: var(--accent-active);
+    box-shadow: 0 0 0 3px var(--accent-translucent);
+}
+
+.settings-form-box .input-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: block;
+    margin-top: 0.5rem;
+    text-align: left;
+}
+
+/* Feedback Messages */
+.error-message, .success-message {
+    border-radius: 6px;
+    padding: 12px;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.error-message {
+    color: #e74c3c;
+    background-color: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+.success-message {
+    color: #27ae60;
+    background-color: rgba(39, 174, 96, 0.1);
+    border: 1px solid rgba(39, 174, 96, 0.2);
+}
+
+/* Action Buttons Container */
+.form-actions {
+    display: flex;
+    justify-content: flex-end; /* Align buttons to the right */
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-primary); /* Separator line */
+}

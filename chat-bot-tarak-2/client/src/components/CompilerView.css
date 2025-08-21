@@ -1,0 +1,228 @@
+/* client/src/components/CompilerView.css */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
+/* --- Keyframe Animations --- */
+
+/* For the rotating rainbow border effect */
+@keyframes rotate-gradient {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* For the pulsing 'Run' button effect */
+@keyframes pulse-run-button {
+  0%   { background-color: #007bff; } /* Blue */
+  25%  { background-color: #28a745; } /* Green */
+  50%  { background-color: #ffc107; } /* Yellow */
+  75%  { background-color: #dc3545; } /* Red */
+  100% { background-color: #007bff; } /* Back to Blue */
+}
+
+/* --- Main Container Styling --- */
+.compiler-container {
+  display: flex;
+  flex-direction: column;
+  height: 85vh; /* Increased height as requested */
+  width: 100%;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 1.5rem;
+  gap: 1.5rem;
+  box-sizing: border-box;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden; /* Crucial for the pseudo-element glow */
+  transition: box-shadow 0.5s ease-in-out;
+}
+
+/* --- Rainbow and Settled Glow Effects --- */
+.compiler-container::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  height: 150%;
+  z-index: 0;
+  background: conic-gradient(
+    from 0deg, 
+    #ff6b6b, #f06595, #cc5de8, #845ef7, #5c7cfa, 
+    #339af0, #22b8cf, #20c997, #51cf66, #fcc419, #ff6b6b
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.compiler-container.rainbow-glow-animate::before {
+  opacity: 1;
+  animation: rotate-gradient 2.5s linear infinite;
+}
+
+.compiler-container.constant-glow {
+  box-shadow: 0 0 25px 0px color-mix(in srgb, var(--accent-active) 35%, transparent);
+}
+
+/* Ensure all direct children are above the pseudo-element */
+.compiler-header, .compiler-layout {
+  position: relative;
+  z-index: 1;
+}
+
+/* Header section with title and controls */
+.compiler-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.compiler-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.compiler-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.compiler-controls select {
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.compiler-controls select:focus {
+  outline: none;
+  border-color: var(--accent-active);
+}
+
+.run-button {
+  background-color: var(--accent-active);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.run-button:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.run-button.is-running {
+  animation: pulse-run-button 2s linear infinite;
+  color: white; /* Ensure text is always readable */
+}
+
+.run-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Main layout grid */
+.compiler-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.right-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 0;
+}
+
+/* Individual panel styling */
+.section {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  padding: 1rem;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+/* Modern focus state ("light white" glow) */
+.section:focus-within {
+  border-color: color-mix(in srgb, var(--accent-active) 50%, transparent);
+  box-shadow: 0 0 12px 0px color-mix(in srgb, var(--accent-active) 20%, transparent);
+}
+
+.input-section { flex: 1; }
+.output-section { flex: 1; }
+.code-section { min-height: 0; }
+
+.section label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.75rem;
+}
+
+.section textarea,
+.section .output-pre {
+  flex-grow: 1;
+  width: 100%;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  resize: none;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.section .output-pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-y: auto;
+  color: var(--text-secondary);
+}
+
+.output-section .output-pre {
+  color: var(--text-primary);
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 900px) {
+  .compiler-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    overflow-y: auto;
+  }
+  .right-pane { flex-direction: row; }
+}
+
+@media (max-width: 600px) {
+  .compiler-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .right-pane { flex-direction: column; }
+}

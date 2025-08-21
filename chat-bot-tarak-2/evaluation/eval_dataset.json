@@ -1,0 +1,22 @@
+[
+  {
+    "id": "ml_q1",
+    "question": "What are the four main types of machine learning mentioned in the syllabus?",
+    "expected_answer": "The four main types of machine learning are Supervised Learning, Unsupervised Learning, Semi-Supervised Learning, and Reinforcement Learning."
+  },
+  {
+    "id": "ml_q2",
+    "question": "Which module covers Principal Component Analysis (PCA)?",
+    "expected_answer": "Principal Component Analysis (PCA) is covered in Module 3: Unsupervised Learning."
+  },
+  {
+    "id": "ml_q3",
+    "question": "What is the goal of Reinforcement Learning?",
+    "expected_answer": "The goal of Reinforcement Learning is to train an agent to make a sequence of decisions in an environment to maximize a cumulative reward."
+  },
+  {
+    "id": "ml_q4",
+    "question": "Does this syllabus include any information on Natural Language Processing?",
+    "expected_answer": "Yes, Natural Language Processing (NLP) is covered as a topic within Module 5: Advanced Topics."
+  }
+]

@@ -1,0 +1,65 @@
+.podcast-history {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background-color: var(--bg-primary);
+    border-radius: 12px;
+}
+.history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--history-item-bg, var(--bg-tertiary));
+    border-radius: 12px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 1.2rem 1.5rem;
+    transition: box-shadow 0.2s, background-color 0.2s;
+}
+.history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+}
+.history-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.history-item-title {
+    font-weight: bold;
+}
+.history-item-date {
+    font-size: 0.8rem;
+    color: #999;
+}
+.history-item-actions {
+    display: flex;
+    gap: 10px;
+}
+.action-btn {
+    background: #555;
+    border: none;
+    color: white;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.action-btn:hover { background: #666; }
+.load-btn:hover { background: #007aff; }
+.delete-btn:hover { background: #ff3b30; }

@@ -1,0 +1,78 @@
+# ===================================================================
+# 1. DEPENDENCIES & VIRTUAL ENVIRONMENTS
+# ===================================================================
+# Node.js dependencies
+# Never commit node_modules folders
+**/node_modules/
+
+# Python virtual environments
+# These are generated locally and can be huge
+**/venv/
+**/.venv/
+
+# ===================================================================
+# 2. SENSITIVE & ENVIRONMENT-SPECIFIC FILES
+# ===================================================================
+# Environment variables
+# Use .env.example files as templates
+.env
+.env.*
+!.env.example
+
+# ===================================================================
+# 3. BUILD ARTIFACTS & CACHES
+# ===================================================================
+# General build output folders
+**/build/
+**/dist/
+
+# Caches
+**/.cache/
+**/__pycache__/
+
+# Python specific build artifacts
+**/*.py[cod]
+**/*.egg-info/
+
+# ===================================================================
+# 4. USER-GENERATED & RUNTIME DATA
+# ===================================================================
+# User file uploads and generated assets
+# NOTE: The ! operator ensures the .gitkeep file IS tracked.
+chat-bot-tarak-2/server/assets/*
+!chat-bot-tarak-2/server/assets/.gitkeep
+chat-bot-tarak-2/server/uploads/
+chat-bot-tarak-2/uploads/
+
+# Generated data that should not be in the repository
+chat-bot-tarak-2/server/faiss_indices/
+chat-bot-tarak-2/server/backup_assets/
+chat-bot-tarak-2/server/ai_core_service/generated_podcasts/
+chat-bot-tarak-2/server/generated_podcasts/
+chat-bot-tarak-2/server/generated_ppts/
+
+# ===================================================================
+# 5. LOGS & REPORTS
+# ===================================================================
+*.log
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+evaluation_results.json # Generated report
+
+# ===================================================================
+# 6. OS & EDITOR CONFIGURATION
+# ===================================================================
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Editor-specific folders
+.vscode/
+.idea/
+.history/
+*.swp
+*.swo

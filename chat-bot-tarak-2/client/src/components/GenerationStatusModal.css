@@ -1,0 +1,189 @@
+/* client/src/components/GenerationStatusModal.css */
+
+.modal-overlay-dark {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    /* Use a semi-transparent version of your primary background color */
+    background-color: color-mix(in srgb, var(--background-color-primary, #121212) 70%, transparent);
+    backdrop-filter: blur(5px); /* Adds a nice blur effect to the background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.generation-status-modal {
+    /* Use your primary background color */
+    background-color: var(--background-color-primary, #2a2a2e); 
+    padding: 25px 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    min-width: 400px;
+    max-width: 90vw;
+    text-align: center;
+    position: relative;
+    /* Use your primary border color */
+    border: 1px solid var(--border-color, #444);
+    transition: width 0.3s ease, height 0.3s ease;
+}
+
+/* New class to make the modal larger for the preview */
+.generation-status-modal.large {
+    min-width: 650px;
+    max-width: 800px;
+}
+
+.modal-content-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.modal-close-button {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    /* Use your secondary text color */
+    color: var(--text-color-secondary, #aaa);
+    font-size: 1.5rem;
+}
+.modal-close-button:hover {
+    /* Use your primary text color on hover */
+    color: var(--text-color-primary, #fff);
+}
+
+
+/* --- Status Icon Styling (Theme-aware) --- */
+.status-icon { margin-bottom: 10px; }
+/* Use your application's accent/primary color */
+.status-icon.generating { color: var(--accent-active, #007bff); animation: spin 2s linear infinite; }
+.status-icon.success { color: #28a745; }
+.status-icon.error { color: #dc3545; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* --- Text Styling (Theme-aware) --- */
+.modal-title { margin: 0; font-size: 1.5rem; color: var(--text-color-primary, #fff); }
+.modal-subtitle { margin: 0; color: var(--text-color-secondary, #aaa); }
+.error-message { color: #dc3545; font-weight: 500; word-break: break-word; }
+
+
+/* --- NEW PREVIEW STYLES (Theme-aware) --- */
+.ppt-preview-viewer {
+    width: 100%;
+    height: 350px;
+    /* Use your secondary background color */
+    background-color: var(--background-color-secondary, #1e1e1e);
+    border: 1px solid var(--border-color, #444);
+    border-radius: 8px;
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.preview-slide {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    overflow-y: auto;
+}
+
+.preview-title-slide {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+.preview-title-slide h4 { font-size: 2rem; margin: 0; color: var(--text-color-primary, #fff); }
+.preview-title-slide p { margin: 10px 0 0 0; font-size: 1rem; color: var(--text-color-secondary, #aaa); }
+
+.preview-slide strong {
+    color: var(--text-color-primary, #fff);
+    font-size: 1.4rem;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border-color, #444);
+}
+
+.preview-slide ul {
+    padding-left: 25px;
+    margin: 0;
+    font-size: 1rem;
+    list-style-type: disc;
+}
+.preview-slide li {
+    color: var(--text-color-secondary, #aaa);
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+
+/* --- NEW NAVIGATION CONTROLS STYLES (Theme-aware) --- */
+.preview-navigation {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.nav-button {
+    /* Use your secondary background color */
+    background-color: var(--background-color-secondary, #1e1e1e);
+    border: 1px solid var(--border-color, #444);
+    color: var(--text-color-primary, #fff);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.nav-button:hover:not(:disabled) {
+    /* Use a faded version of your accent color on hover */
+    background-color: var(--accent-active-faded, rgba(0, 123, 255, 0.1));
+    border-color: var(--accent-active, #007bff);
+}
+.nav-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.slide-counter {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-color-secondary, #aaa);
+}
+
+
+/* --- Button Styling (Unchanged - Assumed to be globally styled or sufficient) --- */
+.download-button, .close-action-button {
+    margin-top: 20px;
+    padding: 12px 25px;
+    border-radius: 5px;
+    border: none;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+.download-button { background-color: #28a745; color: white; }
+.download-button:hover { background-color: #218838; }
+.close-action-button { background-color: #6c757d; color: white; }
+.close-action-button:hover { background-color: #5a6268; }

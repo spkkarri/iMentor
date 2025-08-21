@@ -1,0 +1,200 @@
+/* client/src/index.css */
+
+/*
+  STEP 1: THEME AND COLOR DEFINITIONS
+  We are defining two complete color palettes using CSS Custom Properties (variables).
+  A class of `.light-mode` or `.dark-mode` on a container element
+  will determine which set of variables is active for its children.
+*/
+
+/* 1A: Light Theme Palette */
+.light-mode {
+  --bg-primary: #FFFFFF;          /* Main content background (e.g., chat area) */
+  --bg-secondary: #F7F7F7;       /* Sidebar, header backgrounds */
+  --bg-tertiary: #EFEFEF;        /* Dropdowns, inputs, buttons */
+  --bg-accent: #007ACC;          /* Primary action button background */
+  
+  --text-primary: #1F1F1F;       /* Main text color */
+  --text-secondary: #5B5B5B;     /* Subtler text, placeholders, labels */
+  --text-on-accent: #FFFFFF;      /* Text on top of accent-colored elements (e.g., Run button) */
+
+  --border-primary: #E0E0E0;     /* Borders for containers, inputs */
+  --accent-active: #007ACC;        /* Active icon color, highlights, links */
+  --accent-hover: #005A9E;         /* Hover state for buttons and links */
+}
+
+/* 1B: Dark Theme Palette */
+.dark-mode {
+  --bg-primary: #1E1E1E;          /* Main content background */
+  --bg-secondary: #252526;       /* Sidebar background */
+  --bg-tertiary: #333333;        /* Dropdowns, inputs */
+  --bg-accent: #007ACC;          /* Primary action button background */
+
+  --text-primary: #CCCCCC;       /* Main text */
+  --text-secondary: #9B9B9B;     /* Subtler text, placeholders */
+  --text-on-accent: #FFFFFF;      /* Text on top of accent-colored elements */
+  
+  --border-primary: #3C3C3C;     /* Borders for containers */
+  --accent-active: #009CFB;        /* Active icon color, brighter for dark mode */
+  --accent-hover: #009CFB;         /* Hover state */
+}
+
+/*
+  STEP 2: GLOBAL STYLES
+  Apply the variables to the base elements. Now, the theme classes applied in the App
+  will instantly swap all the colors for the entire application.
+*/
+body {
+  margin: 0;
+  font-family: 'Inter', 'Poppins', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Use the CSS variables */
+  /* These will be inherited from the .light-mode or .dark-mode class on the app container */
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+
+  /* Add a smooth transition for all color and background changes */
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+/* Import Google Fonts for Inter, Poppins, Roboto */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600&family=Roboto:wght@400;500;700&display=swap');
+
+/* Utility classes for modern UI */
+.rounded-2xl { border-radius: 1.25rem !important; }
+.rounded-xl { border-radius: 0.75rem !important; }
+.shadow-lg { box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15) !important; }
+.shadow-md { box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.10) !important; }
+.transition { transition: all 0.2s cubic-bezier(.4,0,.2,1) !important; }
+.p-4 { padding: 1.5rem !important; }
+.p-2 { padding: 0.75rem !important; }
+.m-2 { margin: 0.75rem !important; }
+.gap-4 { gap: 1.5rem !important; }
+.gap-2 { gap: 0.75rem !important; }
+
+/* Button base style */
+.btn {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-accent);
+  color: var(--text-on-accent);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+}
+.btn:hover, .btn:focus {
+  background: var(--accent-hover);
+  color: var(--text-on-accent);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+/* Card style */
+.card {
+  background: var(--bg-secondary);
+  border-radius: 1.25rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  transition: box-shadow 0.2s;
+}
+.card:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.16);
+}
+
+/* For smooth fade-in animations */
+.fade-in {
+  animation: fadeIn 0.5s cubic-bezier(.4,0,.2,1);
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Add a global scrollbar style to match the themes */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+
+:root {
+  /* === DARK MODE (Default) === */
+  --bg-primary: #1e1e1e;       /* Main content area background */
+  --bg-secondary: #252526;     /* Sidebar background */
+  --bg-tertiary: #3a3a3c;      /* Input fields, hover states */
+  --bg-accent: #007acc;        /* Active buttons, toggles */
+  
+  --text-primary: #e0e0e0;     /* Main text */
+  --text-secondary: #999;      /* Lighter text for placeholders, metadata */
+  --text-on-accent: #ffffff;   /* Text on top of accent colors (e.g., buttons) */
+  
+  --border-primary: #3c3c3c;   /* Borders between panels */
+  --border-secondary: #555;    /* Borders for inputs */
+
+  --shadow-primary: rgba(0, 0, 0, 0.2);
+  --bg-secondary-rgb: 37, 37, 38;
+}
+
+html[data-theme="light"] {
+  --bg-primary: #f1f1e1;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f5f5f5;
+  --bg-accent: #007acc;
+  --text-primary: #222;
+  --text-secondary: #666;
+  --text-on-accent: #fff;
+  --border-primary: #e0e0e0;
+  --border-secondary: #ccc;
+  --shadow-primary: rgba(0,0,0,0.08);
+  --bg-secondary-rgb: 255, 255, 255;
+}
+
+.light-mode {
+  /* === LIGHT MODE === */
+  --bg-primary: #f0f2f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e9ecef;
+  --bg-accent: #007aff;
+  
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --text-on-accent: #ffffff;
+  
+  --border-primary: #dee2e6;
+  --border-secondary: #ced4da;
+
+  --shadow-primary: rgba(0, 0, 0, 0.1);
+}
+
+/* Apply the base background to the whole app */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease-in-out;
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "question": "What are the four main types of machine learning mentioned in the syllabus?",
+    "expected": "The four main types of machine learning are Supervised Learning, Unsupervised Learning, Semi-Supervised Learning, and Reinforcement Learning.",
+    "generated": "Based on the provided context, I could not find information on the four main types of machine learning. The context does not provide any relevant information about machine learning or its types.",
+    "evaluation": {
+      "score": "Incorrect",
+      "reasoning": "The generated answer does not provide the expected information on the four main types of machine learning and instead claims that it cannot find the information in the context, which is not a relevant answer to the question."
+    }
+  },
+  {
+    "question": "Which module covers Principal Component Analysis (PCA)?",
+    "expected": "Principal Component Analysis (PCA) is covered in Module 3: Unsupervised Learning.",
+    "generated": "Based on the provided context, I could not find information on which module covers Principal Component Analysis (PCA). The context does not contain specific references to PCA or modules related to data processing or analysis.",
+    "evaluation": {
+      "score": "Partial",
+      "reasoning": "The generated answer acknowledges that no specific information is provided regarding PCA or related modules, which is correct. However, it does not provide the expected answer, which is the module number where PCA is covered, despite having the necessary information to do so."
+    }
+  },
+  {
+    "question": "What is the goal of Reinforcement Learning?",
+    "expected": "The goal of Reinforcement Learning is to train an agent to make a sequence of decisions in an environment to maximize a cumulative reward.",
+    "generated": "Based on the absence of information about Reinforcement Learning in the CONTEXT, I could not find any specific mention of the goal of Reinforcement Learning. Reinforcement Learning is not discussed in the provided context, so I cannot determine its goal from the given information.",
+    "evaluation": {
+      "score": "Error",
+      "reasoning": "No valid JSON object found in the LLM response."
+    }
+  },
+  {
+    "question": "Does this syllabus include any information on Natural Language Processing?",
+    "expected": "Yes, Natural Language Processing (NLP) is covered as a topic within Module 5: Advanced Topics.",
+    "generated": "Based on the provided context, I could not find information on Natural Language Processing.",
+    "evaluation": {
+      "score": "Error",
+      "reasoning": "No valid JSON object found in the LLM response."
+    }
+  }
+]

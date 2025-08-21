@@ -1,0 +1,43 @@
+/* client/src/components/Sidebar.css */
+.sidebar-icon-nav {
+    width: 60px; /* Thin bar for icons only */
+    background-color: var(--bg-secondary); /* Theme-aware background */
+    border-right: 1px solid var(--border-primary); /* Theme-aware border */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between; /* Pushes top and bottom groups apart */
+    padding: 15px 0;
+    flex-shrink: 0;
+}
+
+.sidebar-nav-group-top,
+.sidebar-nav-group-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px; /* Space between icons */
+}
+
+.sidebar-icon-button {
+    background-color: transparent;
+    border: none;
+    color: #8f8f8f; /* Inactive icon color */
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease-in-out;
+}
+
+.sidebar-icon-button:hover {
+    background-color: #3e3e3e;
+    color: #ffffff;
+}
+
+.sidebar-icon-button.active {
+    background-color: #007acc; /* Active blue color */
+    color: #ffffff;
+}

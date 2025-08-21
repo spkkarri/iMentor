@@ -1,0 +1,61 @@
+/* client/src/components/PptGeneratorPanel.css */
+.ppt-generator-panel {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.ppt-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--text-color-secondary); /* Assuming you have CSS variables */
+}
+
+.form-group input,
+.form-group textarea {
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-color-secondary);
+    color: var(--text-color-primary);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.generate-ppt-button {
+    padding: 10px 15px;
+    background-color: #007bff; /* A nice blue color */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+.generate-ppt-button:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+.generate-ppt-button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}

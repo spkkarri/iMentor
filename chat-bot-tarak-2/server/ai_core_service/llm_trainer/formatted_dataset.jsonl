@@ -1,0 +1,4 @@
+{"text": "<s>[INST] hi [/INST] Error: Chat Error: A required Gemini API key was not available. Request access from an admin or add a key in Settings. </s>"}
+{"text": "<s>[INST] hi [/INST] `\n\nHello! I'm an AI assistant designed to provide comprehensive and direct answers to your questions.  How can I help you today? </s>"}
+{"text": "<s>[INST] Hi [/INST] Error: Chat Error: A required Gemini API key was not available. Request access from an admin or add a key in Settings. </s>"}
+{"text": "<s>[INST] Hi [/INST] Error: Chat Error: A required Grok API key was not available. Request access from an admin or add a key in Settings. </s>"}

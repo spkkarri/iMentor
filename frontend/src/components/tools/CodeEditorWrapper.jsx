@@ -6,19 +6,21 @@ import Button from '../core/Button';
 import IconButton from '../core/IconButton';
 import CodeEditor from './CodeEditor';
 import toast from 'react-hot-toast';
+import { copyToClipboard } from '../../utils/helpers';
 
 const CodeEditorWrapper = ({ code, setCode, language, setLanguage, onExecute, isExecuting }) => {
     
     const [copied, setCopied] = useState(false);
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(code).then(() => {
+    const handleCopy = async () => {
+        const success = await copyToClipboard(code);
+        if (success) {
             toast.success("Code copied to clipboard!");
             setCopied(true);
             setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
-        }, () => {
+        } else {
             toast.error("Failed to copy code.");
-        });
+        }
     };
     
     return (

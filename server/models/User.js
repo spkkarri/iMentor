@@ -84,7 +84,7 @@ const UserSchema = new mongoose.Schema({
   },
   ollamaModel: {
     type: String,
-    default: process.env.OLLAMA_DEFAULT_MODEL || "llama3",
+    default: process.env.OLLAMA_DEFAULT_MODEL || "qwen2.5:14b-instruct",
   },
   learningPaths: [{ 
     type: mongoose.Schema.Types.ObjectId, 

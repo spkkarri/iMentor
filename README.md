@@ -119,49 +119,196 @@ You will need the following software installed on your system to run the applica
 
 ---
 
-## Installation
+## Installation & Deployment
 
 ### Linux Setup (Debian/Ubuntu)
 
-Run the following commands as root or with `sudo` to install all necessary dependencies.
+Follow the exact process to deploy this application in the Local Area Network
 
-> [!NOTE]
-> The MongoDB installation script uses the repository for Ubuntu 22.04 (`jammy`). This is intentional for compatibility and should work correctly on newer Ubuntu versions as well.
+### Steps
+
+1. Clone the Repository
 
 ```bash
-# Update package lists
-sudo apt update
-
-# Install Docker & Docker Compose
-curl -fsSL https://get.docker.com | sh
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# Install Node.js (18.x) & npm
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash -
-sudo apt install -y nodejs
-
-# Install Python 3.10 & pip (and necessary build tools)
-sudo apt install -y python3.10 python3.10-venv python3.10-dev python3-pip
-
-# Install Tesseract OCR
-sudo apt install -y tesseract-ocr
-
-# Install FFmpeg
-sudo apt install -y ffmpeg
-
-# --- Install MongoDB ---
-curl -fsSL https://pgp.mongodb.com/server-6.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg
-echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-
-sudo apt update
-
-sudo apt install -y mongodb-org
-
-sudo systemctl start mongod
-
-sudo systemctl enable mongod
+git clone -b Team-2 https://github.com/tej-a192/chatbot-Team-2.git
 ```
+
+2. Move to chatbot-Team-2 folder
+
+```bash
+cd chatbot-Team-2
+```
+
+3. Run install.sh script file
+
+```bash
+bash install.sh
+```
+
+4. Open project folder in the file manager and delete the node_modules and package-lock.json in **frontend** folder
+```bash
+cd frontend
+rm -rf node_modules package-lock.json
+npm install
+```
+
+5. Open Project in Vs code and open the .env file present in the server folder and do the further steps as mentioned
+
+6. For JWT_SECRET, You need to generate a strong secret key for JWT authentication.  
+Do **NOT** use the placeholder `GENERATE_A_STRONG_RANDOM_SECRET_KEY_HERE`.
+
+#### 1. Generate a random secret:
+Run the following commands in your terminal and place the generated key in the value
+
+```bash
+openssl rand -base64 32
+```
+
+#### 2. Generate a 64-character hexadecimal secret:
+Run the following command in your terminal (Linux/macOS):
+
+```bash
+openssl rand -hex 32
+```
+and modify
+
+```bash
+ENCRYPTION_SECRET="your_generated_secret_here"
+```
+
+7. Provide your Gemini api key and Ollama url for admin ( Necessary)
+
+8. **Sentry DSN Setup** ( Necessary )
+
+We use [Sentry](https://sentry.io) for error tracking and monitoring.  
+To connect your application to Sentry, you’ll need a `SENTRY_DSN`.
+
+#### 1. Create a free Sentry account
+- Go to [https://sentry.io/signup/](https://sentry.io/signup/)
+- Sign up using GitHub, GitLab, or email.
+
+#### 2. Create a new project
+- Once logged in, click **Projects → Create Project**.
+- Choose your platform (e.g., **Node.js**, **React**, **Express**, etc.).
+- Give the project a name (example: `my-app`).
+- Select or create an **Organization** (Sentry groups projects inside orgs).
+- Click **Create Project**.
+
+#### 3. Get your DSN
+- After creating the project, Sentry shows you a **setup page** with code snippets.
+- Look for something like: https://<PUBLIC_KEY>@o<ORG_ID>.ingest.sentry.io/<PROJECT_ID>
+
+That’s your **DSN**.
+
+#### 4. Add it to your `.env` file
+```env
+SENTRY_DSN="https://<PUBLIC_KEY>@o<ORG_ID>.ingest.sentry.io/<PROJECT_ID>"
+```
+
+9. ☁️ AWS S3 Credentials Setup
+
+Some functionalities (like dataset backup, cloud file storage, and retrieval) require AWS S3.  
+These credentials are **optional**, but **needed if you want cloud features to work**.
+
+#### 1. Create an AWS Account
+- Go to [https://aws.amazon.com](https://aws.amazon.com) and sign up.
+- You’ll need to add billing details (AWS has a Free Tier).
+
+#### 2. Create an S3 Bucket
+- Log in to the **AWS Management Console**.
+- Navigate to **Services → S3 → Create bucket**.
+- Enter a **unique bucket name** (e.g., `my-app-datasets`).
+- Choose a region (e.g., `us-east-1`).
+- Leave defaults or adjust according to your needs.
+- Click **Create bucket**.
+
+#### 3. Create an IAM User for S3 Access
+- Go to **IAM (Identity & Access Management)** in AWS.
+- Click **Users → Add Users**.
+- Choose a username (e.g., `my-app-s3-user`).
+- Select **Programmatic access** (so you can use Access Key/Secret).
+- Attach permissions → choose **Attach existing policies directly**.
+- Select **AmazonS3FullAccess** (or create a more restricted policy).
+- Click **Next** and finish user creation.
+
+#### 4. Get Access Keys
+- After creating the IAM user, download the **Access Key ID** and **Secret Access Key**.
+- Keep them safe — you won’t be able to see the secret again later.
+
+#### 5. Add to your `.env` file
+```env
+S3_BUCKET_NAME="your-s3-bucket-name-here"
+AWS_ACCESS_KEY_ID="your-access-key-id"
+AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+AWS_REGION="us-east-1"
+```
+
+10. Check & Stop Old Containers
+
+- Before running new containers, make sure no old ones are active:
+
+```bash
+sudo docker ps
+```
+If you see any containers running from a previous setup, stop them:
+
+
+```bash
+sudo docker compose down
+```
+
+11. Start Docker Services
+
+Now bring up all required services in detached mode:
+
+```bash
+sudo docker compose up -d
+```
+
+12. Expose Application to LAN
+
+- Run Rag Service
+
+```bash
+cd server/rag_service
+source venv/bin/activate
+python app.py
+```
+
+- Run server
+
+Open new terminal
+
+```bash
+cd server
+npm run dev
+```
+
+
+- Run frontend
+
+Open new terminal
+
+```bash
+cd frontend
+npm run dev
+```
+
+
+**Export into lan**
+
+```bash
+sudo ufw allow 2000/tcp
+sudo ufw allow 2173/tcp
+sudo ufw allow 2001/tcp
+sudo ufw allow 2003:2009/tcp
+```
+
+
+
+### Thats it...It will be deployed in LAN
+
+----
 
 Windows Setup
 For Windows, dependencies must be installed individually. Using a package manager like Chocolatey can simplify the process.
@@ -185,19 +332,30 @@ Create .env files for the server and frontend by copying the provided examples.
 The .env files contain sensitive information like API keys and database credentials. They are ignored by Git via the .gitignore file and should never be committed to your repository.
 Backend Server:
 ```
+
+> [!NOTE]
+> Running install.sh will predefine and configures the application folder
+> Just update your env by running the enironment
+
+
 code
 ```Bash
+bash install.sh
+```
+
+code
+``` Bash
 cd server
 
 example env
 
-PORT=5001
+PORT=2000
 MONGO_URI="mongodb://localhost:27017/chatbot_gemini"
 JWT_SECRET="your_super_strong_and_secret_jwt_key_12345"
 GEMINI_API_KEY="AIzaSyCHuH6_DJuxGawHM2QqU5YNM8Zpp0xVl_I"
 PROMPT_COACH_GEMINI_MODEL=gemini-2.5-pro
 PROMPT_COACH_OLLAMA_MODEL=qwen2.5:14b-instruct
-PYTHON_RAG_SERVICE_URL="http://127.0.0.1:5000"
+PYTHON_RAG_SERVICE_URL="http://127.0.0.1:2001"
 OLLAMA_API_BASE_URL="https://angels-himself-fixtures-unknown.trycloudflare.com"
 OLLAMA_DEFAULT_MODEL="qwen2.5:14b-instruct"
 ENCRYPTION_SECRET=583c0c57ffbb993163e28273671daebf880eb972d6d1402613be9da09a5297e2
@@ -205,7 +363,7 @@ SENTRY_DSN="https://458178e6527d82e9373ea1b1b34d3954@o4509804762497024.ingest.us
 REDIS_URL="redis://localhost:6379"
 FIXED_ADMIN_USERNAME=admin@admin.com
 FIXED_ADMIN_PASSWORD=admin123
-ELASTICSEARCH_URL=http://localhost:9200
+ELASTICSEARCH_URL=http://localhost:2006
 # --- AWS S3 Credentials for Dataset Management ---
 # Replace placeholders below with your actual values
 S3_BUCKET_NAME="ai-tutor-datasets-rohith"
@@ -223,7 +381,7 @@ cd frontend
 
 example env
 
-VITE_API_BASE_URL=http://localhost:5001/api
+VITE_API_BASE_URL=http://localhost:2000/api
 VITE_ADMIN_USERNAME=admin@admin.com
 VITE_ADMIN_PASSWORD=admin123
 
@@ -285,7 +443,7 @@ Open multiple terminal windows to run each component of the application in the c
     npm run dev
     ```
 
-You can now access the application at **`http://localhost:5173`** in your browser.
+You can now access the application at **`http://localhost:2173`** in your browser.
 
 ---
 
@@ -294,13 +452,13 @@ You can now access the application at **`http://localhost:5173`** in your browse
 The application stack includes a full suite of monitoring tools. Access them via your browser:
 
 > [!NOTE]
-> The Neo4j Browser at `http://localhost:7001` will prompt for a username and password. The default credentials, as set in the `docker-compose.yml` file, are `neo4j` / `password`.
+> The Neo4j Browser at `http://localhost:2004` will prompt for a username and password. The default credentials, as set in the `docker-compose.yml` file, are `neo4j` / `password`.
 
--   **Grafana**: `http://localhost:7005` (Visualize application performance metrics)
--   **Kibana**: `http://localhost:7003` (Explore and search application logs)
--   **Prometheus**: `http://localhost:7004` (View raw metrics and service discovery)
--   **Qdrant UI**: `http://localhost:7000/dashboard` (Inspect vector database collections)
--   **Neo4j Browser**: `http://localhost:7001` (Query and visualize the knowledge graph)
+-   **Grafana**: `http://localhost:2009` (Visualize application performance metrics)
+-   **Kibana**: `http://localhost:2007` (Explore and search application logs)
+-   **Prometheus**: `http://localhost:2008` (View raw metrics and service discovery)
+-   **Qdrant UI**: `http://localhost:2003/dashboard` (Inspect vector database collections)
+-   **Neo4j Browser**: `http://localhost:2004` (Query and visualize the knowledge graph)
 
 ---
 

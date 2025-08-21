@@ -89,3 +89,44 @@ export const truncateText = (text, maxLength = 100) => {
     if (!text || text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
 };
+
+// Function to copy text to the clipboard with a fallback for insecure contexts.
+export const copyToClipboard = async (text) => {
+  // Use modern clipboard API if available and in a secure context (HTTPS/localhost)
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.error('Async clipboard write failed:', err);
+      // Don't automatically fall back, as this could be a permissions error.
+      // The primary reason for the fallback is the API not being available at all.
+      return false; 
+    }
+  }
+
+  // Fallback for insecure contexts (e.g., HTTP over LAN) or older browsers
+  console.warn('Using legacy document.execCommand for copy.');
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+
+  // Make the textarea invisible and prevent screen from scrolling
+  textArea.style.position = 'fixed';
+  textArea.style.top = '-9999px';
+  textArea.style.left = '-9999px';
+
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  let success = false;
+  try {
+    // execCommand is deprecated but has widespread support.
+    success = document.execCommand('copy');
+  } catch (err) {
+    console.error('Legacy clipboard copy failed:', err);
+  }
+
+  document.body.removeChild(textArea);
+  return success;
+};

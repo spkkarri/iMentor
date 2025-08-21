@@ -1,19 +1,15 @@
-// frontend/vite.config.js
+// vite.config.js
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import basicSsl from '@vitejs/plugin-basic-ssl' // <-- Import the plugin
 
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    basicSsl() // <-- Add the plugin here
-  ],
-  server: {
-    port: 2002,
-    https: true, // <-- Enable HTTPS
-    host: true,  // <-- Make it accessible on the LAN
-  },
+  plugins: [react()],
+  // --- ADD THIS SECTION TO FIX THE "global is not defined" ERROR ---
   define: {
     'global': {},
+  },
+  server:{
+    port:2173,
   }
 })

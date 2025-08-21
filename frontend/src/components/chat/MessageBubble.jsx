@@ -9,7 +9,7 @@ import TypingIndicator from './TypingIndicator.jsx';
 import { useTextToSpeech } from '../../hooks/useTextToSpeech.js';
 import IconButton from '../core/IconButton.jsx';
 import { renderMathInHtml } from '../../utils/markdownUtils';
-import { getPlainTextFromMarkdown } from '../../utils/helpers.js';
+import { getPlainTextFromMarkdown, copyToClipboard } from '../../utils/helpers.js';
 import DOMPurify from 'dompurify';
 import { useTypingEffect } from '../../hooks/useTypingEffect.js';
 import api from '../../services/api.js';
@@ -83,15 +83,15 @@ const CodeBlockWithCopyButton = ({ children, codeText, key }) => {
         }
     }, [children, copied]);
 
-    const handleCopyCode = () => {
-        navigator.clipboard.writeText(codeText).then(() => {
+    const handleCopyCode = async () => {
+        const success = await copyToClipboard(codeText);
+        if (success) {
             setCopied(true);
             toast.success('Code copied!');
             setTimeout(() => setCopied(false), 1500);
-        }).catch(err => {
+        } else {
             toast.error('Failed to copy code.');
-            console.error('Failed to copy code:', err);
-        });
+        }
     };
 
     return (
@@ -255,17 +255,18 @@ function MessageBubble({ sender, text, thinking, references, timestamp, sourcePi
         }
     };
 
-    const handleCopy = () => {
+    const handleCopy = async () => {
         if (isCopied) return;
         const plainTextToCopy = getPlainTextFromMarkdown(mainContent);
-        navigator.clipboard.writeText(plainTextToCopy).then(() => {
+        const success = await copyToClipboard(plainTextToCopy);
+    
+        if (success) {
             setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 1000);
+            setTimeout(() => setIsCopied(false), 1500);
             toast.success('Message copied!');
-        }).catch(err => {
+        } else {
             toast.error('Failed to copy message.');
-            console.error('Failed to copy message:', err);
-        });
+        }
     };
 
     const formatTimestamp = (ts) => {

@@ -98,7 +98,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
 
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", 7000))
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", 2003))
 QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "my_qdrant_rag_collection")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", None)
 QDRANT_URL = os.getenv("QDRANT_URL", None)

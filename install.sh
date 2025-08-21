@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # ==============================================================================
-# iMentor Project Installer for Debian/Ubuntu (Conda Edition)
+# iMentor Project Installer for Debian/Ubuntu (venv Edition)
+# ==============================================================================
 # This script will:
 #   1. Check for and install all required system-level dependencies.
-#   2. Check for and install Miniconda if a conda installation is not found.
+#   2. Create a Python 3.10 virtual environment (venv) for the RAG service.
 #   3. Configure the project by creating .env files with placeholders for secrets.
 #   4. Install all Node.js and Python dependencies into their respective environments.
 #   5. Run the initial database seeder script.
@@ -25,12 +26,13 @@ function check_command() {
 }
 
 # --- Main Functions ---
-function install_prerequisites() {
+
+function install_system_dependencies() {
     echo -e "${YELLOW}[INFO] Updating package lists...${NC}"
     apt-get update
 
-    echo -e "${YELLOW}[INFO] Installing base dependencies (curl, git, tesseract, ffmpeg)...${NC}"
-    apt-get install -y curl git tesseract-ocr ffmpeg gnupg
+    echo -e "${YELLOW}[INFO] Installing base dependencies (curl, git, tesseract, ffmpeg, software-properties)...${NC}"
+    apt-get install -y curl git tesseract-ocr ffmpeg gnupg software-properties-common
 
     # --- Install Docker ---
     if ! check_command docker; then
@@ -53,6 +55,18 @@ function install_prerequisites() {
         echo -e "${GREEN}[SUCCESS] Node.js v18 is already installed.${NC}"
     fi
 
+    # --- Install Python 3.10 & venv ---
+    if ! check_command python3.10; then
+        echo -e "${YELLOW}[INFO] Python 3.10 not found. Adding PPA and installing...${NC}"
+        add-apt-repository ppa:deadsnakes/ppa -y
+        apt-get update
+        apt-get install -y python3.10 python3.10-venv python3-pip
+    else
+        echo -e "${GREEN}[SUCCESS] Python 3.10 is already installed.${NC}"
+        # Ensure venv is also installed
+        apt-get install -y python3.10-venv python3-pip
+    fi
+
     # --- Install MongoDB ---
     if ! check_command mongod; then
         echo -e "${YELLOW}[INFO] MongoDB not found. Installing...${NC}"
@@ -65,26 +79,12 @@ function install_prerequisites() {
     else
         echo -e "${GREEN}[SUCCESS] MongoDB is already installed.${NC}"
     fi
-
-    # --- Install Miniconda ---
-    if ! check_command conda; then
-        echo -e "${YELLOW}[INFO] Conda not found. Installing Miniconda...${NC}"
-        MINICONDA_INSTALL_DIR="/opt/miniconda" # Install for all users
-        curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
-        bash miniconda.sh -b -p "$MINICONDA_INSTALL_DIR"
-        rm miniconda.sh
-        # Make conda command available to all users in new shells
-        ln -s "$MINICONDA_INSTALL_DIR/bin/conda" /usr/local/bin/conda
-        echo -e "${YELLOW}[INFO] Conda installed. Please restart your terminal after this script finishes for the 'conda' command to be available.${NC}"
-    else
-        echo -e "${GREEN}[SUCCESS] Conda is already installed.${NC}"
-    fi
 }
 
-function configure_environment() {
+function configure_project_env_files() {
     echo -e "\n${YELLOW}[INFO] Creating .env files with placeholders...${NC}"
 
-    # Create server/.env with placeholders for secrets
+    # Create server/.env
     cat > server/.env << EOL
 # --- Server Port & Database ---
 PORT=2000
@@ -97,7 +97,7 @@ ENCRYPTION_SECRET="GENERATE_A_64_CHAR_HEX_SECRET_HERE_ (e.g., using 'openssl ran
 # --- Language Model (LLM) APIs ---
 GEMINI_API_KEY="ADD_YOUR_GOOGLE_GEMINI_API_KEY_HERE"
 OLLAMA_API_BASE_URL="http://localhost:11434"
-OLLAMA_DEFAULT_MODEL="llama3"
+OLLAMA_DEFAULT_MODEL="qwen2.5:14b-instruct"
 
 # --- Internal & External Service URLs ---
 PYTHON_RAG_SERVICE_URL="http://127.0.0.1:2001"
@@ -115,7 +115,7 @@ AWS_ACCESS_KEY_ID="ADD_YOUR_AWS_ACCESS_KEY_ID_HERE"
 AWS_SECRET_ACCESS_KEY="ADD_YOUR_AWS_SECRET_ACCESS_KEY_HERE"
 AWS_REGION="us-east-1"
 EOL
-    echo -e "${GREEN}[SUCCESS] Created server/.env with placeholders.${NC}"
+    echo -e "${GREEN}[SUCCESS] Created server/.env${NC}"
 
     # Create frontend/.env
     cat > frontend/.env << EOL
@@ -123,7 +123,7 @@ VITE_API_BASE_URL=http://localhost:2000/api
 VITE_ADMIN_USERNAME=admin@admin.com
 VITE_ADMIN_PASSWORD=admin123
 EOL
-    echo -e "${GREEN}[SUCCESS] Created frontend/.env.${NC}"
+    echo -e "${GREEN}[SUCCESS] Created frontend/.env${NC}"
 
     echo -e "\n${RED}================== ACTION REQUIRED ==================${NC}"
     echo -e "${YELLOW}Your .env files have been created."
@@ -132,29 +132,29 @@ EOL
     echo -e "${RED}=====================================================${NC}\n"
 }
 
-function install_dependencies() {
+function install_project_dependencies() {
     echo -e "\n${YELLOW}[INFO] Installing Node.js dependencies for backend...${NC}"
     (cd server && npm install)
     
     echo -e "\n${YELLOW}[INFO] Installing Node.js dependencies for frontend...${NC}"
     (cd frontend && npm install)
     
-    # Use the conda executable from the system path
-    CONDA_PATH="conda"
-
-    echo -e "\n${YELLOW}[INFO] Creating Conda environment 'imentor_env' with Python 3.10...${NC}"
-    if "$CONDA_PATH" env list | grep -q "imentor_env"; then
-        echo -e "${YELLOW}[INFO] Conda environment 'imentor_env' already exists. Skipping creation.${NC}"
+    echo -e "\n${YELLOW}[INFO] Creating Python virtual environment (venv) with Python 3.10...${NC}"
+    if [ -d "server/rag_service/venv" ]; then
+        echo -e "${YELLOW}[INFO] 'venv' directory already exists. Skipping creation.${NC}"
     else
-        "$CONDA_PATH" create -n imentor_env python=3.10 -y
+        python3.10 -m venv server/rag_service/venv
     fi
 
-    echo -e "\n${YELLOW}[INFO] Installing Python dependencies into 'imentor_env'... (This may take a very long time)${NC}"
-    # Use 'conda run' to execute commands within the specified environment
-    "$CONDA_PATH" run -n imentor_env pip install -r server/rag_service/requirements.txt
-    
-    echo -e "\n${YELLOW}[INFO] Downloading SpaCy model into 'imentor_env'...${NC}"
-    "$CONDA_PATH" run -n imentor_env python -m spacy download en_core_web_sm
+    echo -e "\n${YELLOW}[INFO] Installing Python dependencies into 'venv'... (This may take a very long time)${NC}"
+    # Activate venv and install packages in one subshell
+    (
+        source server/rag_service/venv/bin/activate
+        pip install --upgrade pip
+        pip install -r server/rag_service/requirements.txt
+        echo -e "\n${YELLOW}[INFO] Downloading SpaCy model into 'venv'...${NC}"
+        python -m spacy download en_core_web_sm
+    )
 }
 
 function seed_database() {
@@ -164,26 +164,25 @@ function seed_database() {
 
 # --- Main Script Logic ---
 echo -e "${GREEN}========================================="
-echo "  iMentor Project Installer              "
+echo "  iMentor Project Installer (venv Edition) "
 echo "=========================================${NC}"
 echo
 
-# 1. Check for root privileges
 if [ "$(id -u)" -ne 0 ]; then
-  echo -e "${RED}[ERROR] This script requires superuser privileges to install system dependencies."
-  echo -e "Please run with 'sudo'."
+  echo -e "${RED}[ERROR] This script requires superuser privileges to install system dependencies." >&2
+  echo -e "Please run with 'sudo'." >&2
   exit 1
 fi
 
-install_prerequisites
-configure_environment
-install_dependencies
+install_system_dependencies
+configure_project_env_files
+install_project_dependencies
 seed_database
 
 # --- Completion Message ---
 echo
 echo -e "${GREEN}========================================="
-echo "  Installation Complete!                 "
+echo "         Installation Complete!          "
 echo "=========================================${NC}"
 echo
 echo -e "${RED}IMPORTANT:${NC} Remember to edit ${YELLOW}server/.env${NC} with your secret keys!"
@@ -194,8 +193,8 @@ echo "1. ${GREEN}Terminal 1 (Docker Services):${NC}"
 echo "   ${RED}sudo${NC} docker compose up -d"
 echo
 echo "2. ${GREEN}Terminal 2 (Python RAG Service):${NC}"
-echo "   ${GREEN}conda activate imentor_env${NC}"
 echo "   cd server/rag_service"
+echo "   ${GREEN}source venv/bin/activate${NC}"
 echo "   python app.py"
 echo
 echo "3. ${GREEN}Terminal 3 (Node.js Backend):${NC}"
@@ -206,8 +205,5 @@ echo "4. ${GREEN}Terminal 4 (Frontend):${NC}"
 echo "   cd frontend"
 echo "   npm run dev"
 echo
-echo "Then, open your browser to ${YELLOW}https://localhost:2002${NC} (Note: it's HTTPS)"
+echo "Then, open your browser to the URL provided by the frontend terminal (usually ${YELLOW}http://localhost:5173${NC})"
 echo
-
-# Make the script executable for future use by the user.
-chmod +x install.sh

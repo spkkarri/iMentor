@@ -7,39 +7,38 @@ import Button from '../core/Button';
 const services = [
     {
         name: 'Prometheus',
-        url: 'http://localhost:7004/targets',
+        url: 'http://localhost:2008/targets',
         icon: BarChart3,
         description: 'View application performance metrics and alerts.'
     },
     {
         name: 'Grafana',
-        url: 'http://localhost:7005',
+        url: 'http://localhost:2009/d/ai_tutor_dashboard/application-health-dashboard',
         icon: LayoutDashboard,
         description: 'Visualize metrics in custom dashboards.'
     },
     {
         name: 'Kibana',
-        url: 'http://localhost:7003/app/discover/',
+        url: 'http://localhost:2007/',
         icon: Search,
         description: 'Explore, search, and visualize application logs.'
     },
     {
         name: 'Sentry',
         // This URL is constructed based on your SENTRY_DSN.
-        // Org ID: o4509804762497024, Project ID: 4509804765577216
-        url: 'https://o4509804762497024.sentry.io/issues/?project=4509804765577216',
+        url: 'https://<Org ID>.sentry.io/issues/?project=<Project ID><Update the url in ExternalServiceNav.jsx to get this>',
         icon: Bug,
         description: 'Monitor and debug application errors and crashes.'
     },
     {
         name: 'Qdrant',
-        url: 'http://localhost:7000/dashboard',
+        url: 'http://localhost:2003/dashboard/collections',
         icon: DatabaseZap,
         description: 'Inspect the vector database and collections.'
     },
     {
         name: 'Neo4j Browser',
-        url: 'http://localhost:7001',
+        url: 'http://localhost:2004/',
         icon: Share2,
         description: 'Query and visualize the knowledge graph database.'
     }

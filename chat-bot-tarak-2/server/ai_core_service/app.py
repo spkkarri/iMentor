@@ -592,7 +592,7 @@ if __name__ == '__main__':
         logger.critical(f"CRITICAL STARTUP FAILURE: {e}", exc_info=True)
         sys.exit(1)
 
-    port = int(os.getenv("AI_CORE_SERVICE_PORT", 9000))
+    port = int(os.getenv("AI_CORE_SERVICE_PORT", 6003))
     host = '0.0.0.0'
     logger.info(f"--- Starting AI Core Service (Flask App) on http://{host}:{port} ---")
     logger.info("--- Checking Availability of LLM Providers ---")

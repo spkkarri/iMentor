@@ -142,13 +142,13 @@ cd iMentor
 3. Run install.sh script file
 
 ```bash
-bash install.sh
+sudo bash install.sh
 ```
 
 4. Open project folder in the file manager and delete the node_modules and package-lock.json in **frontend** folder
 ```bash
 cd frontend
-rm -rf node_modules package-lock.json
+sudo rm -rf node_modules package-lock.json
 npm install
 ```
 
@@ -263,6 +263,12 @@ Now bring up all required services in detached mode:
 
 ```bash
 sudo docker compose up -d
+```
+### Give permissions to write the logs
+- Open path to iMentor and run the following command
+
+```bash
+sudo chown -R grs:grs server/logs
 ```
 
 12. Expose Application to LAN

@@ -49,6 +49,10 @@ const api = {
     const response = await apiClient.post("/auth/signin", credentials);
     return response.data;
   },
+  sendOtp: async (email, password) => {
+    const response = await apiClient.post("/auth/send-otp", { email, password });
+    return response.data;
+  },
   signup: async (userData) => {
     const response = await apiClient.post("/auth/signup", userData);
     return response.data;

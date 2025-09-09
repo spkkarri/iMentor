@@ -43,7 +43,11 @@ export default {
         'spin-border': {
           '0%': { '--angle': '0deg' },
           '100%': { '--angle': '360deg' },
-        }
+        },
+        'caret-blink': {
+          '0%,70%,100%': { opacity: '1' },
+          '20%,50%': { opacity: '0' },
+        },
       },
       animation: {
         fadeIn: 'fadeIn 0.3s ease-out forwards',
@@ -53,7 +57,8 @@ export default {
         pulseDot3: 'pulseDots 1.4s infinite 0.4s ease-in-out',
         shimmerSweep: 'shimmerSweep 1.5s linear infinite',
         'spin-border': 'spin-border 4s linear infinite',
-      }
+        'caret-blink': 'caret-blink 1.2s ease-out infinite',
+      },
     },
   },
   plugins: [

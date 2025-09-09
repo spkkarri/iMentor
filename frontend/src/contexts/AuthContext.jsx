@@ -59,6 +59,7 @@ export const AuthProvider = ({ children }) => {
                 } catch (error) {
                     setToken(null);
                     setUser(null);
+                    throw error;
                 }
             }
             setLoading(false);

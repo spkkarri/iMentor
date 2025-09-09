@@ -6,95 +6,124 @@ const User = require('../models/User');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { auditLog } = require('../utils/logger');
 require('dotenv').config();
+const otpGenerator = require('otp-generator');
+const { sendOtpEmail } = require('../services/emailService');
+const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '7d';
 
 router.post('/signup', async (req, res) => {
-  const {
-    email, password, apiKey, ollamaUrl, preferredLlmProvider, requestAdminKey,
-    name, college, universityNumber, degreeType, branch, year,
-    learningStyle, currentGoals
-  } = req.body;
-
-  if (!email || !password || !name || !college || !universityNumber || !degreeType || !branch || !year || !learningStyle) {
-    return res.status(400).json({ message: 'All required profile fields must be completed to sign up.' });
-  }
-  if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
-    return res.status(400).json({ message: 'Please provide a valid email address.' });
-  }
-  if (password.length < 6) {
-    return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
-  }
-  if (preferredLlmProvider === 'gemini' && !requestAdminKey && (!apiKey || apiKey.trim() === '')) {
-    return res.status(400).json({ message: 'A Gemini API Key is required unless you request one from the admin.' });
-  }
-  if (preferredLlmProvider === 'ollama' && (!ollamaUrl || ollamaUrl.trim() === '')) {
-    return res.status(400).json({ message: 'An Ollama URL is required when Ollama is selected.' });
-  }
-
-  try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'An account with this email already exists.' });
-    }
-
-    const newUser = new User({
-      email,
-      username: email.split('@')[0] + uuidv4().substring(0, 4),
-      password,
-      preferredLlmProvider: preferredLlmProvider || 'gemini',
-      apiKeyRequestStatus: requestAdminKey ? 'pending' : 'none',
-      encryptedApiKey: requestAdminKey ? null : (preferredLlmProvider === 'gemini' ? apiKey : null),
-      ollamaUrl: (preferredLlmProvider === 'ollama') ? ollamaUrl.trim() : '',
-      profile: {
+    const {
+        email, otp,
         name, college, universityNumber, degreeType, branch, year,
-        learningStyle, currentGoals: currentGoals || ''
-      },
-      hasCompletedOnboarding: false
-    });
+        learningStyle, currentGoals,
+        // API key fields are still collected for the final step
+        apiKey, ollamaUrl, preferredLlmProvider, requestAdminKey
+    } = req.body;
 
-    await newUser.save();
-
-  // --- ADDED AUDIT LOG ---
-  // We pass `req` so the logger can get IP, but also manually add user info
-  // because `req.user` isn't set until a user is logged in.
-  auditLog(req, 'USER_SIGNUP_SUCCESS', { 
-      email: newUser.email, 
-      userId: newUser._id.toString() 
-  });
-  // --- END ---
-
-  const payload = {
-    userId: newUser._id,
-    email: newUser.email,
-    username: newUser.username,
-  };
-  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRATION });
-
-    res.status(201).json({
-      token,
-      _id: newUser._id,
-      email: newUser.email,
-      username: newUser.username,
-      hasCompletedOnboarding: newUser.hasCompletedOnboarding,
-      isNewUser: true,
-      message: "User registered successfully",
-    });
-
-  } catch (error) {
-    console.error('Signup Error:', error);
-    if (error.code === 11000) {
-        return res.status(400).json({ message: 'An account with this email or username already exists.' });
+    if (!email || !otp) {
+        return res.status(400).json({ message: 'Email and OTP are required to complete signup.' });
     }
-    if (error.name === 'ValidationError') {
-        const messages = Object.values(error.errors).map(val => val.message);
-        return res.status(400).json({ message: messages.join(', ') });
+    if (!name || !college || !universityNumber || !degreeType || !branch || !year || !learningStyle) {
+        return res.status(400).json({ message: 'All profile fields must be completed.' });
     }
-    res.status(500).json({ message: 'Server error during signup.' });
-  }
+
+    try {
+        const user = await User.findOne({ email }).select('+otp +otpExpires');
+        if (!user) {
+            return res.status(404).json({ message: 'Signup process not started for this email. Please try again.' });
+        }
+        if (user.otp !== otp || user.otpExpires < new Date()) {
+            auditLog(req, 'USER_SIGNUP_FAILURE', { email, reason: 'Invalid or expired OTP' });
+            return res.status(400).json({ message: 'Invalid or expired OTP.' });
+        }
+
+        // OTP is valid, finalize the user profile
+        user.profile = { name, college, universityNumber, degreeType, branch, year, learningStyle, currentGoals: currentGoals || '' };
+        user.preferredLlmProvider = preferredLlmProvider || 'gemini';
+        user.apiKeyRequestStatus = requestAdminKey ? 'pending' : 'none';
+        user.encryptedApiKey = requestAdminKey ? null : (preferredLlmProvider === 'gemini' ? apiKey : null);
+        user.ollamaUrl = (preferredLlmProvider === 'ollama') ? (ollamaUrl || '').trim() : '';
+        user.hasCompletedOnboarding = false;
+
+        // Clear OTP fields
+        user.otp = undefined;
+        user.otpExpires = undefined;
+
+        await user.save();
+
+        auditLog(req, 'USER_SIGNUP_SUCCESS', { email: user.email, userId: user._id.toString() });
+
+        const payload = { userId: user._id, email: user.email, username: user.username };
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRATION });
+
+        res.status(201).json({
+            token,
+            _id: user._id,
+            email: user.email,
+            username: user.username,
+            hasCompletedOnboarding: user.hasCompletedOnboarding,
+            message: "User registered successfully",
+        });
+
+    } catch (error) {
+        console.error('Finalize Signup Error:', error);
+        res.status(500).json({ message: 'Server error during signup finalization.' });
+    }
 });
 
+
+
+router.post('/send-otp', async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required.' });
+    }
+    if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+        return res.status(400).json({ message: 'Please provide a valid email address.' });
+    }
+
+    try {
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(409).json({ message: 'An account with this email already exists.' });
+        }
+
+        const otp = otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false, lowerCaseAlphabets: false });
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+        
+        // We temporarily store the hashed password and OTP. The user is not yet "fully" created.
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Use findOneAndUpdate with upsert to create a temporary user record or update an existing one.
+        await User.findOneAndUpdate(
+            { email },
+            { 
+                email,
+                password: hashedPassword,
+                username: email.split('@')[0] + uuidv4().substring(0, 4), // Temporary username
+                otp,
+                otpExpires,
+                // Set defaults for other required fields to avoid validation errors
+                profile: {},
+                hasCompletedOnboarding: false,
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        await sendOtpEmail(email, otp);
+
+        auditLog(req, 'USER_OTP_SENT', { email });
+        res.status(200).json({ message: 'Verification OTP sent to your email.' });
+
+    } catch (error) {
+        console.error('Send OTP Error:', error);
+        res.status(500).json({ message: error.message || 'Server error while sending OTP.' });
+    }
+});
 
 router.post('/signin', async (req, res) => {
     const { email, password } = req.body;

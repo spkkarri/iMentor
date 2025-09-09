@@ -241,12 +241,15 @@ function CenterPanel({ messages, setMessages, currentSessionId, onChatProcessing
             }
         } catch (error) {
             console.error("Error in handleSendMessage:", error);
+
+            const errorMessage = error.response?.data?.message || error.message || "An unknown error occurred.";
+
             setMessages(prev => prev.map(msg =>
                 msg.id === streamingPlaceholderId
                 ? { ...msg, isStreaming: false, text: `Error: ${error.message}` }
                 : msg
             ));
-            toast.error(error.message);
+            toast.error(errorMessage);
         } finally {
             setIsActuallySendingAPI(false);
             onChatProcessingChange(false);

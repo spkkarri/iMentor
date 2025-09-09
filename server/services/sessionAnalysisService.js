@@ -1,6 +1,9 @@
 // server/services/sessionAnalysisService.js
 const geminiService = require('./geminiService');
 const ollamaService = require('./ollamaService');
+const User = require('../models/User');
+const { decrypt } = require('../utils/crypto');
+
 
 const SUMMARY_GAPS_PROMPT = `You are an expert educational analyst. Your task is to analyze the provided chat transcript and perform three actions. Your entire output MUST be a single, valid JSON object with NO other text before or after it.
 

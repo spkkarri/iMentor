@@ -16,13 +16,18 @@ const adminApiClient = axios.create({
 // --- HELPER FUNCTIONS ---
 
 export const getFixedAdminAuthHeaders = () => {
-    if (!ADMIN_USERNAME_FRONTEND || !ADMIN_PASSWORD_FRONTEND) {
-        console.error("Admin credentials not found in .env variables (VITE_ADMIN_USERNAME, VITE_ADMIN_PASSWORD).");
-        return {};
+    // Admin and regular user tokens are stored with the same key now.
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+        console.error("Admin action requires a login token, but none was found.");
+        // This will likely cause a 401 error, which is what we want.
+        return {}; 
     }
-    const basicAuthToken = btoa(`${ADMIN_USERNAME_FRONTEND}:${ADMIN_PASSWORD_FRONTEND}`);
-    return { 'Authorization': `Basic ${basicAuthToken}` };
+    
+    return { 'Authorization': `Bearer ${token}` };
 };
+
 
 // --- THIS IS THE REFINED AND SIMPLIFIED REQUEST HANDLER ---
 // It now uses the dedicated `adminApiClient` instance.

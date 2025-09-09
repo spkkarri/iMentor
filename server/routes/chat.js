@@ -78,8 +78,15 @@ router.post('/message', async (req, res) => {
     try {
         const [chatSession, user] = await Promise.all([
             ChatHistory.findOne({ sessionId: sessionId, userId: userId }),
-            User.findById(userId).select('+encryptedApiKey preferredLlmProvider ollamaModel ollamaUrl').lean()
+            User.findById(userId).select('+encryptedApiKey preferredLlmProvider ollamaModel ollamaUrl apiKeyRequestStatus').lean()
         ]);
+        
+        if (user?.preferredLlmProvider === 'gemini' && user?.apiKeyRequestStatus === 'pending' && !user?.encryptedApiKey) {
+            console.warn(`[Chat Route] Denying chat access for user ${userId} due to pending API key request.`);
+            const err = new Error('Your request for an API key is pending approval. You cannot start a conversation until the administrator approves your request.');
+            err.status = 403; // Forbidden
+            throw err;
+        }
 
         const historyFromDb = chatSession ? chatSession.messages : [];
         const chatContext = { userId, subject: documentContextName, chatHistory: historyFromDb, user: user };

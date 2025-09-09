@@ -35,11 +35,18 @@ router.post('/podcast', async (req, res) => {
         // 3. Smartly fetch the document text and the correct API key
         
         // First, fetch the user to get their encrypted API key if it exists
-        const user = await User.findById(userId).select('+encryptedApiKey preferredLlmProvider');
+
+        const user = await User.findById(userId).select('+encryptedApiKey preferredLlmProvider apiKeyRequestStatus');
+
         if (!user) {
             // This is a sanity check; user should exist if they passed authMiddleware
             return res.status(404).json({ message: 'Authenticated user not found.' });
         }
+
+        if (user?.preferredLlmProvider === 'gemini' && user?.apiKeyRequestStatus === 'pending' && !user?.encryptedApiKey) {
+            return res.status(403).json({ message: "Cannot generate podcast: Your API key request is pending approval." });
+        }
+
         
         // Next, check if the requested document is one of the user's personal Knowledge Sources
         const userSource = await KnowledgeSource.findOne({ userId, title: sourceDocumentName }).select('textContent').lean();

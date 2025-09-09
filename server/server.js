@@ -19,10 +19,7 @@ const connectDB = require("./config/db");
 const { getLocalIPs } = require("./utils/networkUtils");
 const { performAssetCleanup } = require("./utils/assetCleanup");
 const { authMiddleware } = require("./middleware/authMiddleware");
-const {
-  fixedAdminAuthMiddleware,
-} = require("./middleware/fixedAdminAuthMiddleware");
-const { ipFilterMiddleware } = require("./middleware/ipFilterMiddleware");
+const { adminAuthMiddleware } = require('./middleware/adminAuthMiddleware');
 const { connectRedis } = require("./config/redisClient");
 const { logger } = require('./utils/logger');
 
@@ -48,6 +45,8 @@ const knowledgeSourceRoutes = require("./routes/knowledgeSource");
 const analyticsRoutes = require('./routes/analytics');
 const feedbackRoutes = require('./routes/feedback');
 const finetuningRoutes = require('./routes/finetuning');
+const { setupAdmin } = require('./scripts/setupAdmin');
+
 
 
 // --- Configuration & Express App Setup ---
@@ -89,9 +88,9 @@ app.use("/api/auth", authRoutes);
 // --- Admin Routes ---
 // Apply the fixed admin auth middleware to the single MASTER admin router.
 // This ensures all routes defined in ./routes/admin/* are protected correctly.
-app.use('/api/admin/analytics', fixedAdminAuthMiddleware, analyticsRoutes);
-app.use('/api/admin/finetuning', fixedAdminAuthMiddleware, finetuningRoutes);
-app.use("/api/admin", fixedAdminAuthMiddleware, adminMasterRouter); // General route goes LAST
+app.use('/api/admin/analytics', adminAuthMiddleware, analyticsRoutes);
+app.use('/api/admin/finetuning', adminAuthMiddleware, finetuningRoutes);
+app.use("/api/admin", adminAuthMiddleware, adminMasterRouter);
 
 // All subsequent routes are protected by the general JWT authMiddleware
 app.use(authMiddleware);
@@ -138,6 +137,7 @@ app.use((err, req, res, next) => {
 async function startServer() {
   logger.info("--- Starting Server Initialization ---");
   try {
+    await setupAdmin(mongoUri);
     await ensureServerDirectories();
     await connectDB(mongoUri);
     await performAssetCleanup();

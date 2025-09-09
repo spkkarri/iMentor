@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppState } from '../../contexts/AppStateContext.jsx';
+import { useAuth } from '../../hooks/useAuth.jsx';
 import * as adminApi from '../../services/adminApi.js';
 import Button from '../core/Button.jsx';
 import IconButton from '../core/IconButton.jsx';
@@ -75,7 +76,9 @@ function AdminDocumentUpload({ onUploadSuccess }) {
 
 // Main AdminDashboardPage Component
 function AdminDashboardPage() {
-    const { setIsAdminSessionActive } = useAppState();
+
+    const { setIsAdminSessionActive, setSessionId } = useAppState();
+    const { logout: regularUserLogout } = useAuth();
     const navigate = useNavigate();
 
     const [documents, setDocuments] = useState([]);
@@ -98,6 +101,8 @@ function AdminDashboardPage() {
 
     const adminLogoutHandler = () => {
         setIsAdminSessionActive(false);
+        regularUserLogout();
+        setSessionId(null);
         toast.success("Admin logged out.");
         navigate('/');
     };

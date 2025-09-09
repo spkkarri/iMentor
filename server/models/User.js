@@ -55,6 +55,10 @@ const UserSchema = new mongoose.Schema({
     minlength: 6,
     select: false,
   },
+  isAdmin: {
+    type: Boolean,
+    default: false,
+  },
   profile: {
     type: ProfileSchema,
     default: () => ({}),
@@ -97,22 +101,34 @@ const UserSchema = new mongoose.Schema({
 });
 
 UserSchema.pre("save", async function (next) {
+  // Hash password if it's been modified
   if (this.isModified("password")) {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
   }
-  if (this.isModified("encryptedApiKey") && this.encryptedApiKey) {
-    try {
-      this.encryptedApiKey = encrypt(this.encryptedApiKey);
-    } catch (encError) {
-      console.error("Error encrypting API key during user save:", encError);
-      return next(new Error("Failed to encrypt API key."));
+
+  // Encrypt API key only if it's a new, non-empty value.
+  // This prevents re-encrypting an already encrypted key on other user updates.
+  if (this.isModified("encryptedApiKey")) {
+    if (this.encryptedApiKey) {
+        try {
+            // We only encrypt if it's not already in the encrypted format (containing ':')
+            if (!this.encryptedApiKey.includes(':')) {
+                this.encryptedApiKey = encrypt(this.encryptedApiKey);
+            }
+        } catch (encError) {
+            console.error("Error encrypting API key during user save:", encError);
+            return next(new Error("Failed to encrypt API key."));
+        }
+    } else {
+        // If the key is explicitly set to null/empty, ensure it's saved as null.
+        this.encryptedApiKey = null;
     }
-  } else if (this.isModified("encryptedApiKey") && !this.encryptedApiKey) {
-    this.encryptedApiKey = null;
   }
+  
   next();
 });
+
 
 UserSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password) return false;

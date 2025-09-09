@@ -15,10 +15,17 @@ const COACH_OLLAMA_MODEL = process.env.PROMPT_COACH_OLLAMA_MODEL || 'phi3:mini-i
  * @returns {Promise<{improvedPrompt: string, explanation: string}>} The analyzed result.
  */
 async function analyzePrompt(userId, userPrompt) {
-    const user = await User.findById(userId).select('+encryptedApiKey preferredLlmProvider ollamaUrl');
+
+    const user = await User.findById(userId).select('+encryptedApiKey preferredLlmProvider ollamaUrl apiKeyRequestStatus');
+    
     if (!user) {
         throw new Error("User not found.");
     }
+
+    if (user?.preferredLlmProvider === 'gemini' && user?.apiKeyRequestStatus === 'pending' && !user?.encryptedApiKey) {
+        throw new Error('Your API key request is pending approval.');
+    }
+
 
     const { preferredLlmProvider, ollamaUrl } = user;
     const promptForLlm = PROMPT_COACH_TEMPLATE.replace('{userPrompt}', userPrompt);

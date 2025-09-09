@@ -171,11 +171,17 @@ async function createLearningPath(userId, goal, context = {}) {
     }
 
     const user = await User.findById(userId).select(
-        'profile preferredLlmProvider ollamaUrl ollamaModel +encryptedApiKey'
+        'profile preferredLlmProvider ollamaUrl ollamaModel +encryptedApiKey apiKeyRequestStatus'
     );
+
     if (!user) {
         throw new Error("User not found.");
     }
+
+    if (user?.preferredLlmProvider === 'gemini' && user?.apiKeyRequestStatus === 'pending' && !user?.encryptedApiKey) {
+        throw new Error("Cannot process plan: User's API key request is pending approval.");
+    }
+
 
     const { preferredLlmProvider, ollamaUrl, ollamaModel, encryptedApiKey } = user;
     const llmService = preferredLlmProvider === 'ollama' ? ollamaService : geminiService;

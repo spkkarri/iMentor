@@ -95,53 +95,60 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+
 router.post('/signin', async (req, res) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Please provide email and password.' });
-  }
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Please provide email and password.' });
+    }
 
-  try {
-      const ADMIN_EMAIL = process.env.FIXED_ADMIN_USERNAME || 'admin@admin.com';
-      const ADMIN_PASSWORD = process.env.FIXED_ADMIN_PASSWORD || 'admin123';
+    try {
+        const user = await User.findOne({ email }).select('+password');
 
-      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-          // --- THIS IS THE NEW, CORRECT LOCATION FOR THE ADMIN LOGIN LOG ---
-          auditLog(req, 'ADMIN_LOGIN_SUCCESS', { username: email });
-          // --- END ---
-          
-          console.log("Admin login successful via special auth check.");
-          return res.status(200).json({
-              isAdminLogin: true,
-              message: 'Admin login successful',
-          });
-      }
+        if (!user) {
+            auditLog(req, 'LOGIN_FAILURE', { email: email, reason: 'User not found' });
+            return res.status(401).json({ message: 'Invalid email address or password.' });
+        }
 
-      const user = await User.findByCredentials(email, password);
-      if (!user) {
-          auditLog(req, 'USER_LOGIN_FAILURE', { email: email, reason: 'Invalid credentials' });
-          return res.status(401).json({ message: 'Invalid email address or password.' });
-      }
+        const isMatch = await user.comparePassword(password);
 
-      req.user = user; 
-      auditLog(req, 'USER_LOGIN_SUCCESS', { email: user.email });
+        if (!isMatch) {
+            auditLog(req, 'LOGIN_FAILURE', { email: email, reason: 'Invalid password' });
+            return res.status(401).json({ message: 'Invalid email address or password.' });
+        }
 
-      const payload = { userId: user._id, email: user.email };
-      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRATION });
+        if (user.isAdmin) {
+            auditLog(req, 'ADMIN_LOGIN_SUCCESS', { email: user.email });
+            
+            const payload = { userId: user._id, email: user.email, isAdmin: true };
+            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRATION });
 
-    res.status(200).json({
-      token,
-      _id: user._id,
-      email: user.email,
-      username: user.username,
-      hasCompletedOnboarding: user.hasCompletedOnboarding,
-      message: "Login successful",
-    });
-  } catch (error) {
-      console.error('Signin Error:', error);
-      res.status(500).json({ message: 'Server error during signin.' });
-  }
+            return res.status(200).json({
+                isAdminLogin: true,
+                token: token,
+                message: 'Admin login successful',
+            });
+        }
+        
+        auditLog(req, 'USER_LOGIN_SUCCESS', { email: user.email });
+
+        const payload = { userId: user._id, email: user.email, isAdmin: false };
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRATION });
+
+        res.status(200).json({
+            token,
+            _id: user._id,
+            email: user.email,
+            username: user.username,
+            hasCompletedOnboarding: user.hasCompletedOnboarding,
+            message: "Login successful",
+        });
+
+    } catch (error) {
+        console.error('Signin Error:', error);
+        res.status(500).json({ message: 'Server error during signin.' });
+    }
 });
 
 router.get('/me', authMiddleware, async (req, res) => {

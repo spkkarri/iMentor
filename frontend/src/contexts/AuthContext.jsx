@@ -70,9 +70,11 @@ export const AuthProvider = ({ children }) => {
         setLoading(true);
         try {
             const data = await api.login(credentials);
-            if (data && data.isAdminLogin) {
-                return data;
+            if (data && data.isAdminLogin && data.token) {
+                setToken(data.token); 
+            return data; 
             }
+
             return processAuthData(data);
         } catch (error) {
             setToken(null); 

@@ -1,40 +1,6 @@
-# iMentor: The Agentic Learning Assistant
+# AI Tutor: Intelligent Learning Assistant
 
-iMentor is a comprehensive, AI-powered tutoring application designed to assist users through interactive chat, document analysis, and knowledge exploration. It integrates multiple Large Language Models (LLMs), a sophisticated Retrieval-Augmented Generation (RAG) pipeline for contextual understanding from user-uploaded documents, and knowledge graph capabilities for critical thinking. The system also includes an admin interface for managing shared knowledge resources and a full suite of observability tools for monitoring system health and user activity.
-
-<br />
-
-<details>
-  <summary><strong>Table of Contents</strong></summary>
-
-- [Project Abstract](#project-abstract)
-- [Core Features](#core-features)
-  - [Intelligent & Interactive Chat](#intelligent--interactive-chat)
-  - [Advanced Knowledge Management & RAG](#advanced-knowledge-management--rag)
-  - [Personalized Learning & Academic Tools](#personalized-learning--academic-tools)
-  - [Administrator & Platform Management](#administrator--platform-management)
-  - [Full-Stack Observability](#full-stack-observability)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-- [Installation](#installation)
-  - [Linux Setup (Debian/Ubuntu)](#linux-setup-debianubuntu)
-  - [Windows Setup](#windows-setup)
-- [Usage](#usage)
-  - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Configure Environment Variables](#2-configure-environment-variables)
-  - [3. Install Dependencies & Seed Database](#3-install-dependencies--seed-database)
-  - [4. Running The Application](#4-running-the-application)
-- [Observability Stack](#observability-stack)
-- [Contributors](#contributors)
-- [Demo Video](#demo-video)
-
-</details>
-
-<br />
-
-## Project Abstract
-
-iMentor is an advanced, multi-agent learning platform engineered to provide a deeply personalized and tool-augmented educational experience. It goes beyond simple Q&A by employing a sophisticated agentic architecture that intelligently routes user queries to the most appropriate tool—be it internal knowledge retrieval, real-time web search, academic database queries, or direct LLM reasoning. The platform features a comprehensive RAG pipeline for ingesting and understanding a wide array of user-provided sources (documents, media, URLs), a dynamic knowledge graph for long-term memory and critical thinking, and a suite of generative tools for creating academic content. For administrators, iMentor offers a robust dashboard for managing curated content, overseeing platform analytics, and orchestrating a feedback-driven model fine-tuning loop, all monitored by an enterprise-grade observability stack.
+This project is a comprehensive AI-powered tutoring application designed to assist users through interactive chat, document analysis, and knowledge exploration. It integrates multiple Large Language Models (LLMs), Retrieval Augmented Generation (RAG) for contextual understanding from user-uploaded documents, and knowledge graph capabilities for critical thinking. The system also includes an admin interface for managing shared knowledge resources.
 
 ---
 
@@ -130,25 +96,25 @@ Follow the exact process to deploy this application in the Local Area Network
 1. Clone the Repository
 
 ```bash
-git clone -b Team-2 https://github.com/spkkarri/iMentor.git
+git clone -b Team-2 https://github.com/tej-a192/chatbot-Team-2.git
 ```
 
 2. Move to chatbot-Team-2 folder
 
 ```bash
-cd iMentor
+cd chatbot-Team-2
 ```
 
 3. Run install.sh script file
 
 ```bash
-sudo bash install.sh
+bash install.sh
 ```
 
 4. Open project folder in the file manager and delete the node_modules and package-lock.json in **frontend** folder
 ```bash
 cd frontend
-sudo rm -rf node_modules package-lock.json
+rm -rf node_modules package-lock.json
 npm install
 ```
 
@@ -182,6 +148,18 @@ ENCRYPTION_SECRET="your_generated_secret_here"
 
 We use [Sentry](https://sentry.io) for error tracking and monitoring.  
 To connect your application to Sentry, you’ll need a `SENTRY_DSN`.
+
+
+9. **Nodemail setup** ( Necessary )
+
+Add the mail creadentials and all into the env file as below with your own credentials ( You can ask the process to AI )
+
+```bash
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_PORT=587
+EMAIL_USER="user mail"
+EMAIL_PASS="email password"
+```
 
 #### 1. Create a free Sentry account
 - Go to [https://sentry.io/signup/](https://sentry.io/signup/)
@@ -243,6 +221,8 @@ AWS_SECRET_ACCESS_KEY="your-secret-access-key"
 AWS_REGION="us-east-1"
 ```
 
+
+
 10. Check & Stop Old Containers
 
 - Before running new containers, make sure no old ones are active:
@@ -263,12 +243,6 @@ Now bring up all required services in detached mode:
 
 ```bash
 sudo docker compose up -d
-```
-### Give permissions to write the logs
-- Open path to iMentor and run the following command
-
-```bash
-sudo chown -R grs:grs server/logs
 ```
 
 12. Expose Application to LAN
@@ -469,18 +443,18 @@ The application stack includes a full suite of monitoring tools. Access them via
 ---
 
 ## Contributors
+## Team Members & Contributions
 
-| Name                  | Role / Branch | 
-| --------------------- |---------------| 
-| **Pavan Teja B**      | `dev/rex`     |                      
-| **Livingston D**      | `alpha`       |                      
-| **Murali Krishna B**  | `dev-mk`      |                      
-| **Mehaboob Subhani SK** | `skms`      |                      
-| **Anusha P**          | `anu`         |                      
+| Name                     | Role / Branch | Contribution |
+| ------------------------ | -------------- | ------------ |
+| **Pavan Teja B**         | `dev/rex`      | - Advanced file parsing <br> - Text Chunking <br> - Vector Embeddings <br> - Multi-Query RAG <br> - KG Construction <br> - Reasoning (CoT, Critical Thinking with ToT) <br> - Content Creation (FAQ, Topics, MindMap) <br> - Markdown handling (Prism.js) <br> - Adaptive Learning Pathways & Personalized Content Curation <br> - "LLM Coach" for Prompt Engineering & Critical Evaluation <br> - Comprehensive User & System Auditing |
+| **Livingston D**         | `alpha`        | - Scalable Vector DB (Qdrant) <br> - Semantic Search <br> - KG DB (Neo4j) <br> - Short & Long Term memory <br> - Academic Integrity <br> - Bias Mitigation <br> - Interactive Research Assistant with Real-time & Data-Agnostic Retrieval <br> - Generative AI for Academic Content (Reports, Presentations, Podcasts) <br> - Secure Dataset Management System |
+| **Murali Krishna B**     | `dev-mk`       | - UI-Server Integration <br> - User LLM Choice <br> - KG Visualization <br> - Secure Code Executor <br> - Session Management <br> - State Management <br> - Multi-LLM support <br> - Dynamic Concept Mapping & Knowledge Synthesis <br> - Multi-LLM Orchestration for Enhanced Reasoning <br> - Quiz Generator <br> - Feedback loop |
+| **Mehaboob Subhani SK**  | `skms`         | - Frontend Component Development & Optimization (UI/UX Efficiency Improvements) <br> - Web Search & arXiv Integration for Knowledge Retrieval <br> - Homepage & Feature Modules Implementation <br> - Interactive Mindmap Visualization with Knowledge Base Integration <br> - Content Generation Pipelines for PPT & DOCX Reports <br> - Rich Markdown Rendering (KaTeX + Prism.js for syntax highlighting) <br> - User-focused Feature Enhancements ensuring smooth interaction & accessibility <br> - Foundation Setup for Scalable Frontend Tooling & Component Reusability <br> - Foundation Document to Podcast Feature |
+| **Anusha P**             | `anu`          | Testing |
 
 ---
 
 ## Demo Video
 
 👉 [Click to Watch the Full Application Demo](https://drive.google.com/file/d/107Sbtf64_KrW18NLRDvvUS0_BnpWmFJ9/view?usp=sharing)
-

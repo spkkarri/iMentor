@@ -1,0 +1,62 @@
+# Docker ignore file to reduce build context
+node_modules
+npm-debug.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.DS_Store
+.git
+.gitignore
+README.md
+.nyc_output
+coverage
+.env
+.env.docker
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+node_modules/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.test
+
+# Build directories (will be copied explicitly)
+client/build
+client/dist
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

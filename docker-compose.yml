@@ -1,92 +1,22 @@
 version: '3.8'
-
 services:
-  # MongoDB Database
-  mongodb:
-    image: mongo:7.0
-    container_name: imentordb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: vinay
-      MONGO_INITDB_ROOT_PASSWORD: admin
-      MONGO_INITDB_DATABASE: chatbotGeminiDB4
-    volumes:
-      - mongodb_data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    networks:
-      - imentornet
-
-  # Redis Cache (Optional)
-  redis:
-    image: redis:7-alpine
-    container_name: imentorredis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - imentornet
-
-  # Main Application
-  app:
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: imentorapp
-    restart: unless-stopped
+      dockerfile: Dockerfile.backend
     ports:
       - "5007:5007"
-      - "4004:4004"
-    depends_on:
-      - mongodb
-      - redis
-    environment:
-      - NODE_ENV=production
-      - PORT=5007
-      - CLIENT_PORT=4004
-      - MONGODB_URI=mongodb://vinay:admin@mongodb:27017/chatbotGeminiDB4?authSource=admin
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=2f5f4ca9b6242ffb0d872740302fea18
-      - GEMINI_API_KEY=AIzaSyCK48BUlY4IL9mTfq-qmtsw_5u8e3JlgC4
-      - DEEPSEEK_API_KEY=sk-746fe7a1ecc94f72ba35708f88390997
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - MAX_FILE_SIZE=10MB
-      - UPLOAD_PATH=/app/server/uploads
-      - LOG_LEVEL=info
-      - LOG_FILE_PATH=/app/server/logs
+    env_file:
+      - .env
     volumes:
-      - ./server/uploads:/app/server/uploads
-      - ./server/logs:/app/server/logs
-      - ./data:/app/data
-    networks:
-      - imentornet
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  # Nginx Reverse Proxy (Optional - for production)
-  nginx:
-    image: nginx:alpine
-    container_name: imentornginx
-    restart: unless-stopped
+      - ./server:/app
+      - /app/node_modules   # prevent node_modules overwrite
+    command: npm start
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - "4004:80"
     depends_on:
-      - app
-    networks:
-      - imentornet
-
-volumes:
-  mongodb_data:
-    driver: local
-  redis_data:
-    driver: local
-
-networks:
-  imentornet:
-    driver: bridge
+      - backend

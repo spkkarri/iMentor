@@ -1143,6 +1143,15 @@ Thank you for using TutorAI!`;
                                         <span>New Chat</span>
                                     </button>
 
+                                    <button
+                                        className="dropdown-item"
+                                        onClick={() => window.location.href = '/settings'}
+                                        disabled={isProcessing}
+                                    >
+                                        <FaCog />
+                                        <span>Settings</span>
+                                    </button>
+
                                     <hr />
                                     <button
                                         className="dropdown-item logout-item"

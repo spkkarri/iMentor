@@ -1,0 +1,84 @@
+# Docker Compose for Testing Environment
+version: '3.8'
+
+services:
+  # Test MongoDB
+  mongo-test:
+    image: mongo:7
+    container_name: imentor-mongo-test
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_DATABASE: test-imentor
+    volumes:
+      - mongo_test_data:/data/db
+    networks:
+      - test-network
+
+  # Test Backend
+  backend-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: imentor-backend-test
+    ports:
+      - "5001:5000"
+    environment:
+      - NODE_ENV=test
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo-test:27017/test-imentor
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-test-key}
+    depends_on:
+      - mongo-test
+    networks:
+      - test-network
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    command: npm run test:server
+
+  # Test Frontend
+  frontend-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: imentor-frontend-test
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=test
+      - REACT_APP_API_URL=http://backend-test:5000
+    depends_on:
+      - backend-test
+    networks:
+      - test-network
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    command: npm run test
+
+  # Test Runner
+  test-runner:
+    build:
+      context: ./devops/tests
+      dockerfile: Dockerfile.test
+    container_name: imentor-test-runner
+    environment:
+      - NODE_ENV=test
+      - TEST_API_URL=http://backend-test:5000
+    depends_on:
+      - backend-test
+      - frontend-test
+    networks:
+      - test-network
+    volumes:
+      - ./devops/tests:/app
+      - /app/node_modules
+    command: npm test
+
+volumes:
+  mongo_test_data:
+
+networks:
+  test-network:
+    driver: bridge

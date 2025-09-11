@@ -4,6 +4,12 @@
 const express = require('express');
 const router = express.Router();
 const { tempAuth } = require('../middleware/authMiddleware');
+const { 
+    rateLimiters, 
+    securityLogger, 
+    sanitizeInput,
+    validateAdminAccess 
+} = require('../middleware/securityMiddleware');
 const { addClient } = require('../utils/activityEvents');
 const { getActivityLogs, getActivitySummary } = require('../controllers/activityLogController');
 const {
@@ -13,15 +19,23 @@ const {
     approveAdminAccess,
     denyAdminAccess,
     revokeAdminAccess,
+    promoteUserToAdmin,
+    demoteAdminUser,
     getUserDetails,
     updateUserConfig,
     getSystemStats,
     deleteUser
 } = require('../controllers/adminController');
 
-// All routes require authentication and admin privileges
+// Apply security middleware to all admin routes
+router.use(rateLimiters.admin); // Rate limiting
+router.use(securityLogger); // Security logging
+router.use(sanitizeInput); // Input sanitization
+
+// Authentication and authorization
 router.use(tempAuth);
-router.use(requireAdmin);
+router.use(validateAdminAccess); // Enhanced admin validation
+router.use(requireAdmin); // Legacy admin check for compatibility
 
 // Admin dashboard overview
 router.get('/dashboard', getAdminDashboard);
@@ -43,6 +57,12 @@ router.post('/users/:userId/deny', denyAdminAccess);
 
 // Revoke admin access
 router.post('/users/:userId/revoke', revokeAdminAccess);
+
+// Promote user to full admin
+router.post('/users/:userId/promote-admin', promoteUserToAdmin);
+
+// Demote admin user to regular user
+router.post('/users/:userId/demote-admin', demoteAdminUser);
 
 // Delete user
 router.delete('/users/:userId', deleteUser);

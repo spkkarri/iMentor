@@ -20,6 +20,7 @@
         "cors": "^2.8.5",
         "dotenv": "^16.6.1",
         "express": "^4.21.2",
+        "express-mongo-sanitize": "^2.2.0",
         "express-rate-limit": "^7.5.1",
         "helmet": "^7.2.0",
         "jsonwebtoken": "^9.0.2",
@@ -32,6 +33,7 @@
         "node-cache": "^5.1.2",
         "node-gtts": "^2.0.2",
         "pdf-parse": "^1.1.1",
+        "pdfmake": "^0.2.20",
         "pg": "^8.16.3",
         "pptxgenjs": "^3.12.0",
         "redis": "^4.7.1",
@@ -41,6 +43,7 @@
         "uuid": "^11.1.0",
         "winston": "^3.17.0",
         "ws": "^8.18.3",
+        "xss-clean": "^0.1.4",
         "zod": "^3.25.67"
     },
     "devDependencies": {

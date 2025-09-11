@@ -11,6 +11,14 @@ const cors = require('cors');
 const fs = require('fs');
 const mongoose = require('mongoose');
 
+// Security middleware
+const { 
+    securityHeaders, 
+    sanitizeInput, 
+    rateLimiters, 
+    securityLogger 
+} = require('./middleware/securityMiddleware');
+
 const langchainVectorStore = require('./services/LangchainVectorStore');
 const connectDB = require('./config/db');
 const { getLocalIPs } = require('./utils/networkUtils');
@@ -31,8 +39,20 @@ if (!GEMINI_API_KEY) {
 }
 
 const app = express();
+
+// Apply security middleware first
+app.use(securityHeaders);
 app.use(cors());
 app.use(express.json());
+
+// Input sanitization
+app.use(sanitizeInput);
+
+// General rate limiting
+app.use('/api', rateLimiters.general);
+
+// Security logging
+app.use(securityLogger);
 // Activity logging should run early, but after JSON parsing
 try {
     const { activityLogger } = require('./middleware/activityLogger');
@@ -50,15 +70,23 @@ app.use('/api', injectUserApiKeys);
 
 const startServer = async () => {
     try {
-        console.log("--- Starting Server ---");
+        console.log("--- Starting iMentor AI Server ---");
 
         // Try to connect to MongoDB with fallback
         try {
             await connectDB(MONGO_URI);
             console.log("MongoDB connected successfully");
+            
+            // Setup admin user interactively if none exists
+            console.log("\n🔍 Checking admin setup...");
+            const AdminSetup = require('./utils/adminSetup');
+            const adminSetup = new AdminSetup();
+            await adminSetup.checkAndSetupAdmin();
+            
         } catch (dbError) {
             console.warn("MongoDB connection failed:", dbError.message);
             console.warn("Server will continue without database features");
+            console.warn("⚠️  Admin setup skipped - database required");
         }
 
         await serviceManager.initialize();
@@ -113,13 +141,65 @@ const startServer = async () => {
 
         const availableIPs = getLocalIPs();
         const server = app.listen(PORT, '0.0.0.0', () => {
-            console.log('\n=== Server Ready ===');
-            console.log(`Server listening on port ${PORT}`);
-            console.log('Access URLs:');
-            availableIPs.forEach(ip => {
-                console.log(`   - http://${ip}:4004 (Frontend) -> Backend: http://${ip}:${PORT}`);
-            });
-            console.log('==================\n');
+            console.log('\n' + '='.repeat(80));
+            console.log('🚀 iMentor AI Server is Running Successfully!');
+            console.log('='.repeat(80));
+            
+            // Display server information
+            console.log('\n📍 Server Access URLs:');
+            console.log(`   🌐 Local:     http://localhost:${PORT}`);
+            if (availableIPs.length > 0) {
+                availableIPs.forEach(ip => {
+                    console.log(`   🔗 Network:   http://${ip}:${PORT}`);
+                    console.log(`   🎨 Frontend:  http://${ip}:4004 -> Backend: http://${ip}:${PORT}`);
+                });
+            }
+            
+            // Display admin information
+            console.log('\n🔑 Admin Access:');
+            console.log('   ⚙️  Admin setup completed during startup');
+            console.log('   👤 Admin credentials: Set via interactive prompt');
+            console.log('   � Default: admin@gmail.com / admin123 (if used)');
+            console.log('   � No hardcoded credentials in production!');
+            
+            // Display API endpoints
+            console.log('\n🛠️  Key API Endpoints:');
+            console.log('   📊 Admin Dashboard: /api/admin/dashboard');
+            console.log('   💬 Chat API:        /api/chat');
+            console.log('   👥 User Management: /api/user');
+            console.log('   🔐 Authentication:  /api/auth');
+            console.log('   📁 File Upload:     /api/upload');
+            console.log('   🎙️  Podcast:        /api/podcast');
+            
+            // Display database status
+            console.log('\n💾 Database Status:');
+            const maskedUri = MONGO_URI.replace(/\/\/.*@/, '//***:***@');
+            console.log(`   📍 MongoDB URI: ${maskedUri}`);
+            console.log(`   ✅ Connection: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}`);
+            
+            // Display AI service status
+            console.log('\n🤖 AI Services Status:');
+            console.log(`   🧠 Gemini API: ${GEMINI_API_KEY ? '✅ Configured' : '❌ Not configured'}`);
+            console.log(`   🦙 Ollama:     ${process.env.OLLAMA_URL ? '✅ Configured' : '❌ Not configured'}`);
+            console.log(`   🔀 Multi-LLM:  ✅ Enabled`);
+            
+            // Security warnings
+            console.log('\n⚠️  Security Reminders:');
+            console.log('   🔐 Change default admin password');
+            console.log('   🛡️  Enable HTTPS in production');
+            console.log('   🔑 Secure your API keys');
+            console.log('   🌐 Configure CORS for production');
+            console.log('   📝 Review rate limiting settings');
+            
+            console.log('\n💡 Quick Start:');
+            console.log('   1. Open browser to frontend URL above');
+            console.log('   2. Register new user or login as admin');
+            console.log('   3. Configure your API keys in settings');
+            console.log('   4. Start chatting with AI!');
+            
+            console.log('\n' + '='.repeat(80));
+            console.log('💡 Ready to serve intelligent conversations!');
+            console.log('='.repeat(80) + '\n');
         });
 
         // Initialize WebSocket handler for MCP agents

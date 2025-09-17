@@ -114,14 +114,18 @@ S3_BUCKET_NAME="your-s3-bucket-name-here"
 AWS_ACCESS_KEY_ID="ADD_YOUR_AWS_ACCESS_KEY_ID_HERE"
 AWS_SECRET_ACCESS_KEY="ADD_YOUR_AWS_SECRET_ACCESS_KEY_HERE"
 AWS_REGION="us-east-1"
+
+# ---------------- Node Mailer Service ----------------
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_PORT=587
+EMAIL_USER="your-email@gmail.com"
+EMAIL_PASS="your-app-password"
 EOL
     echo -e "${GREEN}[SUCCESS] Created server/.env${NC}"
 
     # Create frontend/.env
     cat > frontend/.env << EOL
 VITE_API_BASE_URL=http://localhost:2000/api
-VITE_ADMIN_USERNAME=admin@admin.com
-VITE_ADMIN_PASSWORD=admin123
 EOL
     echo -e "${GREEN}[SUCCESS] Created frontend/.env${NC}"
 

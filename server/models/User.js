@@ -68,6 +68,25 @@ const UserSchema = new mongoose.Schema({
         type: Boolean,
         default: false // Whether to use user's own keys or admin keys
     },
+    // --- Admin Status ---
+    isAdmin: {
+        type: Boolean,
+        default: false // Users are NOT admin by default - must be approved
+    },
+    adminApprovalStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'denied'],
+        default: 'pending'
+    },
+    adminApprovedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
+    adminApprovedAt: {
+        type: Date,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now

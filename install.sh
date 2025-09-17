@@ -40,6 +40,8 @@ detect_os() {
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         echo "macos"
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]] || [[ -n "$WINDIR" ]]; then
+        echo "windows"
     else
         echo "unknown"
     fi
@@ -74,6 +76,19 @@ install_conda() {
             echo 'export PATH="$HOME/miniconda3/bin:$PATH"' >> ~/.bash_profile
             source ~/.bash_profile
             ;;
+        "windows")
+            echo -e "${YELLOW}📦 Installing Miniconda for Windows...${NC}"
+            if command -v winget &> /dev/null; then
+                winget install -e --id Anaconda.Miniconda3
+            elif command -v choco &> /dev/null; then
+                choco install miniconda3 -y
+            else
+                echo -e "${YELLOW}⚠️ Please install Miniconda manually from https://docs.conda.io/en/latest/miniconda.html${NC}"
+                echo -e "${YELLOW}⚠️ Or install Chocolatey first: https://chocolatey.org/install${NC}"
+                echo -e "${YELLOW}⚠️ Then run: choco install miniconda3${NC}"
+                read -p "Press Enter after Miniconda is installed..."
+            fi
+            ;;
         *)
             echo -e "${RED}❌ Please install Conda manually from https://docs.conda.io/en/latest/miniconda.html${NC}"
             exit 1
@@ -81,8 +96,14 @@ install_conda() {
     esac
 
     # Initialize conda
-    $HOME/miniconda3/bin/conda init bash
-    source ~/.bashrc
+    if [ "$OS" != "windows" ]; then
+        $HOME/miniconda3/bin/conda init bash
+        source ~/.bashrc
+    else
+        echo -e "${YELLOW}⚠️ Please restart your terminal after Miniconda installation${NC}"
+        echo -e "${YELLOW}⚠️ Or run: conda init cmd.exe (for Command Prompt)${NC}"
+        echo -e "${YELLOW}⚠️ Or run: conda init powershell (for PowerShell)${NC}"
+    fi
 }
 
 # Function to check and install Docker
@@ -91,12 +112,21 @@ install_docker() {
 
     if command -v docker &> /dev/null; then
         echo -e "${GREEN}✅ Docker already installed${NC}"
-        # Test sudo docker access
-        if sudo docker ps &> /dev/null; then
-            echo -e "${GREEN}✅ Docker sudo access confirmed${NC}"
+        # Test docker access
+        if [ "$OS" = "windows" ]; then
+            if docker ps &> /dev/null; then
+                echo -e "${GREEN}✅ Docker access confirmed${NC}"
+            else
+                echo -e "${RED}❌ Docker requires proper access. Please ensure Docker Desktop is running${NC}"
+                exit 1
+            fi
         else
-            echo -e "${RED}❌ Docker requires sudo access. Please ensure your user can run 'sudo docker'${NC}"
-            exit 1
+            if sudo docker ps &> /dev/null; then
+                echo -e "${GREEN}✅ Docker sudo access confirmed${NC}"
+            else
+                echo -e "${RED}❌ Docker requires sudo access. Please ensure your user can run 'sudo docker'${NC}"
+                exit 1
+            fi
         fi
         return
     fi
@@ -133,6 +163,24 @@ install_docker() {
             echo -e "${YELLOW}⚠️ After installation, ensure Docker Desktop is running${NC}"
             read -p "Press Enter after Docker Desktop is installed and running..."
             ;;
+        "windows")
+            echo -e "${YELLOW}📦 Installing Docker Desktop for Windows...${NC}"
+            if command -v winget &> /dev/null; then
+                winget install -e --id Docker.DockerDesktop
+                echo -e "${YELLOW}⚠️ Please restart your system after Docker Desktop installation${NC}"
+                echo -e "${YELLOW}⚠️ Then start Docker Desktop from the Start Menu${NC}"
+            elif command -v choco &> /dev/null; then
+                choco install docker-desktop -y
+                echo -e "${YELLOW}⚠️ Please restart your system after Docker Desktop installation${NC}"
+                echo -e "${YELLOW}⚠️ Then start Docker Desktop from the Start Menu${NC}"
+            else
+                echo -e "${YELLOW}⚠️ Please install Docker Desktop for Windows manually from:${NC}"
+                echo -e "${YELLOW}⚠️ https://docs.docker.com/desktop/windows/install/${NC}"
+                echo -e "${YELLOW}⚠️ Or install Chocolatey first: https://chocolatey.org/install${NC}"
+                echo -e "${YELLOW}⚠️ Then run: choco install docker-desktop${NC}"
+            fi
+            read -p "Press Enter after Docker Desktop is installed and running..."
+            ;;
         *)
             echo -e "${RED}❌ Please install Docker manually${NC}"
             exit 1
@@ -140,7 +188,9 @@ install_docker() {
     esac
 
     echo -e "${GREEN}✅ Docker installed successfully${NC}"
-    echo -e "${YELLOW}⚠️ Note: This script uses 'sudo docker' commands${NC}"
+    if [ "$OS" != "windows" ]; then
+        echo -e "${YELLOW}⚠️ Note: This script uses 'sudo docker' commands${NC}"
+    fi
 }
 
 # Function to install system dependencies
@@ -173,6 +223,78 @@ install_system_deps() {
             fi
             brew install node python3 ffmpeg espeak sqlite3 vips
             ;;
+        "windows")
+            echo -e "${YELLOW}📦 Installing Windows dependencies...${NC}"
+            
+            # Check Git
+            if command -v git &> /dev/null; then
+                echo -e "${GREEN}✅ Git already installed ($(git --version | cut -d' ' -f3))${NC}"
+            else
+                echo -e "${BLUE}Installing Git...${NC}"
+                if command -v winget &> /dev/null; then
+                    winget install -e --id Git.Git --silent
+                elif command -v choco &> /dev/null; then
+                    choco install git -y
+                else
+                    echo -e "${RED}❌ Please install Git manually from https://git-scm.com/download/win${NC}"
+                fi
+            fi
+            
+            # Check Python
+            if command -v python &> /dev/null; then
+                echo -e "${GREEN}✅ Python already installed ($(python --version))${NC}"
+            else
+                echo -e "${BLUE}Installing Python...${NC}"
+                if command -v winget &> /dev/null; then
+                    winget install -e --id Python.Python.3.11 --silent
+                elif command -v choco &> /dev/null; then
+                    choco install python3 -y
+                else
+                    echo -e "${RED}❌ Please install Python manually from https://python.org/downloads${NC}"
+                fi
+            fi
+            
+            # Check Node.js
+            if command -v node &> /dev/null; then
+                echo -e "${GREEN}✅ Node.js already installed ($(node --version))${NC}"
+            else
+                echo -e "${BLUE}Installing Node.js...${NC}"
+                if command -v winget &> /dev/null; then
+                    winget install -e --id OpenJS.NodeJS --silent
+                elif command -v choco &> /dev/null; then
+                    choco install nodejs -y
+                else
+                    echo -e "${RED}❌ Please install Node.js manually from https://nodejs.org${NC}"
+                fi
+            fi
+            
+            # Check Visual Studio Build Tools (optional for native modules)
+            echo -e "${BLUE}Checking Visual Studio Build Tools (for native modules)...${NC}"
+            if command -v winget &> /dev/null; then
+                winget list | grep -i "Microsoft.VisualStudio" &> /dev/null
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}✅ Visual Studio Build Tools detected${NC}"
+                else
+                    echo -e "${YELLOW}Installing Visual Studio Build Tools (this may take a while)...${NC}"
+                    winget install -e --id Microsoft.VisualStudio.2022.BuildTools --silent --accept-package-agreements
+                fi
+            elif command -v choco &> /dev/null; then
+                choco install visualstudio2022buildtools -y
+            else
+                echo -e "${YELLOW}⚠️ Visual Studio Build Tools not installed - may cause issues with native modules${NC}"
+                echo -e "${YELLOW}⚠️ Install from: https://visualstudio.microsoft.com/downloads/${NC}"
+            fi
+            
+            # Install additional tools via Chocolatey if available
+            if command -v choco &> /dev/null; then
+                echo -e "${BLUE}Installing additional tools via Chocolatey...${NC}"
+                choco install sqlite ffmpeg -y --no-progress
+            else
+                echo -e "${YELLOW}⚠️ Chocolatey not available for additional tools${NC}"
+                echo -e "${YELLOW}⚠️ Consider installing Chocolatey from: https://chocolatey.org/install${NC}"
+                echo -e "${YELLOW}⚠️ Optional tools: SQLite, FFmpeg${NC}"
+            fi
+            ;;
         *)
             echo -e "${RED}❌ Unsupported OS. Please install dependencies manually.${NC}"
             exit 1
@@ -203,6 +325,17 @@ install_nodejs() {
             ;;
         "macos")
             brew install node@${NODE_VERSION}
+            ;;
+        "windows")
+            echo -e "${YELLOW}📦 Installing Node.js for Windows...${NC}"
+            if command -v winget &> /dev/null; then
+                winget install -e --id OpenJS.NodeJS
+            elif command -v choco &> /dev/null; then
+                choco install nodejs -y
+            else
+                echo -e "${YELLOW}⚠️ Please install Node.js manually from https://nodejs.org${NC}"
+                read -p "Press Enter after Node.js is installed..."
+            fi
             ;;
     esac
 }
@@ -240,6 +373,42 @@ EOF
             brew install mongodb-community
             brew services start mongodb/brew/mongodb-community
             ;;
+        "windows")
+            echo -e "${YELLOW}📦 Installing MongoDB for Windows...${NC}"
+            
+            # Check if MongoDB is already installed
+            if command -v mongod &> /dev/null; then
+                echo -e "${GREEN}✅ MongoDB already installed${NC}"
+                return
+            fi
+            
+            # Check if MongoDB service exists (might be installed but not in PATH)
+            if sc query "MongoDB" &> /dev/null; then
+                echo -e "${GREEN}✅ MongoDB service detected${NC}"
+                return
+            fi
+            
+            if command -v winget &> /dev/null; then
+                echo -e "${BLUE}Installing MongoDB via winget...${NC}"
+                winget install -e --id MongoDB.Server --silent
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}✅ MongoDB installed successfully${NC}"
+                else
+                    echo -e "${YELLOW}⚠️ MongoDB installation via winget failed, trying alternative...${NC}"
+                fi
+            elif command -v choco &> /dev/null; then
+                echo -e "${BLUE}Installing MongoDB via Chocolatey...${NC}"
+                choco install mongodb -y
+            else
+                echo -e "${YELLOW}⚠️ Please install MongoDB manually from:${NC}"
+                echo -e "${YELLOW}⚠️ https://www.mongodb.com/try/download/community${NC}"
+                echo -e "${YELLOW}⚠️ Or use MongoDB Atlas (cloud): https://www.mongodb.com/atlas${NC}"
+                read -p "Press Enter after MongoDB is installed..."
+            fi
+            
+            echo -e "${YELLOW}⚠️ MongoDB service may need to be started manually${NC}"
+            echo -e "${YELLOW}⚠️ Alternative: Use MongoDB Atlas (cloud) for easier setup${NC}"
+            ;;
     esac
 }
 
@@ -250,6 +419,9 @@ setup_conda_env() {
     # Ensure conda is available
     if ! command -v conda &> /dev/null; then
         echo -e "${RED}❌ Conda not found. Please install Conda first.${NC}"
+        if [ "$OS" = "windows" ]; then
+            echo -e "${YELLOW}⚠️ You may need to restart your terminal after Conda installation${NC}"
+        fi
         exit 1
     fi
 
@@ -263,8 +435,15 @@ setup_conda_env() {
 
     # Activate environment and install Python dependencies
     echo -e "${YELLOW}📦 Installing Python dependencies in Conda environment...${NC}"
-    source $(conda info --base)/etc/profile.d/conda.sh
-    conda activate $CONDA_ENV_NAME
+    
+    if [ "$OS" = "windows" ]; then
+        # Windows conda activation
+        conda activate $CONDA_ENV_NAME
+    else
+        # Unix conda activation
+        source $(conda info --base)/etc/profile.d/conda.sh
+        conda activate $CONDA_ENV_NAME
+    fi
 
     # Install Python packages
     if [ -f "server/requirements.txt" ]; then
@@ -284,7 +463,13 @@ setup_conda_env() {
 # Function to install PM2
 install_pm2() {
     echo -e "${YELLOW}🚀 Installing PM2...${NC}"
-    sudo npm install -g pm2 concurrently cross-env serve
+    if [ "$OS" = "windows" ]; then
+        npm install -g pm2 concurrently cross-env serve
+        echo -e "${YELLOW}⚠️ PM2 on Windows may require additional setup${NC}"
+        echo -e "${YELLOW}⚠️ Consider using pm2-windows-service for production${NC}"
+    else
+        sudo npm install -g pm2 concurrently cross-env serve
+    fi
 }
 
 # Function to clone repository
@@ -400,6 +585,15 @@ setup_firewall() {
             ;;
         "macos")
             echo -e "${YELLOW}⚠️ macOS firewall setup skipped (configure manually if needed)${NC}"
+            ;;
+        "windows")
+            echo -e "${YELLOW}🔥 Windows Firewall configuration...${NC}"
+            echo -e "${YELLOW}⚠️ Please manually configure Windows Firewall to allow:${NC}"
+            echo -e "   • Port 4004 (Frontend)"
+            echo -e "   • Port 4007 (Backend)"
+            echo -e "   • Port 27017 (MongoDB - if needed)"
+            echo -e "${YELLOW}⚠️ Or run as Administrator and use Windows Firewall commands${NC}"
+            echo -e "${YELLOW}⚠️ Example: netsh advfirewall firewall add rule name=\"iMentor Frontend\" dir=in action=allow protocol=TCP localport=4004${NC}"
             ;;
     esac
 }

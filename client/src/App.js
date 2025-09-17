@@ -12,6 +12,7 @@ const LandingPage = React.lazy(() => import('./components/LandingPage'));
 const TrainingDashboard = React.lazy(() => import('./components/TrainingDashboard'));
 const ApiKeySetupPage = React.lazy(() => import('./components/ApiKeySetupPage'));
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const UserSettings = React.lazy(() => import('./components/UserSettings'));
 
 const darkTheme = createTheme({
     palette: {
@@ -63,9 +64,8 @@ const LoadingFallback = () => (
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isAuthLoading, setIsAuthLoading] = useState(true);
-    const isAdminLocal = (localStorage.getItem('isAdmin') || 'false') === 'true' ||
-        localStorage.getItem('username') === 'admin@gmail.com' ||
-        localStorage.getItem('email') === 'admin@gmail.com';
+    // Remove hardcoded admin check - get from server response
+    const [isAdminLocal, setIsAdminLocal] = useState(false);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -78,13 +78,19 @@ function App() {
             try {
                 const response = await getCurrentUser();
                 const userId = response.data.user.id || response.data.user._id;
+                const user = response.data.user;
+                
                 localStorage.setItem('userId', String(userId));
-                localStorage.setItem('username', response.data.user.username);
-                if (response.data.user.email) {
-                    localStorage.setItem('email', response.data.user.email);
+                localStorage.setItem('username', user.username);
+                if (user.email) {
+                    localStorage.setItem('email', user.email);
                 }
-                const computedIsAdmin = (response.data.user.username === 'admin@gmail.com') || (response.data.user.email === 'admin@gmail.com') || !!response.data.user.isAdmin;
+                
+                // Get admin status from server response, not hardcoded
+                const computedIsAdmin = user.isAdmin === true;
                 localStorage.setItem('isAdmin', String(computedIsAdmin));
+                setIsAdminLocal(computedIsAdmin);
+                
                 setIsAuthenticated(true);
             } catch (err) {
                 localStorage.clear();
@@ -155,6 +161,16 @@ function App() {
                                     <AdminDashboard setIsAuthenticated={setIsAuthenticated} />
                                 ) : (
                                     <Navigate to={isAuthenticated ? '/chat' : '/login'} replace />
+                                )
+                            }
+                        />
+                        <Route
+                            path="/settings"
+                            element={
+                                isAuthenticated ? (
+                                    <UserSettings />
+                                ) : (
+                                    <Navigate to="/login" replace />
                                 )
                             }
                         />

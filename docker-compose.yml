@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "5007:5007"
+    env_file:
+      - .env
+    volumes:
+      - ./server:/app
+      - /app/node_modules   # prevent node_modules overwrite
+    command: npm start
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "4004:80"
+    depends_on:
+      - backend

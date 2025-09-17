@@ -1,31 +1,31 @@
 module.exports = {
   apps: [
     {
-      name: 'tutorAI-server',
+      name: 'imentorAI-server',
       script: 'server/server.js',
-      cwd: '/opt/tutorAI',
+      cwd: '/app',
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
       env: {
         NODE_ENV: 'production',
-        PORT: 4007
+        PORT: 5007
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 4007
+        PORT: 5007
       },
-      error_file: '/var/log/pm2/tutorAI-server-error.log',
-      out_file: '/var/log/pm2/tutorAI-server-out.log',
-      log_file: '/var/log/pm2/tutorAI-server.log',
+      error_file: '/app/server/logs/imentorAI-server-error.log',
+      out_file: '/app/server/logs/imentorAI-server-out.log',
+      log_file: '/app/server/logs/imentorAI-server.log',
       time: true
     },
     {
-      name: 'tutorAI-client',
+      name: 'imentorAI-client',
       script: 'serve',
       args: '-s client/build -l 4004',
-      cwd: '/opt/tutorAI',
+      cwd: '/app',
       instances: 1,
       autorestart: true,
       watch: false,
@@ -34,9 +34,13 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 4004
       },
-      error_file: '/var/log/pm2/tutorAI-client-error.log',
-      out_file: '/var/log/pm2/tutorAI-client-out.log',
-      log_file: '/var/log/pm2/tutorAI-client.log',
+      env_production: {
+        NODE_ENV: 'production',
+        PORT: 4004
+      },
+      error_file: '/app/server/logs/imentorAI-client-error.log',
+      out_file: '/app/server/logs/imentorAI-client-out.log',
+      log_file: '/app/server/logs/imentorAI-client.log',
       time: true
     }
   ],

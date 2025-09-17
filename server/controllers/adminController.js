@@ -3,13 +3,34 @@
 
 const UserApiKeys = require('../models/UserApiKeys');
 const User = require('../models/User');
+const crypto = require('crypto');
 
-// Admin authentication middleware
+// Enhanced admin authentication middleware with security logging
 const requireAdmin = (req, res, next) => {
-    const isAdmin = req?.user?.isAdmin || req?.user?.email === 'admin@gmail.com' || req?.user?.username === 'admin@gmail.com';
-    if (!isAdmin) {
-        return res.status(403).json({ message: 'Admin access required' });
+    const user = req?.user;
+    
+    if (!user) {
+        console.warn(`🚨 Admin access attempt without authentication from IP: ${req.ip}`);
+        return res.status(401).json({ 
+            message: 'Authentication required',
+            code: 'AUTH_REQUIRED'
+        });
     }
+    
+    const isAdmin = (
+        user.isAdmin === true  // Only check database field, no hardcoded emails
+    );
+    
+    if (!isAdmin) {
+        console.warn(`🚨 Unauthorized admin access attempt by user: ${user.username || user.id} from IP: ${req.ip}`);
+        return res.status(403).json({ 
+            message: 'Admin privileges required',
+            code: 'ADMIN_REQUIRED'
+        });
+    }
+    
+    // Log successful admin access
+    console.log(`✅ Admin access granted to: ${user.username || user.id} from IP: ${req.ip}`);
     next();
 };
 
@@ -204,6 +225,118 @@ const revokeAdminAccess = async (req, res) => {
     }
 };
 
+// Promote user to full admin status
+const promoteUserToAdmin = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { reason } = req.body;
+        
+        // Find user in User collection (not just UserApiKeys)
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        if (user.isAdmin) {
+            return res.status(400).json({ message: 'User is already an admin' });
+        }
+        
+        // Promote user to admin
+        user.isAdmin = true;
+        user.adminApprovalStatus = 'approved';
+        user.adminApprovedBy = req.user.id || req.user._id;
+        user.adminApprovedAt = new Date();
+        
+        await user.save();
+        
+        // Also update their API keys status
+        let userApiKeys = await UserApiKeys.findOne({ userId: user._id });
+        if (userApiKeys) {
+            userApiKeys.adminAccessStatus = 'approved';
+            userApiKeys.adminAccessApprovedAt = new Date();
+            userApiKeys.adminAccessApprovedBy = req.user.email;
+            if (reason) {
+                userApiKeys.adminAccessReason = reason;
+            }
+            await userApiKeys.save();
+        }
+        
+        console.log(`🎉 User ${user.email || user.username} promoted to admin by ${req.user.email || req.user.username}`);
+        
+        res.json({ 
+            message: 'User promoted to admin successfully',
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                isAdmin: user.isAdmin,
+                promotedAt: user.adminApprovedAt,
+                promotedBy: req.user.email || req.user.username,
+                reason: reason
+            }
+        });
+    } catch (error) {
+        console.error('Error promoting user to admin:', error);
+        res.status(500).json({ message: 'Failed to promote user to admin' });
+    }
+};
+
+// Demote admin user to regular user
+const demoteAdminUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { reason } = req.body;
+        
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        if (!user.isAdmin) {
+            return res.status(400).json({ message: 'User is not an admin' });
+        }
+        
+        // Prevent self-demotion
+        if (user._id.toString() === (req.user.id || req.user._id).toString()) {
+            return res.status(400).json({ message: 'Cannot demote yourself' });
+        }
+        
+        // Demote user
+        user.isAdmin = false;
+        user.adminApprovalStatus = 'denied';
+        
+        await user.save();
+        
+        // Update API keys status
+        let userApiKeys = await UserApiKeys.findOne({ userId: user._id });
+        if (userApiKeys) {
+            userApiKeys.adminAccessStatus = 'revoked';
+            userApiKeys.adminAccessApprovedBy = req.user.email;
+            if (reason) {
+                userApiKeys.adminAccessReason += ` | Demoted: ${reason}`;
+            }
+            await userApiKeys.save();
+        }
+        
+        console.log(`⬇️ Admin ${user.email || user.username} demoted by ${req.user.email || req.user.username}: ${reason}`);
+        
+        res.json({ 
+            message: 'Admin user demoted successfully',
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                isAdmin: user.isAdmin,
+                demotedBy: req.user.email || req.user.username,
+                reason: reason
+            }
+        });
+    } catch (error) {
+        console.error('Error demoting admin user:', error);
+        res.status(500).json({ message: 'Failed to demote admin user' });
+    }
+};
+
 // Get user details for admin
 const getUserDetails = async (req, res) => {
     try {
@@ -367,6 +500,8 @@ module.exports = {
     approveAdminAccess,
     denyAdminAccess,
     revokeAdminAccess,
+    promoteUserToAdmin,
+    demoteAdminUser,
     getUserDetails,
     updateUserConfig,
     getSystemStats,

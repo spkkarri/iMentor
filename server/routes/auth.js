@@ -164,7 +164,8 @@ router.post('/signin', async (req, res) => {
                     id: user.id,
                     username: user.username,
                     email: user.email,
-                    isAdmin: user.username === 'admin@gmail.com' || user.email === 'admin@gmail.com'
+                    isAdmin: user.isAdmin || false, // Get admin status from database, not hardcoded
+                    adminApprovalStatus: user.adminApprovalStatus || 'pending'
                 }
             });
         });

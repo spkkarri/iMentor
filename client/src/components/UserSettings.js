@@ -28,7 +28,7 @@ import {
     Visibility,
     VisibilityOff,
     Save,
-    TestTube,
+    PlayArrow,
     Key,
     Security,
     AccountCircle,
@@ -367,7 +367,7 @@ const UserSettings = () => {
                 
                 <Button
                     variant="outlined"
-                    startIcon={<TestTube />}
+                    startIcon={<PlayArrow />}
                     onClick={handleTestServices}
                     disabled={testing}
                 >

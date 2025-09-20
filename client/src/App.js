@@ -76,7 +76,8 @@ function App() {
                 return;
             }
             try {
-                const response = await getCurrentUser();
+                const response
+                 = await getCurrentUser();
                 const userId = response.data.user.id || response.data.user._id;
                 const user = response.data.user;
                 

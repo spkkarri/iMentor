@@ -298,6 +298,8 @@ install_project_dependencies() {
     print_success "All project dependencies installed"
 }
 
+
+
 # Function to setup environment files
 setup_environment() {
     print_step "Setting up environment files"

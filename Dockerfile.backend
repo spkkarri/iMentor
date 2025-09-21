@@ -1,8 +1,18 @@
 FROM node:20-bullseye
 WORKDIR /app
+
+# Copy package files
 COPY server/package.json server/package-lock.json* ./
+
+# Install dependencies
 RUN npm install
 RUN npm install pdfmake
+
+# Copy application code
 COPY server/ .
-EXPOSE 5000
+
+# Expose port
+EXPOSE 4007
+
+# Start command
 CMD ["npm", "start"]

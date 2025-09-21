@@ -7,8 +7,8 @@
 docker-compose up --build
 ```
 
-- Frontend: http://localhost:3000
-- Backend: http://localhost:5000
+- Frontend: http://localhost:4004
+- Backend: http://localhost:4007
 
 To stop:
 ```bash
